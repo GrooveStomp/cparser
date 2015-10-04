@@ -12,4 +12,3 @@ gcc main.c
 ./a.out
 
 # TODO:
-- "( ) !" are reading as identifiers

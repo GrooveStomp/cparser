@@ -39,7 +39,7 @@ char *TokenNames[] = {"TokenNone", "TokenIdentifier", "TokenKeyword", "TokenSymb
                       "TokenStringLiteral", "TokenOperator", "TokenSeparator", "TokenWhitespace"};
 
 // TODO(AARON): Look up full list of symbols.
-char *Symbols = "{}[],;-+=*^&%$?<>";
+char *Symbols = "{}[],;-+=*^&%$?<>()!";
 
 bool is_whitespace(byte Byte) {
   // TODO(AARON): Look up full list of whitespace characters.
@@ -54,29 +54,15 @@ bool is_digit(byte Byte) {
   return (Byte >= '0' && Byte <= '9');
 }
 
+void check_symbol(word InputChar);
+
 int main() {
   FILE *InFile = fopen("input.c", "r");
   byte ByteBuffer[256] = {0};
-  uint BufferTail = 0;
   word InputChar;
   bool InWord = false;
   int CurrentToken = TokenNone;
-  uint i;
-
-  /*
-    TODO(AARON): New tokenizer algorithm:
-    ----
-    Read char into InputChar from InFile
-    if InputChar is letter or digit
-      Set ByteBuffer @ BufferTail to InputChar
-      Increment BufferTail (ensuring it never exceeds 255)
-    otherwise if InputChar is whitespace
-      Set ByteBuffer @ BufferTail to '\0'
-      Increment BufferTail
-      print value of ByteBuffer (BufferTail is now the size of the word)
-      Reset BufferTail to 0
-    end
-  */
+  uint BufferTail, i; BufferTail = 0;
 
   while (1) {
     if (EOF == (InputChar = fgetc(InFile)))
@@ -105,7 +91,7 @@ int main() {
         ByteBuffer[BufferTail] = (char)InputChar;
         BufferTail = MIN(BufferTail + 1, 255);
       }
-      else if (is_whitespace(InputChar) && InWord)
+      else if ((is_whitespace(InputChar) || (!is_letter(InputChar) && !is_digit(InputChar))) && InWord)
       {
         InWord = false;
         ByteBuffer[BufferTail] = '\0';
@@ -123,30 +109,42 @@ int main() {
 
         printf("<%s> %s\n", TokenNames[CurrentToken], ByteBuffer);
         BufferTail = 0;
+
+        check_symbol(InputChar);
       }
       else
       {
-        // Check if this token is a symbol
-        for (i = 0; i < ARRAY_SIZE(Symbols); ++i) {
-          if (InputChar == Symbols[i]) {
-            CurrentToken = TokenSymbol;
-            break;
-          }
-        }
-
-        // Check if this token is whitespace
-        if (is_whitespace(InputChar)) { CurrentToken = TokenWhitespace; }
-
-        if (CurrentToken) {
-          printf("<%s> %c\n", TokenNames[CurrentToken], InputChar);
-        }
-        else
-        {
-          printf("%c\n", InputChar);
-        }
+        check_symbol(InputChar);
       }
     }
   }
 
   fclose(InFile);
+}
+
+void check_symbol(word InputChar) {
+  int CurrentToken, i;
+
+  // Check if this token is a symbol
+  for (i = 0; i < strlen(Symbols); ++i) {
+    if (InputChar == Symbols[i]) {
+      CurrentToken = TokenSymbol;
+      break;
+    }
+  }
+
+  // Check if this token is whitespace
+  if (is_whitespace(InputChar)) { CurrentToken = TokenWhitespace; }
+
+  if (CurrentToken) {
+    if (CurrentToken == TokenWhitespace) {
+      printf("<%s>\n", TokenNames[CurrentToken]);
+    }
+    else {
+      printf("<%s> %c\n", TokenNames[CurrentToken], InputChar);
+    }
+  }
+  else {
+    printf("%c\n", InputChar);
+  }
 }
