@@ -1,4 +1,15 @@
-First version of program.
-This version actually reads input and identifies when a proper "C" style token has been read.
-The next several versions will work on supporting all token types in C (there are 6 according to
-"The C Programming Language").
+Lexer and tokenizer for the C language.
+Reads input.c and identifies various tokens therein.
+
+# Dependencies
+- C compiler (Assuming GCC for the remainder of this README)
+- input.c file with input to be parsed
+
+# Building
+gcc main.c
+
+# Running
+./a.out
+
+# TODO:
+- "( ) !" are reading as identifiers
