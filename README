@@ -1,0 +1,4 @@
+First version of program.
+This version actually reads input and identifies when a proper "C" style token has been read.
+The next several versions will work on supporting all token types in C (there are 6 according to
+"The C Programming Language").
