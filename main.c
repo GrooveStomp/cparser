@@ -57,7 +57,7 @@ bool is_digit(byte Byte) {
 void check_symbol(word InputChar);
 
 int main() {
-  FILE *InFile = fopen("input.c", "r");
+  FILE *InFile = fopen("main.c", "r");
   byte ByteBuffer[256] = {0};
   word InputChar;
   bool InWord = false;
@@ -123,7 +123,7 @@ int main() {
 }
 
 void check_symbol(word InputChar) {
-  int CurrentToken, i;
+  int CurrentToken, i; CurrentToken = TokenNone;
 
   // Check if this token is a symbol
   for (i = 0; i < strlen(Symbols); ++i) {
