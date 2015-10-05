@@ -16,6 +16,7 @@ gcc -g -x c main.c # debug symbols and specify "C" language
 ```
 
 # TODO:
+- Associate identifier names with occurence of that token in the stream
 - operators: + - *
 - string literals: "As an example"
 - character constants: '\0'
