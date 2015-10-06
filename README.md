@@ -16,7 +16,6 @@ gcc -g -x c main.c # debug symbols and specify "C" language
 ```
 
 # TODO:
-- Collapse whitespace tokens together
 - There seems to be a bug in reading non-word characters following a whitespace
 - Associate identifier names with occurence of that token in the stream
 - operators: + - *

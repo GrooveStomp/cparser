@@ -9,7 +9,7 @@ typedef unsigned int uint;
 #define global_variable static
 #define local_persist static
 #define false 0
-#define true !false
+#define true ~false
 #define MAX(a, b) ((a) >= (b) ? (a) : (b))
 #define MIN(a, b) ((a) <= (b) ? (a) : (b))
 #define ARRAY_SIZE(Array) (sizeof((Array)) / sizeof((Array)[0]))
@@ -23,7 +23,7 @@ char *Keywords[] = {"auto", "break", "case", "char", "const", "continue", "defau
                     "short", "signed", "sizeof", "static", "struct", "switch", "typedef", "union",
                     "unsigned", "void", "volatile", "while"};
 
-typedef enum {
+enum {
   TokenNone,
   TokenIdentifier,
   TokenKeyword,
@@ -56,11 +56,15 @@ bool is_digit(byte Byte) {
 
 void check_symbol(word InputChar);
 
+struct {
+  uint Word : 1;
+  uint Whitespace : 1;
+} CurrentState;
+
 int main() {
   FILE *InFile = fopen("main.c", "r");
   byte ByteBuffer[256] = {0};
   word InputChar;
-  bool InWord = false;
   int CurrentToken = TokenNone;
   uint BufferTail, i; BufferTail = 0;
 
@@ -73,7 +77,7 @@ int main() {
         exit(1);
       } else {
         printf("Done reading file\n");
-        if (InWord)
+        if (CurrentState.Word)
         {
           ByteBuffer[BufferTail] = '\0';
           BufferTail++;
@@ -84,16 +88,16 @@ int main() {
     }
     else
     {
-      if (is_letter(InputChar) && !InWord) { InWord = true; }
+      if (is_letter(InputChar) && !CurrentState.Word) { CurrentState.Word = true; CurrentState.Whitespace = false; }
 
-      if ((is_letter(InputChar) || is_digit(InputChar)) && InWord && BufferTail < 255)
+      if ((is_letter(InputChar) || is_digit(InputChar)) && CurrentState.Word && BufferTail < 255)
       {
         ByteBuffer[BufferTail] = (char)InputChar;
         BufferTail = MIN(BufferTail + 1, 255);
       }
-      else if ((is_whitespace(InputChar) || (!is_letter(InputChar) && !is_digit(InputChar))) && InWord)
+      else if (!is_letter(InputChar) && !is_digit(InputChar) && CurrentState.Word)
       {
-        InWord = false;
+        CurrentState.Word = false;
         ByteBuffer[BufferTail] = '\0';
         BufferTail++;
 
@@ -111,6 +115,7 @@ int main() {
         BufferTail = 0;
 
         check_symbol(InputChar);
+        if (is_whitespace(InputChar)) { CurrentState.Whitespace = true; }
       }
       else
       {
@@ -134,11 +139,17 @@ void check_symbol(word InputChar) {
   }
 
   // Check if this token is whitespace
-  if (is_whitespace(InputChar)) { CurrentToken = TokenWhitespace; }
+  if (is_whitespace(InputChar)) {
+    CurrentToken = TokenWhitespace;
+    CurrentState.Word = false;
+  }
 
   if (CurrentToken) {
     if (CurrentToken == TokenWhitespace) {
-      printf("<%s>\n", TokenNames[CurrentToken]);
+      if (!CurrentState.Whitespace) {
+        CurrentState.Whitespace = true;
+        printf("<%s>\n", TokenNames[CurrentToken]);
+      }
     }
     else {
       printf("<%s> %c\n", TokenNames[CurrentToken], InputChar);
