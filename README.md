@@ -24,7 +24,9 @@ gdb --args a.out local_file
 ```
 
 # TODO:
-- Skip comments
+- Only output '/' if it occurs as an operator - not as a line comment
+    - Will probably need fungetc now to do lookahead
+- Skip '/* ... */' comments
 - Associate identifier names with occurence of that token in the stream
 - operators: + - *
 - string literals: "As an example"

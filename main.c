@@ -40,7 +40,7 @@ char *TokenNames[] = {"TokenNone", "TokenIdentifier", "TokenKeyword", "TokenSymb
                       "TokenIntegerConstant", "TokenStringLiteral", "TokenOperator", "TokenSeparator",
                       "TokenWhitespace"};
 
-char *Symbols = "{}[],;-+=*^&%$?<>()!";
+char *Symbols = "{}[],;-+=*^&%$?<>()!/\\'\"|~";
 
 void integer_type() {
   /*
@@ -222,7 +222,7 @@ bool is_identifier(byte ByteBuffer[], uint BufferSize) {
 //------------------------------------------------------------------------------------------------------------
 
 struct {
-  uint Word : 1;
+  uint LineComment : 1;
   uint Whitespace : 1;
 } CurrentState;
 
@@ -240,11 +240,13 @@ int main(int argc, char *argv[]) {
 
   FILE *InFile = fopen(argv[1], "r");
   byte ByteBuffer[256] = {0};
-  word InputChar;
+  word InputChar = 0;
+  word LastChar = 0;
   int CurrentToken = TokenNone;
   uint BufferTail, i; BufferTail = 0;
 
   while (1) {
+    LastChar = InputChar;
     if (EOF == (InputChar = fgetc(InFile))) {
       if (ferror(InFile)) {
         perror("Error!");
@@ -252,7 +254,7 @@ int main(int argc, char *argv[]) {
         exit(1);
       } else {
         printf("Done reading file\n");
-        if (CurrentState.Word) {
+        if (BufferTail > 0) {
           ByteBuffer[BufferTail] = '\0';
           BufferTail++;
           printf("Last partial token: %s\n", ByteBuffer);
@@ -261,7 +263,7 @@ int main(int argc, char *argv[]) {
       }
     }
     else {
-      if (is_symbol(InputChar) || is_whitespace(InputChar)) {
+      if ((is_symbol(InputChar) || is_whitespace(InputChar)) && !CurrentState.LineComment) {
 
         if (is_keyword(ByteBuffer, BufferTail)) {
           printf("<%s> %s\n", TokenNames[TokenKeyword], ByteBuffer);
@@ -278,9 +280,16 @@ int main(int argc, char *argv[]) {
 
         if (is_symbol(InputChar)) {
           CurrentState.Whitespace = false;
+          if (InputChar == '/' && LastChar == '/') {
+            CurrentState.LineComment = true;
+            CurrentState.Whitespace = false;
+          }
           printf("<%s> %c\n", TokenNames[TokenSymbol], InputChar);
         }
         else if (is_whitespace(InputChar)) {
+          if (InputChar == '\n' && CurrentState.LineComment) {
+            CurrentState.LineComment = false;
+          }
           if (!CurrentState.Whitespace) {
             /* printf("<%s>\n", TokenNames[TokenWhitespace]); */
             CurrentState.Whitespace = true;
@@ -289,9 +298,11 @@ int main(int argc, char *argv[]) {
 
         memset(ByteBuffer, '\0', BufferTail);
         BufferTail = 0;
-        CurrentState.Word = false;
       }
-      else if ((is_letter(InputChar) || is_digit(InputChar)) && BufferTail < 255) {
+      else if (InputChar == '\n' && CurrentState.LineComment) {
+        CurrentState.LineComment = false;
+      }
+      else if ((is_letter(InputChar) || is_digit(InputChar)) && BufferTail < 255 && !CurrentState.LineComment) {
         CurrentState.Whitespace = false;
         ByteBuffer[BufferTail] = (char)InputChar;
         BufferTail = MIN(BufferTail + 1, 255);
