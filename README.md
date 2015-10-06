@@ -6,19 +6,27 @@ Reads itself (main.c) and identifies various tokens therein.
 
 # Building
 ```
-gcc main.c # OR:
-gcc -g -x c main.c # debug symbols and specify "C" language
+gcc -g -x c main.c
+# -g for gdb support
+# -x to specify the language
 ```
 
 # Running
 ```
-./a.out
+./a.out local_file
+```
+
+# Debugging
+Build with `-g` option.  Eg.,: `gcc -g main.c`
+
+```
+gdb --args a.out local_file
 ```
 
 # TODO:
+- Skip comments
 - Associate identifier names with occurence of that token in the stream
 - operators: + - *
 - string literals: "As an example"
 - character constants: '\0'
-- integers (including hex, octal, binary prefix; L suffix?) 0xdeadbeef
 - real numbers 4e23, 3.266, 0.984F

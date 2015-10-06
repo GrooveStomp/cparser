@@ -29,6 +29,7 @@ enum {
   TokenKeyword,
   TokenSymbol,
   TokenConstant,
+  TokenIntegerConstant,
   TokenStringLiteral,
   TokenOperator,
   TokenSeparator,
@@ -36,9 +37,31 @@ enum {
 } TokenTypes;
 
 char *TokenNames[] = {"TokenNone", "TokenIdentifier", "TokenKeyword", "TokenSymbol", "TokenConstant",
-                      "TokenStringLiteral", "TokenOperator", "TokenSeparator", "TokenWhitespace"};
+                      "TokenIntegerConstant", "TokenStringLiteral", "TokenOperator", "TokenSeparator",
+                      "TokenWhitespace"};
 
 char *Symbols = "{}[],;-+=*^&%$?<>()!";
+
+void integer_type() {
+  /*
+    Octal: 0[0-7]+
+    Hex: 0X[0-9A-F]+/i # ignore case
+
+    Any Integer can have suffix of [uU] or [lL] for unsigned and long, respectively.
+
+    if unsuffixed and decimal, it has the first of these types in which it can be represented:
+    [int, long int, unsigned long int]
+
+    if it is unsuffxed octal or hexadecimal, it has the first possible of these types:
+    [int, unsigned int, long int, unsigned long int]
+
+    if it is suffixed by u or U then:
+    [unsigned int, unsigned long int]
+
+    if it is suffixed by l or L then:
+    [long int, unsigned long int]
+  */
+}
 
 //------------------------------------------------------------------------------------------------------------
 // Identity Tests
@@ -56,7 +79,91 @@ bool is_digit(byte Byte) {
   return (Byte >= '0' && Byte <= '9');
 }
 
-bool is_integer_constant() {
+bool is_integer_suffix(byte LastByte) {
+  if (LastByte != 'u' && LastByte != 'U' && LastByte != 'l' && LastByte != 'L' && !is_digit(LastByte)) {
+    return false;
+  }
+  return true;
+}
+
+bool is_octal_digit(byte Byte) {
+  return (Byte >= '0' && Byte <= '7');
+}
+
+bool is_octal(byte ByteBuffer[], uint BufferSize) {
+  byte FirstByte, LastByte, CurrentByte;
+  int i;
+
+  if (BufferSize < 3) { return false; }
+
+  FirstByte = ByteBuffer[0];
+  LastByte = ByteBuffer[BufferSize - 1];
+
+  if (BufferSize < 2) { return false; }
+  if (FirstByte != '0') { return false; }
+  if (! (LastByte == 'u' || LastByte == 'U' || LastByte == 'l' || LastByte == 'L' || (LastByte >= '0' && LastByte <= '7')) ) {
+    return false;
+  }
+
+  for (i = 1; i < BufferSize-1; ++i) {
+    if (!is_octal_digit(ByteBuffer[i])) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool is_hex_digit(byte Byte) {
+  return (is_digit(Byte) || (Byte >= 'a' && Byte <= 'f') || (Byte >= 'A' && Byte <= 'F'));
+}
+
+bool is_hexadecimal(byte ByteBuffer[], uint BufferSize) {
+  byte FirstByte, SecondByte, LastByte, CurrentByte;
+  int i;
+
+  if (BufferSize < 2) { return false; }
+
+  FirstByte = ByteBuffer[0];
+  SecondByte = ByteBuffer[1];
+  LastByte = ByteBuffer[BufferSize - 1];
+
+  if (BufferSize < 2) { return false; }
+  if (FirstByte != '0') { return false; }
+  if (SecondByte != 'x' && SecondByte != 'X') { return false; }
+  if (! (is_hex_digit(LastByte) || LastByte == 'u' || LastByte == 'U' || LastByte == 'l' || LastByte == 'L') ) {
+    return false;
+  }
+
+  for (i = 2; i < BufferSize-1; ++i) {
+    if (!is_hex_digit(ByteBuffer[i])) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool is_integer_constant(byte ByteBuffer[], uint BufferSize) {
+  int i;
+  byte LastByte;
+
+  if (BufferSize < 1) { return false; }
+
+  LastByte = ByteBuffer[BufferSize - 1];
+
+  if (is_octal(ByteBuffer, BufferSize) || is_hexadecimal(ByteBuffer, BufferSize)) { return true; }
+
+  if (BufferSize == 1 && ByteBuffer[0] == '0') { return true; }
+  if (ByteBuffer[0] == '0') { return false; }
+
+  for (i = 0; i < BufferSize - 1; ++i) {
+    if (!is_digit(ByteBuffer[i])) {
+      return false;
+    }
+  }
+
+  return is_integer_suffix(LastByte);
 }
 
 bool is_character_constant() {
@@ -119,8 +226,19 @@ struct {
   uint Whitespace : 1;
 } CurrentState;
 
-int main() {
-  FILE *InFile = fopen("main.c", "r");
+void usage() {
+  printf("Usage: ./a.out file\n");
+  printf("  file: must be a file in this directory\n");
+  printf("  Specify '-h' or '--help' instead of file for this help text\n");
+  exit(0);
+}
+
+int main(int argc, char *argv[]) {
+  if (argc != 2 || argv[1] == "-h" || argv[1] == "--help") {
+    usage();
+  }
+
+  FILE *InFile = fopen(argv[1], "r");
   byte ByteBuffer[256] = {0};
   word InputChar;
   int CurrentToken = TokenNone;
@@ -143,12 +261,6 @@ int main() {
       }
     }
     else {
-
-      if (is_letter(InputChar) && !CurrentState.Word) {
-        CurrentState.Word = true;
-        CurrentState.Whitespace = false;
-      }
-
       if (is_symbol(InputChar) || is_whitespace(InputChar)) {
 
         if (is_keyword(ByteBuffer, BufferTail)) {
@@ -157,13 +269,20 @@ int main() {
         else if (is_identifier(ByteBuffer, BufferTail)) {
           printf("<%s> %s\n", TokenNames[TokenIdentifier], ByteBuffer);
         }
+        else if (is_integer_constant(ByteBuffer, BufferTail)) {
+          printf("<%s> %s\n", TokenNames[TokenIntegerConstant], ByteBuffer);
+        }
+        else if (BufferTail > 0) {
+          printf("<UnknownToken> %s\n", ByteBuffer);
+        }
 
         if (is_symbol(InputChar)) {
+          CurrentState.Whitespace = false;
           printf("<%s> %c\n", TokenNames[TokenSymbol], InputChar);
         }
         else if (is_whitespace(InputChar)) {
           if (!CurrentState.Whitespace) {
-            printf("<%s> %c\n", TokenNames[TokenWhitespace], InputChar);
+            /* printf("<%s>\n", TokenNames[TokenWhitespace]); */
             CurrentState.Whitespace = true;
           }
         }
@@ -172,7 +291,8 @@ int main() {
         BufferTail = 0;
         CurrentState.Word = false;
       }
-      else if ((is_letter(InputChar) || is_digit(InputChar)) && CurrentState.Word && BufferTail < 255) {
+      else if ((is_letter(InputChar) || is_digit(InputChar)) && BufferTail < 255) {
+        CurrentState.Whitespace = false;
         ByteBuffer[BufferTail] = (char)InputChar;
         BufferTail = MIN(BufferTail + 1, 255);
       }
