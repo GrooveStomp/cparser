@@ -14,9 +14,9 @@ typedef unsigned int uint;
 #define MIN(a, b) ((a) <= (b) ? (a) : (b))
 #define ARRAY_SIZE(Array) (sizeof((Array)) / sizeof((Array)[0]))
 
-/*
- * Comments: See this block. Should nest!
- */
+//------------------------------------------------------------------------------------------------------------
+// Global State
+//------------------------------------------------------------------------------------------------------------
 
 char *Keywords[] = {"auto", "break", "case", "char", "const", "continue", "default", "do", "double", "else",
                     "enum", "extern", "float", "for", "goto", "if", "int", "long", "register", "return",
@@ -38,11 +38,13 @@ enum {
 char *TokenNames[] = {"TokenNone", "TokenIdentifier", "TokenKeyword", "TokenSymbol", "TokenConstant",
                       "TokenStringLiteral", "TokenOperator", "TokenSeparator", "TokenWhitespace"};
 
-// TODO(AARON): Look up full list of symbols.
 char *Symbols = "{}[],;-+=*^&%$?<>()!";
 
+//------------------------------------------------------------------------------------------------------------
+// Identity Tests
+//------------------------------------------------------------------------------------------------------------
+
 bool is_whitespace(byte Byte) {
-  // TODO(AARON): Look up full list of whitespace characters.
   return (Byte == ' ' || Byte == '\t' || Byte == '\n' || Byte == '\r');
 }
 
@@ -54,7 +56,63 @@ bool is_digit(byte Byte) {
   return (Byte >= '0' && Byte <= '9');
 }
 
-void check_symbol(word InputChar);
+bool is_integer_constant() {
+}
+
+bool is_character_constant() {
+}
+
+bool is_float_constant() {
+}
+
+bool is_enumeration_constant() {
+}
+
+bool is_string_literal() {
+}
+
+bool is_symbol(word Character) {
+  int i;
+  for (i = 0; i < strlen(Symbols); ++i) {
+    if (Character == (word)Symbols[i]) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool is_keyword(byte ByteBuffer[], uint BufferSize) {
+  int i;
+
+  if (BufferSize < 2) { return false; }
+
+  for (i=0; i < ARRAY_SIZE(Keywords); ++i) {
+    if (0 == strncmp(ByteBuffer, Keywords[i], BufferSize)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool is_identifier(byte ByteBuffer[], uint BufferSize) {
+  int i;
+
+  if (is_keyword(ByteBuffer, BufferSize)) { return false; }
+
+  if (!is_letter(ByteBuffer[0])) { return false; }
+
+  for (i = 1; i < BufferSize; ++i) {
+    if (!(is_letter(ByteBuffer[i]) || is_digit(ByteBuffer[i]))) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+//------------------------------------------------------------------------------------------------------------
+// Main
+//------------------------------------------------------------------------------------------------------------
 
 struct {
   uint Word : 1;
@@ -69,16 +127,14 @@ int main() {
   uint BufferTail, i; BufferTail = 0;
 
   while (1) {
-    if (EOF == (InputChar = fgetc(InFile)))
-    {
+    if (EOF == (InputChar = fgetc(InFile))) {
       if (ferror(InFile)) {
         perror("Error!");
         fclose(InFile);
         exit(1);
       } else {
         printf("Done reading file\n");
-        if (CurrentState.Word)
-        {
+        if (CurrentState.Word) {
           ByteBuffer[BufferTail] = '\0';
           BufferTail++;
           printf("Last partial token: %s\n", ByteBuffer);
@@ -86,76 +142,42 @@ int main() {
         break;
       }
     }
-    else
-    {
-      if (is_letter(InputChar) && !CurrentState.Word) { CurrentState.Word = true; CurrentState.Whitespace = false; }
+    else {
 
-      if ((is_letter(InputChar) || is_digit(InputChar)) && CurrentState.Word && BufferTail < 255)
-      {
-        ByteBuffer[BufferTail] = (char)InputChar;
-        BufferTail = MIN(BufferTail + 1, 255);
+      if (is_letter(InputChar) && !CurrentState.Word) {
+        CurrentState.Word = true;
+        CurrentState.Whitespace = false;
       }
-      else if (!is_letter(InputChar) && !is_digit(InputChar) && CurrentState.Word)
-      {
-        CurrentState.Word = false;
-        ByteBuffer[BufferTail] = '\0';
-        BufferTail++;
 
-        CurrentToken = TokenIdentifier;
+      if (is_symbol(InputChar) || is_whitespace(InputChar)) {
 
-        // Check if this token is a keyword
-        for (i=0; i < ARRAY_SIZE(Keywords); ++i) {
-          if (0 == strncmp(ByteBuffer, Keywords[i], BufferTail)) {
-            CurrentToken = TokenKeyword;
-            break;
+        if (is_keyword(ByteBuffer, BufferTail)) {
+          printf("<%s> %s\n", TokenNames[TokenKeyword], ByteBuffer);
+        }
+        else if (is_identifier(ByteBuffer, BufferTail)) {
+          printf("<%s> %s\n", TokenNames[TokenIdentifier], ByteBuffer);
+        }
+
+        if (is_symbol(InputChar)) {
+          printf("<%s> %c\n", TokenNames[TokenSymbol], InputChar);
+        }
+        else if (is_whitespace(InputChar)) {
+          if (!CurrentState.Whitespace) {
+            printf("<%s> %c\n", TokenNames[TokenWhitespace], InputChar);
+            CurrentState.Whitespace = true;
           }
         }
 
-        printf("<%s> %s\n", TokenNames[CurrentToken], ByteBuffer);
+        memset(ByteBuffer, '\0', BufferTail);
         BufferTail = 0;
-
-        check_symbol(InputChar);
-        if (is_whitespace(InputChar)) { CurrentState.Whitespace = true; }
+        CurrentState.Word = false;
       }
-      else
-      {
-        check_symbol(InputChar);
+      else if ((is_letter(InputChar) || is_digit(InputChar)) && CurrentState.Word && BufferTail < 255) {
+        ByteBuffer[BufferTail] = (char)InputChar;
+        BufferTail = MIN(BufferTail + 1, 255);
       }
     }
   }
 
   fclose(InFile);
-}
-
-void check_symbol(word InputChar) {
-  int CurrentToken, i; CurrentToken = TokenNone;
-
-  // Check if this token is a symbol
-  for (i = 0; i < strlen(Symbols); ++i) {
-    if (InputChar == Symbols[i]) {
-      CurrentToken = TokenSymbol;
-      break;
-    }
-  }
-
-  // Check if this token is whitespace
-  if (is_whitespace(InputChar)) {
-    CurrentToken = TokenWhitespace;
-    CurrentState.Word = false;
-  }
-
-  if (CurrentToken) {
-    if (CurrentToken == TokenWhitespace) {
-      if (!CurrentState.Whitespace) {
-        CurrentState.Whitespace = true;
-        printf("<%s>\n", TokenNames[CurrentToken]);
-      }
-    }
-    else {
-      printf("<%s> %c\n", TokenNames[CurrentToken], InputChar);
-    }
-  }
-  else {
-    printf("%c\n", InputChar);
-  }
 }
