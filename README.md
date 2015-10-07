@@ -24,7 +24,6 @@ gdb --args a.out local_file
 ```
 
 # TODO:
-- Nested '/*...*/' comments
 - Associate identifier names with occurence of that token in the stream
 - operators: + - *
 - string literals: "As an example"
