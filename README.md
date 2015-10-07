@@ -24,8 +24,15 @@ gdb --args a.out local_file
 ```
 
 # TODO:
+- Support 'L' prefix for string literals
+- Doesn't read '"' properly for string literals
+  - <TokenStringLiteral> "') && !CurrentState.StringLiteral && !CurrentState.LineComment && !BlockComment) {
+        CurrentState.StringLiteral = true;
+        continue;
+      }
+      else if ((InputChar == '"
+
 - Associate identifier names with occurence of that token in the stream
 - operators: + - *
-- string literals: "As an example"
 - character constants: '\0'
 - real numbers 4e23, 3.266, 0.984F

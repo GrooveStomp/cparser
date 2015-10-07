@@ -40,7 +40,7 @@ char *TokenNames[] = {"TokenNone", "TokenIdentifier", "TokenKeyword", "TokenSymb
                       "TokenIntegerConstant", "TokenStringLiteral", "TokenOperator", "TokenSeparator",
                       "TokenWhitespace"};
 
-char *Symbols = "{}[],;-+=*^&%$?<>()!/\\'|~";
+char *Symbols = "#{}[],;-+=*^&%$?<>()!/\\'|~.";
 
 void integer_type() {
   /*
@@ -176,6 +176,7 @@ bool is_enumeration_constant() {
 }
 
 bool is_string_literal() {
+  return true;
 }
 
 bool is_symbol(word Character) {
@@ -221,6 +222,9 @@ bool is_identifier(byte ByteBuffer[], uint BufferSize) {
 // Main
 //------------------------------------------------------------------------------------------------------------
 
+void render_buffer_token(byte ByteBuffer[], uint BufferSize);
+void flush_buffer(byte ByteBuffer[], uint *BufferSize);
+
 struct {
   uint LineComment : 1;
   uint Whitespace : 1;
@@ -264,6 +268,19 @@ int main(int argc, char *argv[]) {
     }
     else {
 
+      if ((InputChar == '"') && !CurrentState.StringLiteral && !CurrentState.LineComment && !BlockComment) {
+        CurrentState.StringLiteral = true;
+        continue;
+      }
+      else if ((InputChar == '"') && CurrentState.StringLiteral) {
+        CurrentState.StringLiteral = false;
+        if (is_string_literal(ByteBuffer, BufferTail)) {
+          printf("<%s> \"%s\"\n", TokenNames[TokenStringLiteral], ByteBuffer);
+          flush_buffer(ByteBuffer, &BufferTail);
+          continue;
+        }
+      }
+
       if (InputChar == '\n' && CurrentState.LineComment) { CurrentState.LineComment = false; }
       if (InputChar == '/' && !CurrentState.LineComment) {
         if (LastChar == '/' && !BlockComment) {
@@ -294,20 +311,8 @@ int main(int argc, char *argv[]) {
         }
       }
 
-      if ((is_symbol(InputChar) || is_whitespace(InputChar)) && !CurrentState.LineComment && !BlockComment) {
-
-        if (is_keyword(ByteBuffer, BufferTail)) {
-          printf("<%s> %s\n", TokenNames[TokenKeyword], ByteBuffer);
-        }
-        else if (is_identifier(ByteBuffer, BufferTail)) {
-          printf("<%s> %s\n", TokenNames[TokenIdentifier], ByteBuffer);
-        }
-        else if (is_integer_constant(ByteBuffer, BufferTail)) {
-          printf("<%s> %s\n", TokenNames[TokenIntegerConstant], ByteBuffer);
-        }
-        else if (BufferTail > 0) {
-          printf("<UnknownToken> %s\n", ByteBuffer);
-        }
+      if ((is_symbol(InputChar) || is_whitespace(InputChar)) && !CurrentState.LineComment && !BlockComment && !CurrentState.StringLiteral) {
+        render_buffer_token(ByteBuffer, BufferTail);
 
         if (is_symbol(InputChar)) {
           CurrentState.Whitespace = false;
@@ -322,8 +327,7 @@ int main(int argc, char *argv[]) {
           }
         }
 
-        memset(ByteBuffer, '\0', BufferTail);
-        BufferTail = 0;
+        flush_buffer(ByteBuffer, &BufferTail);
         if (InputChar == '/') { InputChar = '\0'; } // NOTE(AARON): To prevent '/' from being handled next go.
       }
       else if (InputChar == '\n' && CurrentState.LineComment) {
@@ -334,8 +338,34 @@ int main(int argc, char *argv[]) {
         ByteBuffer[BufferTail] = (char)InputChar;
         BufferTail = MIN(BufferTail + 1, 255);
       }
+      else if (CurrentState.StringLiteral) {
+        CurrentState.Whitespace = false;
+        ByteBuffer[BufferTail] = (char)InputChar;
+        BufferTail = MIN(BufferTail + 1, 255);
+        InputChar = '\0';
+      }
     }
   }
 
   fclose(InFile);
+}
+
+void render_buffer_token(byte ByteBuffer[], uint BufferSize) {
+  if (is_keyword(ByteBuffer, BufferSize)) {
+    printf("<%s> %s\n", TokenNames[TokenKeyword], ByteBuffer);
+  }
+  else if (is_identifier(ByteBuffer, BufferSize)) {
+    printf("<%s> %s\n", TokenNames[TokenIdentifier], ByteBuffer);
+  }
+  else if (is_integer_constant(ByteBuffer, BufferSize)) {
+    printf("<%s> %s\n", TokenNames[TokenIntegerConstant], ByteBuffer);
+  }
+  else if (BufferSize > 0) {
+    printf("<UnknownToken> %s\n", ByteBuffer);
+  }
+}
+
+void flush_buffer(byte ByteBuffer[], uint *BufferSize) {
+  memset(ByteBuffer, '\0', *BufferSize);
+  *BufferSize = 0;
 }
