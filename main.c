@@ -40,7 +40,7 @@ char *TokenNames[] = {"TokenNone", "TokenIdentifier", "TokenKeyword", "TokenSymb
                       "TokenIntegerConstant", "TokenStringLiteral", "TokenOperator", "TokenSeparator",
                       "TokenWhitespace"};
 
-char *Symbols = "{}[],;-+=*^&%$?<>()!/\\'\"|~";
+char *Symbols = "{}[],;-+=*^&%$?<>()!/\\'|~";
 
 void integer_type() {
   /*
@@ -224,6 +224,7 @@ bool is_identifier(byte ByteBuffer[], uint BufferSize) {
 struct {
   uint LineComment : 1;
   uint Whitespace : 1;
+  uint StringLiteral : 1;
 } CurrentState;
 
 void usage() {
@@ -234,15 +235,14 @@ void usage() {
 }
 
 int main(int argc, char *argv[]) {
-  if (argc != 2 || argv[1] == "-h" || argv[1] == "--help") {
-    usage();
-  }
+  if (argc != 2 || argv[1] == "-h" || argv[1] == "--help") { usage(); }
 
   FILE *InFile = fopen(argv[1], "r");
   byte ByteBuffer[256] = {0};
   word InputChar = 0;
   word LastChar = 0;
   int CurrentToken = TokenNone;
+  int BlockComment = 0; // Increment on entry, decrement on exit.
   uint BufferTail, i; BufferTail = 0;
 
   while (1) {
@@ -263,7 +263,38 @@ int main(int argc, char *argv[]) {
       }
     }
     else {
-      if ((is_symbol(InputChar) || is_whitespace(InputChar)) && !CurrentState.LineComment) {
+
+      if (InputChar == '\n' && CurrentState.LineComment) { CurrentState.LineComment = false; }
+      if (InputChar == '/' && !CurrentState.LineComment) {
+        if (LastChar == '/' && !BlockComment) {
+          CurrentState.LineComment = true;
+          CurrentState.Whitespace = false;
+          InputChar = '\0';
+          continue;
+        }
+        else if (LastChar == '*') {
+          --BlockComment;
+          InputChar = '\0';
+          continue;
+        }
+        else if (!BlockComment) {
+          continue;
+        }
+      }
+
+      if (LastChar == '/' && !CurrentState.LineComment) {
+        if (InputChar == '*') {
+          ++BlockComment;
+          continue;
+        }
+        else if (!BlockComment) {
+          ungetc(InputChar, InFile);
+          InputChar = LastChar;
+          LastChar = '\0';
+        }
+      }
+
+      if ((is_symbol(InputChar) || is_whitespace(InputChar)) && !CurrentState.LineComment && !BlockComment) {
 
         if (is_keyword(ByteBuffer, BufferTail)) {
           printf("<%s> %s\n", TokenNames[TokenKeyword], ByteBuffer);
@@ -280,10 +311,6 @@ int main(int argc, char *argv[]) {
 
         if (is_symbol(InputChar)) {
           CurrentState.Whitespace = false;
-          if (InputChar == '/' && LastChar == '/') {
-            CurrentState.LineComment = true;
-            CurrentState.Whitespace = false;
-          }
           printf("<%s> %c\n", TokenNames[TokenSymbol], InputChar);
         }
         else if (is_whitespace(InputChar)) {
@@ -291,18 +318,18 @@ int main(int argc, char *argv[]) {
             CurrentState.LineComment = false;
           }
           if (!CurrentState.Whitespace) {
-            /* printf("<%s>\n", TokenNames[TokenWhitespace]); */
             CurrentState.Whitespace = true;
           }
         }
 
         memset(ByteBuffer, '\0', BufferTail);
         BufferTail = 0;
+        if (InputChar == '/') { InputChar = '\0'; } // NOTE(AARON): To prevent '/' from being handled next go.
       }
       else if (InputChar == '\n' && CurrentState.LineComment) {
         CurrentState.LineComment = false;
       }
-      else if ((is_letter(InputChar) || is_digit(InputChar)) && BufferTail < 255 && !CurrentState.LineComment) {
+      else if ((is_letter(InputChar) || is_digit(InputChar)) && BufferTail < 255 && !CurrentState.LineComment && !BlockComment) {
         CurrentState.Whitespace = false;
         ByteBuffer[BufferTail] = (char)InputChar;
         BufferTail = MIN(BufferTail + 1, 255);
