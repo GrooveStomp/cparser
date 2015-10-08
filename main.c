@@ -31,16 +31,16 @@ enum {
   TokenConstant,
   TokenIntegerConstant,
   TokenStringLiteral,
+  TokenCharacterConstant,
   TokenOperator,
   TokenSeparator,
   TokenWhitespace
 } TokenTypes;
 
-char *TokenNames[] = {"TokenNone", "TokenIdentifier", "TokenKeyword", "TokenSymbol", "TokenConstant",
-                      "TokenIntegerConstant", "TokenStringLiteral", "TokenOperator", "TokenSeparator",
-                      "TokenWhitespace"};
+char *TokenNames[] = {"None", "Identifier", "Keyword", "Symbol", "Constant", "IntegerConstant",
+                      "StringLiteral", "CharacterConstant", "Operator", "Separator", "Whitespace"};
 
-char *Symbols = "#{}[],;-+=*^&%$?<>()!/\\|~.'";
+char *Symbols = "#{}[],;-+=*^&%$?<>()!/|~.'";
 
 void integer_type() {
   /*
@@ -61,6 +61,33 @@ void integer_type() {
     if it is suffixed by l or L then:
     [long int, unsigned long int]
   */
+}
+
+void print_character(byte ByteBuffer[], int Size) {
+  byte Char;
+  if (Size == 1) {
+    Char = ByteBuffer[0];
+    if (Char >= 32 && Char <= 126) {
+      printf("<%s> '%c'\n", TokenNames[TokenCharacterConstant], Char);
+      return;
+    }
+    else {
+      printf("<%s> DEC: '%d'\n", TokenNames[TokenCharacterConstant], Char);
+      return;
+    }
+  }
+  else if (Size == 2 && ByteBuffer[0] == '\\') {
+    Char = ByteBuffer[1];
+    if (Char >= 32 && Char <= 126) {
+      printf("<%s> '\\%c'\n", TokenNames[TokenCharacterConstant], Char);
+      return;
+    }
+    else {
+      printf("<%s> DEC: '\\%d'\n", TokenNames[TokenCharacterConstant], Char);
+      return;
+    }
+  }
+  printf("<UnknownToken> '%s'\n", ByteBuffer);
 }
 
 //------------------------------------------------------------------------------------------------------------
@@ -167,6 +194,7 @@ bool is_integer_constant(byte ByteBuffer[], uint BufferSize) {
 }
 
 bool is_character_constant() {
+  return true;
 }
 
 bool is_float_constant() {
@@ -260,8 +288,6 @@ bool in_comment() {
   return (CurrentState == StatusLineComment || CurrentState == StatusBlockComment);
 }
 
-// TODO(AARON): Character constants!
-
 int main(int argc, char *argv[]) {
   if (argc != 2 || argv[1] == "-h" || argv[1] == "--help") { usage(); }
 
@@ -292,11 +318,33 @@ int main(int argc, char *argv[]) {
     }
     else {
 
-      if ((InputChar == '"') && CurrentState != StatusStringLiteral && !in_comment()) {
+      if (InputChar == '\'' && CurrentState != StatusCharacterConstant && !in_comment() && CurrentState != StatusStringLiteral) {
+        if (BufferTail != 0) {
+          ungetc(InputChar, InFile);
+          InputChar = ' ';
+        }
+        else {
+          CurrentState = StatusCharacterConstant;
+          continue;
+        }
+      }
+      else if (InputChar == '\'' && CurrentState == StatusCharacterConstant && LastChar != '\\') {
+        if (is_character_constant(ByteBuffer, BufferTail)) {
+          print_character(ByteBuffer, BufferTail);
+        }
+        else {
+          printf("<UnknownToken> %s\n", ByteBuffer);
+        }
+        flush_buffer(ByteBuffer, &BufferTail);
+        CurrentState = StatusNormal;
+        continue;
+      }
+
+      if ((InputChar == '"') && CurrentState != StatusStringLiteral && !in_comment() && CurrentState != StatusCharacterConstant) {
         CurrentState = StatusStringLiteral;
         continue;
       }
-      else if ((InputChar == '"') && CurrentState == StatusStringLiteral) {
+      else if ((InputChar == '"') && CurrentState == StatusStringLiteral && LastChar != '\\') {
         CurrentState = StatusNormal;
         if (is_string_literal(ByteBuffer, BufferTail)) {
           printf("<%s> \"%s\"\n", TokenNames[TokenStringLiteral], ByteBuffer);
@@ -334,8 +382,19 @@ int main(int argc, char *argv[]) {
         }
       }
 
-      if ((is_symbol(InputChar) || is_whitespace(InputChar)) && !in_comment() && CurrentState != StatusStringLiteral) {
-        render_buffer_token(ByteBuffer, BufferTail);
+      if ((is_symbol(InputChar) || is_whitespace(InputChar)) && !in_comment() && CurrentState != StatusStringLiteral && CurrentState != StatusCharacterConstant) {
+        if (is_keyword(ByteBuffer, BufferTail)) {
+          printf("<%s> %s\n", TokenNames[TokenKeyword], ByteBuffer);
+        }
+        else if (is_identifier(ByteBuffer, BufferTail)) {
+          printf("<%s> %s\n", TokenNames[TokenIdentifier], ByteBuffer);
+        }
+        else if (is_integer_constant(ByteBuffer, BufferTail)) {
+          printf("<%s> %s\n", TokenNames[TokenIntegerConstant], ByteBuffer);
+        }
+        else if (BufferTail > 0) {
+          printf("<UnknownToken> %s\n", ByteBuffer);
+        }
 
         if (is_symbol(InputChar)) {
           if (CurrentState == StatusWhitespace) { CurrentState = StatusNormal; }
@@ -361,30 +420,17 @@ int main(int argc, char *argv[]) {
         ByteBuffer[BufferTail] = (char)InputChar;
         BufferTail = MIN(BufferTail + 1, 255);
       }
-      else if (CurrentState == StatusStringLiteral) {
+      else if (CurrentState == StatusStringLiteral || CurrentState == StatusCharacterConstant) {
         ByteBuffer[BufferTail] = (char)InputChar;
         BufferTail = MIN(BufferTail + 1, 255);
-        InputChar = '\0';
+        if ((InputChar == '\\' && LastChar == '\\') || (InputChar != '\\')) {
+          InputChar = '\0';
+        }
       }
     }
   }
 
   fclose(InFile);
-}
-
-void render_buffer_token(byte ByteBuffer[], uint BufferSize) {
-  if (is_keyword(ByteBuffer, BufferSize)) {
-    printf("<%s> %s\n", TokenNames[TokenKeyword], ByteBuffer);
-  }
-  else if (is_identifier(ByteBuffer, BufferSize)) {
-    printf("<%s> %s\n", TokenNames[TokenIdentifier], ByteBuffer);
-  }
-  else if (is_integer_constant(ByteBuffer, BufferSize)) {
-    printf("<%s> %s\n", TokenNames[TokenIntegerConstant], ByteBuffer);
-  }
-  else if (BufferSize > 0) {
-    printf("<UnknownToken> %s\n", ByteBuffer);
-  }
 }
 
 void flush_buffer(byte ByteBuffer[], uint *BufferSize) {
