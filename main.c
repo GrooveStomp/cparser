@@ -40,7 +40,7 @@ char *TokenNames[] = {"TokenNone", "TokenIdentifier", "TokenKeyword", "TokenSymb
                       "TokenIntegerConstant", "TokenStringLiteral", "TokenOperator", "TokenSeparator",
                       "TokenWhitespace"};
 
-char *Symbols = "#{}[],;-+=*^&%$?<>()!/\\'|~.";
+char *Symbols = "#{}[],;-+=*^&%$?<>()!/\\|~.'";
 
 void integer_type() {
   /*
@@ -225,11 +225,15 @@ bool is_identifier(byte ByteBuffer[], uint BufferSize) {
 void render_buffer_token(byte ByteBuffer[], uint BufferSize);
 void flush_buffer(byte ByteBuffer[], uint *BufferSize);
 
-struct {
-  uint LineComment : 1;
-  uint Whitespace : 1;
-  uint StringLiteral : 1;
-} CurrentState;
+enum {
+  StatusNormal,
+  StatusLineComment,
+  StatusBlockComment,
+  StatusWhitespace,
+  StatusStringLiteral,
+  StatusCharacterConstant,
+};
+int CurrentState = StatusNormal;
 
 void usage() {
   printf("Usage: ./a.out file\n");
@@ -237,6 +241,26 @@ void usage() {
   printf("  Specify '-h' or '--help' instead of file for this help text\n");
   exit(0);
 }
+
+local_persist int BlockComment = 0;
+
+void increment_block_comment() {
+  ++BlockComment;
+  CurrentState = StatusBlockComment;
+}
+
+void decrement_block_comment() {
+  --BlockComment;
+  if (!BlockComment && CurrentState == StatusBlockComment) {
+    CurrentState = StatusNormal;
+  }
+}
+
+bool in_comment() {
+  return (CurrentState == StatusLineComment || CurrentState == StatusBlockComment);
+}
+
+// TODO(AARON): Character constants!
 
 int main(int argc, char *argv[]) {
   if (argc != 2 || argv[1] == "-h" || argv[1] == "--help") { usage(); }
@@ -268,12 +292,12 @@ int main(int argc, char *argv[]) {
     }
     else {
 
-      if ((InputChar == '"') && !CurrentState.StringLiteral && !CurrentState.LineComment && !BlockComment) {
-        CurrentState.StringLiteral = true;
+      if ((InputChar == '"') && CurrentState != StatusStringLiteral && !in_comment()) {
+        CurrentState = StatusStringLiteral;
         continue;
       }
-      else if ((InputChar == '"') && CurrentState.StringLiteral) {
-        CurrentState.StringLiteral = false;
+      else if ((InputChar == '"') && CurrentState == StatusStringLiteral) {
+        CurrentState = StatusNormal;
         if (is_string_literal(ByteBuffer, BufferTail)) {
           printf("<%s> \"%s\"\n", TokenNames[TokenStringLiteral], ByteBuffer);
           flush_buffer(ByteBuffer, &BufferTail);
@@ -281,65 +305,63 @@ int main(int argc, char *argv[]) {
         }
       }
 
-      if (InputChar == '\n' && CurrentState.LineComment) { CurrentState.LineComment = false; }
-      if (InputChar == '/' && !CurrentState.LineComment) {
-        if (LastChar == '/' && !BlockComment) {
-          CurrentState.LineComment = true;
-          CurrentState.Whitespace = false;
+      if (InputChar == '\n' && CurrentState == StatusLineComment) { CurrentState = StatusNormal; }
+      if (InputChar == '/' && CurrentState != StatusLineComment) {
+        if (LastChar == '/' && CurrentState != StatusBlockComment) {
+          CurrentState = StatusLineComment;
           InputChar = '\0';
           continue;
         }
         else if (LastChar == '*') {
-          --BlockComment;
+          decrement_block_comment();
           InputChar = '\0';
           continue;
         }
-        else if (!BlockComment) {
+        else if (CurrentState != StatusBlockComment) {
           continue;
         }
       }
 
-      if (LastChar == '/' && !CurrentState.LineComment) {
+      if (LastChar == '/' && CurrentState != StatusLineComment) {
         if (InputChar == '*') {
-          ++BlockComment;
+          increment_block_comment();
           continue;
         }
-        else if (!BlockComment) {
+        else if (CurrentState != StatusBlockComment) {
           ungetc(InputChar, InFile);
           InputChar = LastChar;
           LastChar = '\0';
         }
       }
 
-      if ((is_symbol(InputChar) || is_whitespace(InputChar)) && !CurrentState.LineComment && !BlockComment && !CurrentState.StringLiteral) {
+      if ((is_symbol(InputChar) || is_whitespace(InputChar)) && !in_comment() && CurrentState != StatusStringLiteral) {
         render_buffer_token(ByteBuffer, BufferTail);
 
         if (is_symbol(InputChar)) {
-          CurrentState.Whitespace = false;
+          if (CurrentState == StatusWhitespace) { CurrentState = StatusNormal; }
           printf("<%s> %c\n", TokenNames[TokenSymbol], InputChar);
         }
         else if (is_whitespace(InputChar)) {
-          if (InputChar == '\n' && CurrentState.LineComment) {
-            CurrentState.LineComment = false;
+          if (InputChar == '\n' && CurrentState == StatusLineComment) {
+            CurrentState = StatusNormal;
           }
-          if (!CurrentState.Whitespace) {
-            CurrentState.Whitespace = true;
+          if (CurrentState != StatusWhitespace) {
+            CurrentState = StatusWhitespace;
           }
         }
 
         flush_buffer(ByteBuffer, &BufferTail);
         if (InputChar == '/') { InputChar = '\0'; } // NOTE(AARON): To prevent '/' from being handled next go.
       }
-      else if (InputChar == '\n' && CurrentState.LineComment) {
-        CurrentState.LineComment = false;
+      else if (InputChar == '\n' && CurrentState == StatusLineComment) {
+        CurrentState = StatusNormal;
       }
-      else if ((is_letter(InputChar) || is_digit(InputChar)) && BufferTail < 255 && !CurrentState.LineComment && !BlockComment) {
-        CurrentState.Whitespace = false;
+      else if ((is_letter(InputChar) || is_digit(InputChar)) && BufferTail < 255 && !in_comment()) {
+        if (CurrentState == StatusWhitespace) { CurrentState = StatusNormal; }
         ByteBuffer[BufferTail] = (char)InputChar;
         BufferTail = MIN(BufferTail + 1, 255);
       }
-      else if (CurrentState.StringLiteral) {
-        CurrentState.Whitespace = false;
+      else if (CurrentState == StatusStringLiteral) {
         ByteBuffer[BufferTail] = (char)InputChar;
         BufferTail = MIN(BufferTail + 1, 255);
         InputChar = '\0';
