@@ -1,6 +1,6 @@
-All source code here uses the Createive Commons Attribution 4.0 International License.
-See: https://creativecommons.org/licenses/by/4.0/
-See: https://creativecommons.org/licenses/by/4.0/legalcode
+All source code here uses the Createive Commons Attribution 4.0 International License.  
+See: https://creativecommons.org/licenses/by/4.0/  
+See: https://creativecommons.org/licenses/by/4.0/legalcode  
 Attribution is appreciated, though not required.
 
 Lexer and tokenizer for the C language.
