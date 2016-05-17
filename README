@@ -5,8 +5,8 @@ This is prep work for my C compiler that I'm working on in my spare time.
 
 Requirements:
 
-- gcc
-- kdbg
+- gcc (for build command in env/shell)
+- kdbg (for debug command in env/shell)
 
 Setup:
 
@@ -19,5 +19,8 @@ Building:
 
 Running:
 
-> env/build/run c_file_in_current_directory
-# eg: env/build/run main.c
+> run main.c
+
+Debugging:
+
+> debug
