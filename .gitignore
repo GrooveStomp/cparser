@@ -3,3 +3,4 @@ a.out
 *.kdev4
 c-lexer/env/
 !env/shell
+env/build/run

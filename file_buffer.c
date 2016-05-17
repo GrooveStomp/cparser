@@ -1,38 +1,32 @@
 #ifndef _FILE_BUFFER_C
 #define _FILE_BUFFER_C
 
-#include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#define min(a,b) ((a) < (b) ? (a) : (b))
-#define bytes(n) (n)
-#define kilobytes(n) (bytes(n) * 1000)
 
 struct buffer {
   char *Data;
   size_t Capacity;
-  size_t Size;
+  size_t Length;
 };
 
 struct buffer *
-BufferSet(struct buffer *Buff, char *BuffData, size_t BuffCapacity, size_t BuffSize)
+BufferSet(struct buffer *Buffer, char *Data, size_t Length, size_t Capacity)
 {
-  Buff->Data = BuffData;
-  Buff->Capacity = BuffCapacity;
-  Buff->Size = BuffSize;
-  return Buff;
+  Buffer->Data = Data;
+  Buffer->Capacity = Capacity;
+  Buffer->Length = Length;
+  return Buffer;
 }
 
-typedef enum {
+enum copy_file_result
+{
   COPY_FILE_OK,
   COPY_FILE_DATA_REMAINING,
   COPY_FILE_INSUFFICIENT_SPACE,
   COPY_FILE_ERROR
-} copy_file_result;
+};
 
-copy_file_result
+enum copy_file_result
 CopyFileIntoBuffer(char *FileName, struct buffer *Mem)
 {
   FILE *File = fopen(FileName, "r");
@@ -46,7 +40,7 @@ CopyFileIntoBuffer(char *FileName, struct buffer *Mem)
     fseek(File, 0, SEEK_SET);
     fread(Mem->Data, 1, FileSize, File);
     Mem->Data[FileSize] = 0;
-    Mem->Size = FileSize + 1;
+    Mem->Length = FileSize;
 
     fclose(File);
   }
