@@ -1,439 +1,237 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <stdbool.h>
 
-typedef char byte;
-typedef int bool;
-typedef int word;
-typedef unsigned int uint;
-#define global_variable static
-#define local_persist static
-#define false 0
-#define true ~false
-#define MAX(a, b) ((a) >= (b) ? (a) : (b))
-#define MIN(a, b) ((a) <= (b) ? (a) : (b))
+#include "file_buffer.c"
+
+#define BUFFER_SIZE kilobytes(30)
 #define ARRAY_SIZE(Array) (sizeof((Array)) / sizeof((Array)[0]))
 
-//------------------------------------------------------------------------------------------------------------
-// Global State
-//------------------------------------------------------------------------------------------------------------
-
-char *Keywords[] = {"auto", "break", "case", "char", "const", "continue", "default", "do", "double", "else",
-                    "enum", "extern", "float", "for", "goto", "if", "int", "long", "register", "return",
-                    "short", "signed", "sizeof", "static", "struct", "switch", "typedef", "union",
-                    "unsigned", "void", "volatile", "while"};
-
-enum {
-  TokenNone,
-  TokenIdentifier,
-  TokenKeyword,
-  TokenSymbol,
-  TokenConstant,
-  TokenIntegerConstant,
-  TokenStringLiteral,
-  TokenCharacterConstant,
-  TokenOperator,
-  TokenSeparator,
-  TokenWhitespace
-} TokenTypes;
-
-char *TokenNames[] = {"None", "Identifier", "Keyword", "Symbol", "Constant", "IntegerConstant",
-                      "StringLiteral", "CharacterConstant", "Operator", "Separator", "Whitespace"};
-
-char *Symbols = "#{}[],;-+=*^&%$?<>()!/|~.'";
-
-void integer_type() {
-  /*
-    Octal: 0[0-7]+
-    Hex: 0X[0-9A-F]+/i # ignore case
-
-    Any Integer can have suffix of [uU] or [lL] for unsigned and long, respectively.
-
-    if unsuffixed and decimal, it has the first of these types in which it can be represented:
-    [int, long int, unsigned long int]
-
-    if it is unsuffxed octal or hexadecimal, it has the first possible of these types:
-    [int, unsigned int, long int, unsigned long int]
-
-    if it is suffixed by u or U then:
-    [unsigned int, unsigned long int]
-
-    if it is suffixed by l or L then:
-    [long int, unsigned long int]
-  */
+void abort(const char *msg) {
+  fprintf(stderr, "%s\n", msg);
+  exit(EXIT_FAILURE);
 }
-
-void print_character(byte ByteBuffer[], int Size) {
-  byte Char;
-  if (Size == 1) {
-    Char = ByteBuffer[0];
-    if (Char >= 32 && Char <= 126) {
-      printf("<%s> '%c'\n", TokenNames[TokenCharacterConstant], Char);
-      return;
-    }
-    else {
-      printf("<%s> DEC: '%d'\n", TokenNames[TokenCharacterConstant], Char);
-      return;
-    }
-  }
-  else if (Size == 2 && ByteBuffer[0] == '\\') {
-    Char = ByteBuffer[1];
-    if (Char >= 32 && Char <= 126) {
-      printf("<%s> '\\%c'\n", TokenNames[TokenCharacterConstant], Char);
-      return;
-    }
-    else {
-      printf("<%s> DEC: '\\%d'\n", TokenNames[TokenCharacterConstant], Char);
-      return;
-    }
-  }
-  printf("<UnknownToken> '%s'\n", ByteBuffer);
-}
-
-//------------------------------------------------------------------------------------------------------------
-// Identity Tests
-//------------------------------------------------------------------------------------------------------------
-
-bool is_whitespace(byte Byte) {
-  return (Byte == ' ' || Byte == '\t' || Byte == '\n' || Byte == '\r');
-}
-
-bool is_letter(byte Byte) {
-  return (Byte >= 'A' && Byte <= 'Z') || (Byte >= 'a' && Byte <= 'z') || (Byte == '_');
-}
-
-bool is_digit(byte Byte) {
-  return (Byte >= '0' && Byte <= '9');
-}
-
-bool is_integer_suffix(byte LastByte) {
-  if (LastByte != 'u' && LastByte != 'U' && LastByte != 'l' && LastByte != 'L' && !is_digit(LastByte)) {
-    return false;
-  }
-  return true;
-}
-
-bool is_octal_digit(byte Byte) {
-  return (Byte >= '0' && Byte <= '7');
-}
-
-bool is_octal(byte ByteBuffer[], uint BufferSize) {
-  byte FirstByte, LastByte, CurrentByte;
-  int i;
-
-  if (BufferSize < 3) { return false; }
-
-  FirstByte = ByteBuffer[0];
-  LastByte = ByteBuffer[BufferSize - 1];
-
-  if (BufferSize < 2) { return false; }
-  if (FirstByte != '0') { return false; }
-  if (! (LastByte == 'u' || LastByte == 'U' || LastByte == 'l' || LastByte == 'L' || (LastByte >= '0' && LastByte <= '7')) ) {
-    return false;
-  }
-
-  for (i = 1; i < BufferSize-1; ++i) {
-    if (!is_octal_digit(ByteBuffer[i])) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-bool is_hex_digit(byte Byte) {
-  return (is_digit(Byte) || (Byte >= 'a' && Byte <= 'f') || (Byte >= 'A' && Byte <= 'F'));
-}
-
-bool is_hexadecimal(byte ByteBuffer[], uint BufferSize) {
-  byte FirstByte, SecondByte, LastByte, CurrentByte;
-  int i;
-
-  if (BufferSize < 2) { return false; }
-
-  FirstByte = ByteBuffer[0];
-  SecondByte = ByteBuffer[1];
-  LastByte = ByteBuffer[BufferSize - 1];
-
-  if (BufferSize < 2) { return false; }
-  if (FirstByte != '0') { return false; }
-  if (SecondByte != 'x' && SecondByte != 'X') { return false; }
-  if (! (is_hex_digit(LastByte) || LastByte == 'u' || LastByte == 'U' || LastByte == 'l' || LastByte == 'L') ) {
-    return false;
-  }
-
-  for (i = 2; i < BufferSize-1; ++i) {
-    if (!is_hex_digit(ByteBuffer[i])) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-bool is_integer_constant(byte ByteBuffer[], uint BufferSize) {
-  int i;
-  byte LastByte;
-
-  if (BufferSize < 1) { return false; }
-
-  LastByte = ByteBuffer[BufferSize - 1];
-
-  if (is_octal(ByteBuffer, BufferSize) || is_hexadecimal(ByteBuffer, BufferSize)) { return true; }
-
-  if (BufferSize == 1 && ByteBuffer[0] == '0') { return true; }
-  if (ByteBuffer[0] == '0') { return false; }
-
-  for (i = 0; i < BufferSize - 1; ++i) {
-    if (!is_digit(ByteBuffer[i])) {
-      return false;
-    }
-  }
-
-  return is_integer_suffix(LastByte);
-}
-
-bool is_character_constant() {
-  return true;
-}
-
-bool is_float_constant() {
-}
-
-bool is_enumeration_constant() {
-}
-
-bool is_string_literal() {
-  return true;
-}
-
-bool is_symbol(word Character) {
-  int i;
-  for (i = 0; i < strlen(Symbols); ++i) {
-    if (Character == (word)Symbols[i]) {
-      return true;
-    }
-  }
-  return false;
-}
-
-bool is_keyword(byte ByteBuffer[], uint BufferSize) {
-  int i;
-
-  if (BufferSize < 2) { return false; }
-
-  for (i=0; i < ARRAY_SIZE(Keywords); ++i) {
-    if (0 == strncmp(ByteBuffer, Keywords[i], BufferSize)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-bool is_identifier(byte ByteBuffer[], uint BufferSize) {
-  int i;
-
-  if (is_keyword(ByteBuffer, BufferSize)) { return false; }
-
-  if (!is_letter(ByteBuffer[0])) { return false; }
-
-  for (i = 1; i < BufferSize; ++i) {
-    if (!(is_letter(ByteBuffer[i]) || is_digit(ByteBuffer[i]))) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-//------------------------------------------------------------------------------------------------------------
-// Main
-//------------------------------------------------------------------------------------------------------------
-
-void render_buffer_token(byte ByteBuffer[], uint BufferSize);
-void flush_buffer(byte ByteBuffer[], uint *BufferSize);
-
-enum {
-  StatusNormal,
-  StatusLineComment,
-  StatusBlockComment,
-  StatusWhitespace,
-  StatusStringLiteral,
-  StatusCharacterConstant,
-};
-int CurrentState = StatusNormal;
 
 void usage() {
-  printf("Usage: ./a.out file\n");
+  printf("Usage: program file\n");
   printf("  file: must be a file in this directory\n");
-  printf("  Specify '-h' or '--help' instead of file for this help text\n");
-  exit(0);
+  printf("  Specify '-h' or '--help' for this help text\n");
+  exit(EXIT_SUCCESS);
 }
 
-local_persist int BlockComment = 0;
-
-void increment_block_comment() {
-  ++BlockComment;
-  CurrentState = StatusBlockComment;
+bool is_whitespace(const char character) {
+  return (character == ' ' || character == '\r' || character == '\n' || character == '\t');
 }
 
-void decrement_block_comment() {
-  --BlockComment;
-  if (!BlockComment && CurrentState == StatusBlockComment) {
-    CurrentState = StatusNormal;
+bool is_symbol(const char character) {
+  static char symbols[] = {
+    '#', '{', '}', '[', ']', ',', ';', '-', '+', '=', '*', '^', '&', '%', '$', '?', '<', '>', '(', ')', '!',
+    '/', '|', '~', '.', '\'', '"'
+  };
+
+  for (int i=0; i < ARRAY_SIZE(symbols); ++i) {
+    if (character == symbols[i]) return true;
+  }
+  return false;
+}
+
+bool get_first_character_literal(const buffer_t *buff, buffer_t *character) {
+  char *string_open_match;
+  char *string_close_match;
+
+  /* TODO(AARON): Assuming entirety of string fits within both buffer_t and tmp_buffer. */
+  char tmp_buffer[5] = {0};
+  strncpy(tmp_buffer, buff->data, min(buff->size, 4));
+
+  char *match;
+  if ((match = strstr(tmp_buffer, "'")) != NULL) {
+    char *close = match + 2;
+    if (*close != '\'') close += 1;
+    if (*close != '\'') return false;
+    if (*close == '\'' && *(close-1) == '\\') close += 1;
+    if (*close != '\'') return false;
+
+    character->data = buff->data + (match - tmp_buffer);
+    character->size = close - match + 1;
+    character->max_size = character->size;
+    return true;
+  }
+
+  return false;
+}
+
+bool get_first_string_literal(const buffer_t *buff, buffer_t *string) {
+  char *string_open_match;
+  char *string_close_match;
+
+  /* TODO(AARON): Assuming entirety of string fits within both buffer_t and tmp_buffer. */
+  char tmp_buffer[kilobytes(1)] = {0};
+  strncpy(tmp_buffer, buff->data, min(buff->size, kilobytes(1)-1));
+
+  if ((string_open_match = strstr(tmp_buffer, "\"")) != NULL) {
+    /* TODO(AARON): Handle nested strings. */
+    string_close_match = strstr(tmp_buffer + 1, "\"");
+    char *close_tmp_buffer;
+    while (*(string_close_match - 1) == '\\' || strncmp(string_close_match - 1, "'\"'", 4) == 0) {
+      close_tmp_buffer = string_close_match + 1;
+
+      if (close_tmp_buffer >= tmp_buffer + min(buff->size, kilobytes(1)-1))
+        abort("Couldn't terminate string properly");
+
+      string_close_match = strstr(close_tmp_buffer, "\"");
+    }
+    /* TODO(AARON): Raise a big fuss if string_close_match is NULL. */
+
+    string->data = buff->data + (string_open_match - tmp_buffer);
+    string->size = string_close_match - string_open_match + 1;
+    string->max_size = string->size;
+
+    return true;
+  }
+
+  return false;
+}
+
+bool get_first_comment(const buffer_t *buff, buffer_t *comment) {
+  char *comment_open_match;
+  char *comment_close_match;
+
+  /* TODO(AARON): Assuming entirety of comment fits within both buffer_t and tmp_buffer. */
+  char tmp_buffer[kilobytes(1)] = {0};
+  strncpy(tmp_buffer, buff->data, min(buff->size, kilobytes(1)-1));
+
+  if ((comment_open_match = strstr(tmp_buffer, "/*")) != NULL) {
+    /* TODO(AARON): Handle nested comments. */
+    comment_close_match = strstr(tmp_buffer, "*/");
+    /* TODO(AARON): Raise a big fuss if comment_close_match is NULL. */
+
+    comment->data = buff->data + (comment_open_match - tmp_buffer);
+    comment->size = comment_close_match - comment_open_match + 2;
+    comment->max_size = comment->size;
+
+    return true;
+  }
+
+  return false;
+}
+
+bool get_first_keyword(const buffer_t *buff, buffer_t *keyword) {
+  static char *keywords[] = {
+    "auto", "break", "case", "char", "const", "continue", "default", "do", "double", "else", "enum", "extern",
+    "float", "for", "goto", "if", "int", "long", "register", "return", "short", "signed", "sizeof", "static",
+    "struct", "switch", "typedef", "union", "unsigned", "void", "volatile", "while"
+  };
+
+  char tmp_buffer[20] = {0}; /* NOTE(AARON): No keyword is even close to 20 characters long. */
+  strncpy(tmp_buffer, buff->data, min(buff->size, 19));
+
+  char *match;
+  for (int i=0; i < ARRAY_SIZE(keywords); ++i) {
+    if ((match = strstr(tmp_buffer, keywords[i])) != NULL) {
+      keyword->data = buff->data + (match - tmp_buffer);
+      keyword->size = strlen(keywords[i]);
+      keyword->max_size = keyword->size;
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool get_first_preprocessor_command(const buffer_t *buff, buffer_t *preprocessor) {
+  char *match_start;
+  char *match_end;
+
+  char tmp_buffer[kilobytes(1)] = {0};
+  strncpy(tmp_buffer, buff->data, min(buff->size, kilobytes(1)-1));
+
+  if ((match_start = strstr(tmp_buffer, "#")) != NULL) {
+    for (--match_start; match_start > tmp_buffer && is_whitespace(*match_start); --match_start);
+    /* Needs to be a newline followed by any amount of whitespace, then '#'. */
+    if (*match_start != '\n' && *match_start != '\0') return false;
+    ++match_start;
+
+    match_end = match_start;
+
+    while(1) {
+      if (match_end >= tmp_buffer + strlen(tmp_buffer)) return false;
+
+      if (*match_end == '\n' && *(match_end-1) != '\\') break;
+
+      ++match_end;
+    }
+
+    preprocessor->data = buff->data + (match_start - tmp_buffer);
+    preprocessor->size = match_end - match_start;
+    preprocessor->max_size = preprocessor->size;
+    return true;
   }
 }
 
-bool in_comment() {
-  return (CurrentState == StatusLineComment || CurrentState == StatusBlockComment);
+void inc_buffer(buffer_t *buff, unsigned int count) {
+  buff->data += count;
+  buff->size -= count;
+  buff->max_size -= count;
 }
 
 int main(int argc, char *argv[]) {
-  if (argc != 2 || argv[1] == "-h" || argv[1] == "--help") { usage(); }
+  if (argc != 2 || argv[1] == "-h" || argv[1] == "--help") usage();
 
-  FILE *InFile = fopen(argv[1], "r");
-  byte ByteBuffer[256] = {0};
-  word InputChar = 0;
-  word LastChar = 0;
-  int CurrentToken = TokenNone;
-  int BlockComment = 0; // Increment on entry, decrement on exit.
-  uint BufferTail, i; BufferTail = 0;
+  char memory[BUFFER_SIZE] = {0};
+  buffer_t buffer;
+  buffer_t_set(&buffer, memory, BUFFER_SIZE, 0);
 
-  while (1) {
-    LastChar = InputChar;
-    if (EOF == (InputChar = fgetc(InFile))) {
-      if (ferror(InFile)) {
-        perror("Error!");
-        fclose(InFile);
-        exit(1);
-      } else {
-        printf("Done reading file\n");
-        if (BufferTail > 0) {
-          ByteBuffer[BufferTail] = '\0';
-          BufferTail++;
-          printf("Last partial token: %s\n", ByteBuffer);
-        }
-        break;
-      }
+  FILE *to_lex = fopen(argv[1], "r"); /* argv[1] is the input file name. */
+
+  if (copy_file_to_buffer(to_lex, &buffer) != COPY_FILE_OK)
+    abort("Couldn't copy entire file to buffer");
+
+  char print_buffer[kilobytes(1)] = { 0 };
+  int pos = 0;
+
+  while(buffer.size > 0) {
+    buffer_t match;
+    if (get_first_keyword(&buffer, &match) && match.data == buffer.data) {
+      snprintf(print_buffer, match.size + strlen("<keyword>") + 1, "<keyword>%s", match.data);
+      puts(print_buffer);
+      inc_buffer(&buffer, match.size);
+      pos += match.size;
+    }
+    else if (get_first_character_literal(&buffer, &match) && match.data == buffer.data) {
+      snprintf(print_buffer, match.size + strlen("<character literal>") + 1, "<character literal>%s", match.data);
+      puts(print_buffer);
+      inc_buffer(&buffer, match.size);
+      pos += match.size;
+    }
+    else if (get_first_comment(&buffer, &match) && match.data == buffer.data) {
+      snprintf(print_buffer, match.size + strlen("<comment>") + 1, "<comment>%s", match.data);
+      puts(print_buffer);
+      inc_buffer(&buffer, match.size);
+      pos += match.size;
+    }
+    else if (get_first_string_literal(&buffer, &match) && match.data == buffer.data) {
+      snprintf(print_buffer, match.size + strlen("<string literal>") + 1, "<string literal>%s", match.data);
+      puts(print_buffer);
+      inc_buffer(&buffer, match.size);
+      pos += match.size;
+    }
+    else if (get_first_preprocessor_command(&buffer, &match) && match.data == buffer.data) {
+      snprintf(print_buffer, match.size + strlen("<preprocessor command>") + 1, "<preprocessor command>%s", match.data);
+      puts(print_buffer);
+      inc_buffer(&buffer, match.size);
+      pos += match.size;
+    }
+    else if (is_symbol(buffer.data[0])) {
+      snprintf(print_buffer, 2 + strlen("<symbol>"), "<symbol>%c", buffer.data[0]);
+      puts(print_buffer);
+      inc_buffer(&buffer, 1);
+      pos += 1;
     }
     else {
-
-      if (InputChar == '\'' && CurrentState != StatusCharacterConstant && !in_comment() && CurrentState != StatusStringLiteral) {
-        if (BufferTail != 0) {
-          ungetc(InputChar, InFile);
-          InputChar = ' ';
-        }
-        else {
-          CurrentState = StatusCharacterConstant;
-          continue;
-        }
-      }
-      else if (InputChar == '\'' && CurrentState == StatusCharacterConstant && LastChar != '\\') {
-        if (is_character_constant(ByteBuffer, BufferTail)) {
-          print_character(ByteBuffer, BufferTail);
-        }
-        else {
-          printf("<UnknownToken> %s\n", ByteBuffer);
-        }
-        flush_buffer(ByteBuffer, &BufferTail);
-        CurrentState = StatusNormal;
-        continue;
-      }
-
-      if ((InputChar == '"') && CurrentState != StatusStringLiteral && !in_comment() && CurrentState != StatusCharacterConstant) {
-        CurrentState = StatusStringLiteral;
-        continue;
-      }
-      else if ((InputChar == '"') && CurrentState == StatusStringLiteral && LastChar != '\\') {
-        CurrentState = StatusNormal;
-        if (is_string_literal(ByteBuffer, BufferTail)) {
-          printf("<%s> \"%s\"\n", TokenNames[TokenStringLiteral], ByteBuffer);
-          flush_buffer(ByteBuffer, &BufferTail);
-          continue;
-        }
-      }
-
-      if (InputChar == '\n' && CurrentState == StatusLineComment) { CurrentState = StatusNormal; }
-      if (InputChar == '/' && CurrentState != StatusLineComment) {
-        if (LastChar == '/' && CurrentState != StatusBlockComment) {
-          CurrentState = StatusLineComment;
-          InputChar = '\0';
-          continue;
-        }
-        else if (LastChar == '*') {
-          decrement_block_comment();
-          InputChar = '\0';
-          continue;
-        }
-        else if (CurrentState != StatusBlockComment) {
-          continue;
-        }
-      }
-
-      if (LastChar == '/' && CurrentState != StatusLineComment) {
-        if (InputChar == '*') {
-          increment_block_comment();
-          continue;
-        }
-        else if (CurrentState != StatusBlockComment) {
-          ungetc(InputChar, InFile);
-          InputChar = LastChar;
-          LastChar = '\0';
-        }
-      }
-
-      if ((is_symbol(InputChar) || is_whitespace(InputChar)) && !in_comment() && CurrentState != StatusStringLiteral && CurrentState != StatusCharacterConstant) {
-        if (is_keyword(ByteBuffer, BufferTail)) {
-          printf("<%s> %s\n", TokenNames[TokenKeyword], ByteBuffer);
-        }
-        else if (is_identifier(ByteBuffer, BufferTail)) {
-          printf("<%s> %s\n", TokenNames[TokenIdentifier], ByteBuffer);
-        }
-        else if (is_integer_constant(ByteBuffer, BufferTail)) {
-          printf("<%s> %s\n", TokenNames[TokenIntegerConstant], ByteBuffer);
-        }
-        else if (BufferTail > 0) {
-          printf("<UnknownToken> %s\n", ByteBuffer);
-        }
-
-        if (is_symbol(InputChar)) {
-          if (CurrentState == StatusWhitespace) { CurrentState = StatusNormal; }
-          printf("<%s> %c\n", TokenNames[TokenSymbol], InputChar);
-        }
-        else if (is_whitespace(InputChar)) {
-          if (InputChar == '\n' && CurrentState == StatusLineComment) {
-            CurrentState = StatusNormal;
-          }
-          if (CurrentState != StatusWhitespace) {
-            CurrentState = StatusWhitespace;
-          }
-        }
-
-        flush_buffer(ByteBuffer, &BufferTail);
-        if (InputChar == '/') { InputChar = '\0'; } // NOTE(AARON): To prevent '/' from being handled next go.
-      }
-      else if (InputChar == '\n' && CurrentState == StatusLineComment) {
-        CurrentState = StatusNormal;
-      }
-      else if ((is_letter(InputChar) || is_digit(InputChar)) && BufferTail < 255 && !in_comment()) {
-        if (CurrentState == StatusWhitespace) { CurrentState = StatusNormal; }
-        ByteBuffer[BufferTail] = (char)InputChar;
-        BufferTail = MIN(BufferTail + 1, 255);
-      }
-      else if (CurrentState == StatusStringLiteral || CurrentState == StatusCharacterConstant) {
-        ByteBuffer[BufferTail] = (char)InputChar;
-        BufferTail = MIN(BufferTail + 1, 255);
-        if ((InputChar == '\\' && LastChar == '\\') || (InputChar != '\\')) {
-          InputChar = '\0';
-        }
-      }
+      /* printf("No token found at character [%u]\n", pos); */
+      inc_buffer(&buffer, 1);
+      pos += 1;
     }
   }
 
-  fclose(InFile);
-}
-
-void flush_buffer(byte ByteBuffer[], uint *BufferSize) {
-  memset(ByteBuffer, '\0', *BufferSize);
-  *BufferSize = 0;
+  return 0;
 }
