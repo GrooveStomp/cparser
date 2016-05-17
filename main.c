@@ -238,10 +238,11 @@ GetKeyword(struct tokenizer *Tokenizer, struct token *Token)
                 {
                         Token->TextLength = strlen(Keywords[i]);
                         Token->Type = Token_Keyword;
+                        return(true);
                 }
         }
 
-        return(Token->Type == Token_Keyword);
+        return(false);
 }
 
 bool
