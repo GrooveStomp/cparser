@@ -20,7 +20,8 @@ typedef int bool;
 #define bytes(n) (n)
 #define kilobytes(n) (bytes(n) * 1000)
 
-enum token_type {
+enum token_type
+{
         Token_Unknown,
 
         Token_Asterisk,
@@ -49,10 +50,16 @@ enum token_type {
         Token_EndOfStream,
 };
 
-struct token {
+struct token
+{
         char *Text;
         size_t TextLength;
-        enum token_type TokenType;
+        enum token_type Type;
+};
+
+struct tokenizer
+{
+        char *At;
 };
 
 void
@@ -72,9 +79,37 @@ Usage()
 }
 
 bool
-IsWhitespace(const char character)
+IsEndOfLine(char C)
 {
-        return(character == ' ' || character == '\r' || character == '\n' || character == '\t');
+        return((C == '\n') ||
+               (C == '\r'));
+}
+
+bool
+IsWhitespace(char C)
+{
+        return((C == ' ') ||
+               (C == '\t') ||
+               (C == '\v') ||
+               (C == '\f') ||
+               IsEndOfLine(C));
+}
+
+static void
+EatAllWhitespace(struct tokenizer *Tokenizer)
+{
+        for(;;)
+        {
+                /* Eat all regular 'ol whitespace. */
+                if(IsWhitespace(Tokenizer->At[0]))
+                {
+                        ++Tokenizer->At;
+                }
+                else
+                {
+                        break;
+                }
+        }
 }
 
 bool
@@ -185,30 +220,28 @@ GetFirstComment(const struct buffer *buff, struct buffer *comment)
 }
 
 bool
-GetFirstKeyword(const struct buffer *buff, struct buffer *keyword)
+GetKeyword(struct tokenizer *Tokenizer, struct token *Token)
 {
-        static char *keywords[] = {
+        static char *Keywords[] = {
                 "auto", "break", "case", "char", "const", "continue", "default", "do", "double", "else", "enum", "extern",
                 "float", "for", "goto", "if", "int", "long", "register", "return", "short", "signed", "sizeof", "static",
                 "struct", "switch", "typedef", "union", "unsigned", "void", "volatile", "while"
         };
 
-        char tmp_buffer[20] = {0}; /* NOTE(AARON): No keyword is even close to 20 characters long. */
-        strncpy(tmp_buffer, buff->Data, min(buff->Length, 19));
+        Token->Text = Tokenizer->At;
+        Token->TextLength = 0;
+        Token->Type = Token_Unknown;
 
-        char *match;
-        for(int i=0; i < ARRAY_SIZE(keywords); ++i)
+        for(int i = 0; i < ARRAY_SIZE(Keywords); ++i)
         {
-                if((match = strstr(tmp_buffer, keywords[i])) != NULL)
+                if(strstr(Tokenizer->At, Keywords[i]) == Tokenizer->At)
                 {
-                        keyword->Data = buff->Data + (match - tmp_buffer);
-                        keyword->Length = strlen(keywords[i]);
-                        keyword->Capacity = keyword->Length;
-                        return(true);
+                        Token->TextLength = strlen(Keywords[i]);
+                        Token->Type = Token_Keyword;
                 }
         }
 
-        return(false);
+        return(Token->Type == Token_Keyword);
 }
 
 bool
@@ -253,6 +286,64 @@ IncrementBuffer(struct buffer *buff, unsigned int count)
         buff->Capacity -= count;
 }
 
+struct token
+GetToken(struct tokenizer *Tokenizer)
+{
+        EatAllWhitespace(Tokenizer);
+
+        struct token Token;
+        struct buffer match;
+        if(GetKeyword(Tokenizer, &Token))
+        {
+                /* snprintf(print_buffer, match.Length + strlen("<keyword>") + 1, "<keyword>%s", match.Data); */
+                /* puts(print_buffer); */
+                /* IncrementBuffer(&FileContents, match.Length); */
+                /* pos += match.Length; */
+        }
+        /* else if(GetFirstCharacterLiteral(&FileContents, &match) && match.Data == FileContents.Data) */
+        /*         { */
+        /*                 snprintf(print_buffer, match.Length + strlen("<character literal>") + 1, "<character literal>%s", match.Data); */
+        /*                 puts(print_buffer); */
+        /*                 IncrementBuffer(&FileContents, match.Length); */
+        /*                 pos += match.Length; */
+        /*         } */
+        /* else if(GetFirstComment(&FileContents, &match) && match.Data == FileContents.Data) */
+        /*         { */
+        /*                 snprintf(print_buffer, match.Length + strlen("<comment>") + 1, "<comment>%s", match.Data); */
+        /*                 puts(print_buffer); */
+        /*                 IncrementBuffer(&FileContents, match.Length); */
+        /*                 pos += match.Length; */
+        /*         } */
+        /* else if(GetFirstStringLiteral(&FileContents, &match) && match.Data == FileContents.Data) */
+        /*         { */
+        /*                 snprintf(print_buffer, match.Length + strlen("<string literal>") + 1, "<string literal>%s", match.Data); */
+        /*                 puts(print_buffer); */
+        /*                 IncrementBuffer(&FileContents, match.Length); */
+        /*                 pos += match.Length; */
+        /*         } */
+        /* else if(GetFirstPreprocessorCommand(&FileContents, &match) && match.Data == FileContents.Data) */
+        /*         { */
+        /*                 snprintf(print_buffer, match.Length + strlen("<preprocessor command>") + 1, "<preprocessor command>%s", match.Data); */
+        /*                 puts(print_buffer); */
+        /*                 IncrementBuffer(&FileContents, match.Length); */
+        /*                 pos += match.Length; */
+        /*         } */
+        /* else if(IsSymbol(FileContents.Data[0])) */
+        /*         { */
+        /*                 snprintf(print_buffer, 2 + strlen("<symbol>"), "<symbol>%c", FileContents.Data[0]); */
+        /*                 puts(print_buffer); */
+        /*                 IncrementBuffer(&FileContents, 1); */
+        /*                 pos += 1; */
+        /*         } */
+        /* else */
+        /*         { */
+        /*                 /\* printf("No token found at character [%u]\n", pos); *\/ */
+        /*                 IncrementBuffer(&FileContents, 1); */
+        /*                 pos += 1; */
+        /*         } */
+        return(Token);
+}
+
 /* argv[1] is the input file name. */
 int
 main(int argc, char *argv[])
@@ -260,10 +351,12 @@ main(int argc, char *argv[])
         if(argc != 2 || strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) Usage();
 
         size_t AllocSize = FileSize(argv[1]);
-        struct buffer File;
-        BufferSet(&File, (char *)alloca(AllocSize), 0, AllocSize);
+        struct buffer FileContents;
 
-        if(COPY_FILE_OK != CopyFileIntoBuffer(argv[1], &File))
+        /* Allocate space on the stack. */
+        BufferSet(&FileContents, (char *)alloca(AllocSize), 0, AllocSize);
+
+        if(COPY_FILE_OK != CopyFileIntoBuffer(argv[1], &FileContents))
         {
                 AbortWithMessage("Couldn't copy entire file to buffer");
         }
@@ -271,56 +364,17 @@ main(int argc, char *argv[])
         char print_buffer[kilobytes(1)] = { 0 };
         int pos = 0;
 
-        while(File.Length > 0)
+        struct tokenizer Tokenizer;
+        Tokenizer.At = FileContents.Data;
+
+        bool Parsing = true;
+        while(Parsing)
         {
-                struct buffer match;
-                if(GetFirstKeyword(&File, &match) && match.Data == File.Data)
+                struct token Token = GetToken(&Tokenizer);
+                switch(Token.Type)
                 {
-                        snprintf(print_buffer, match.Length + strlen("<keyword>") + 1, "<keyword>%s", match.Data);
-                        puts(print_buffer);
-                        IncrementBuffer(&File, match.Length);
-                        pos += match.Length;
-                }
-                else if(GetFirstCharacterLiteral(&File, &match) && match.Data == File.Data)
-                {
-                        snprintf(print_buffer, match.Length + strlen("<character literal>") + 1, "<character literal>%s", match.Data);
-                        puts(print_buffer);
-                        IncrementBuffer(&File, match.Length);
-                        pos += match.Length;
-                }
-                else if(GetFirstComment(&File, &match) && match.Data == File.Data)
-                {
-                        snprintf(print_buffer, match.Length + strlen("<comment>") + 1, "<comment>%s", match.Data);
-                        puts(print_buffer);
-                        IncrementBuffer(&File, match.Length);
-                        pos += match.Length;
-                }
-                else if(GetFirstStringLiteral(&File, &match) && match.Data == File.Data)
-                {
-                        snprintf(print_buffer, match.Length + strlen("<string literal>") + 1, "<string literal>%s", match.Data);
-                        puts(print_buffer);
-                        IncrementBuffer(&File, match.Length);
-                        pos += match.Length;
-                }
-                else if(GetFirstPreprocessorCommand(&File, &match) && match.Data == File.Data)
-                {
-                        snprintf(print_buffer, match.Length + strlen("<preprocessor command>") + 1, "<preprocessor command>%s", match.Data);
-                        puts(print_buffer);
-                        IncrementBuffer(&File, match.Length);
-                        pos += match.Length;
-                }
-                else if(IsSymbol(File.Data[0]))
-                {
-                        snprintf(print_buffer, 2 + strlen("<symbol>"), "<symbol>%c", File.Data[0]);
-                        puts(print_buffer);
-                        IncrementBuffer(&File, 1);
-                        pos += 1;
-                }
-                else
-                {
-                        /* printf("No token found at character [%u]\n", pos); */
-                        IncrementBuffer(&File, 1);
-                        pos += 1;
+                        case Token_EndOfStream: { Parsing = false; } break;
+                        default: { } break;
                 }
         }
 
