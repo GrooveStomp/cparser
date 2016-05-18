@@ -26,12 +26,12 @@ enum token_type
 
         Token_Asterisk,
         Token_Ampersand,
-        Token_LeftParen,
-        Token_RightParen,
-        Token_LeftBracket,
-        Token_RightBracket,
-        Token_LeftBrace,
-        Token_RightBrace,
+        Token_OpenParen,
+        Token_CloseParen,
+        Token_OpenBracket,
+        Token_CloseBracket,
+        Token_OpenBrace,
+        Token_CloseBrace,
         Token_Colon,
         Token_SemiColon,
         Token_Comma,            /*  , */
@@ -46,6 +46,8 @@ enum token_type
         Token_String,
         Token_Identifier,
         Token_Keyword,
+        Token_PreprocessorCommand,
+        Token_Comment,
 
         Token_EndOfStream,
 };
@@ -59,6 +61,7 @@ struct token
 
 struct tokenizer
 {
+        char *Beginning;
         char *At;
 };
 
@@ -98,7 +101,7 @@ IsWhitespace(char C)
 static void
 EatAllWhitespace(struct tokenizer *Tokenizer)
 {
-        for(;;)
+        while(true)
         {
                 /* Eat all regular 'ol whitespace. */
                 if(IsWhitespace(Tokenizer->At[0]))
@@ -113,46 +116,21 @@ EatAllWhitespace(struct tokenizer *Tokenizer)
 }
 
 bool
-IsSymbol(const char character)
+GetCharacter(struct tokenizer *Tokenizer, struct token *Token)
 {
-        static char symbols[] = {
-                '#', '{', '}', '[', ']', ',', ';', '-', '+', '=', '*', '^', '&', '%', '$', '?', '<', '>', '(', ')', '!',
-                '/', '|', '~', '.', '\'', '"'
-        };
+        if(Tokenizer->At[0] != '\'') return(false);
 
-        for(int i=0; i < ARRAY_SIZE(symbols); ++i)
-        {
-                if(character == symbols[i]) return(true);
-        }
-        return(false);
-}
+        char *Close = Tokenizer->At + 1;
+        if(*Close != '\'') Close += 1;
+        if(*Close != '\'') return(false);
+        if(*Close == '\'' && *(Close-1) == '\\') Close += 1;
+        if(*Close != '\'') return(false);
 
-bool
-GetFirstCharacterLiteral(const struct buffer *buff, struct buffer *character)
-{
-        char *string_open_match;
-        char *string_close_match;
-
-        /* TODO(AARON): Assuming entirety of string fits within both buffer and tmp_buffer. */
-        char tmp_buffer[5] = {0};
-        strncpy(tmp_buffer, buff->Data, min(buff->Length, 4));
-
-        char *match;
-        if((match = strstr(tmp_buffer, "'")) != NULL)
-        {
-                char *close = match + 2;
-                if (*close != '\'') close += 1;
-                if(*close != '\'') return(false);
-                if(*close == '\'' && *(close-1) == '\\') close += 1;
-                if(*close != '\'') return(false);
-
-                character->Data = buff->Data + (match - tmp_buffer);
-                character->Length = close - match + 1;
-                character->Capacity = character->Length;
-                return(true);
-        }
-
-        return(false);
+        Token->Text = Tokenizer->At;
+        Token->TextLength = Close - Tokenizer->At + 1;
+        Token->Type = Token_Character;
+        Tokenizer->At += Token->TextLength;
+        return(true);
 }
 
 bool
@@ -194,29 +172,25 @@ GetFirstStringLiteral(const struct buffer *buff, struct buffer *string)
 }
 
 bool
-GetFirstComment(const struct buffer *buff, struct buffer *comment)
+GetComment(struct tokenizer *Tokenizer, struct token *Token)
 {
-        char *comment_open_match;
-        char *comment_close_match;
+        if(Tokenizer->At[0] != '/' || Tokenizer->At[1] != '*') return(false);
 
-        /* TODO(AARON): Assuming entirety of comment fits within both buffer and tmp_buffer. */
-        char tmp_buffer[kilobytes(1)] = {0};
-        strncpy(tmp_buffer, buff->Data, min(buff->Length, kilobytes(1)-1));
+        char *Text = Tokenizer->At;
 
-        if((comment_open_match = strstr(tmp_buffer, "/*")) != NULL)
+        while(true)
         {
-                /* TODO(AARON): Handle nested comments. */
-                comment_close_match = strstr(tmp_buffer, "*/");
-                /* TODO(AARON): Raise a big fuss if comment_close_match is NULL. */
-
-                comment->Data = buff->Data + (comment_open_match - tmp_buffer);
-                comment->Length = comment_close_match - comment_open_match + 2;
-                comment->Capacity = comment->Length;
-
-                return(true);
+                if(Tokenizer->At[0] == '\0') return(false);
+                if(Tokenizer->At[0] == '*' && Tokenizer->At[1] == '/') break;
+                ++Tokenizer->At;
         }
 
-        return(false);
+        Tokenizer->At += 2; /* Swallow last two characters. */
+
+        Token->Text = Text;
+        Token->TextLength = Tokenizer->At - Token->Text;
+        Token->Type = Token_Comment;
+        return(true);
 }
 
 bool
@@ -238,6 +212,7 @@ GetKeyword(struct tokenizer *Tokenizer, struct token *Token)
                 {
                         Token->TextLength = strlen(Keywords[i]);
                         Token->Type = Token_Keyword;
+                        Tokenizer->At += Token->TextLength;
                         return(true);
                 }
         }
@@ -246,45 +221,28 @@ GetKeyword(struct tokenizer *Tokenizer, struct token *Token)
 }
 
 bool
-GetFirstPreprocessorCommand(const struct buffer *buff, struct buffer *preprocessor)
+GetPreprocessorCommand(struct tokenizer *Tokenizer, struct token *Token)
 {
-        char *match_start;
-        char *match_end;
+        if(Tokenizer->At[0] != '#') return(false);
 
-        char tmp_buffer[kilobytes(1)] = {0};
-        strncpy(tmp_buffer, buff->Data, min(buff->Length, kilobytes(1)-1));
+        char *Text, *Marker;
+        Text = Marker = Tokenizer->At++;
 
-        if((match_start = strstr(tmp_buffer, "#")) != NULL)
+        /* Preprocessor commands must start a line on their own. */
+        for(--Marker; Marker > Tokenizer->Beginning && IsWhitespace(*Marker); --Marker);
+        if(*(++Marker) != '\n') return(false);
+
+        while(true)
         {
-                for(--match_start; match_start > tmp_buffer && IsWhitespace(*match_start); --match_start);
-                /* Needs to be a newline followed by any amount of whitespace, then '#'. */
-                if(*match_start != '\n' && *match_start != '\0') return(false);
-                ++match_start;
-
-                match_end = match_start;
-
-                while(1)
-                {
-                        if(match_end >= tmp_buffer + strlen(tmp_buffer)) return(false);
-
-                        if(*match_end == '\n' && *(match_end-1) != '\\') break;
-
-                        ++match_end;
-                }
-
-                preprocessor->Data = buff->Data + (match_start - tmp_buffer);
-                preprocessor->Length = match_end - match_start;
-                preprocessor->Capacity = preprocessor->Length;
-                return(true);
+                if(Tokenizer->At[0] == '\n' && *(Tokenizer->At - 1) != '\\') break;
+                if(Tokenizer->At[0] == '\0') break;
+                ++Tokenizer->At;
         }
-}
 
-void
-IncrementBuffer(struct buffer *buff, unsigned int count)
-{
-        buff->Data += count;
-        buff->Length -= count;
-        buff->Capacity -= count;
+        Token->Text = Text;
+        Token->TextLength = Tokenizer->At - Token->Text;
+        Token->Type = Token_PreprocessorCommand;
+        return(true);
 }
 
 struct token
@@ -303,7 +261,22 @@ GetToken(struct tokenizer *Tokenizer)
 
         switch(C)
         {
-                case '\0': { Token.Type = Token_EndOfStream; } break;
+                /*
+                  NOTE(AARON): Still need to check for these symbols!
+                  '#', ',', '-', '+', '=', '^', '&', '%', '$', '?', '<', '>',
+                  '!', '/', '|', '~', '.', '\'', '"'
+                */
+                case '\0':{ Token.Type = Token_EndOfStream; } break;
+                case '(': { Token.Type = Token_OpenParen; } break;
+                case ')': { Token.Type = Token_CloseParen; } break;
+                case ':': { Token.Type = Token_Colon; } break;
+                case ';': { Token.Type = Token_SemiColon; } break;
+                case '*': { Token.Type = Token_Asterisk; } break;
+                case '[': { Token.Type = Token_OpenBracket; } break;
+                case ']': { Token.Type = Token_CloseBracket; } break;
+                case '{': { Token.Type = Token_OpenBrace; } break;
+                case '}': { Token.Type = Token_CloseBrace; } break;
+
                 default: {
                         /*
                           Put the Tokenizer back to the start of the current
@@ -312,10 +285,10 @@ GetToken(struct tokenizer *Tokenizer)
                         */
                         --Tokenizer->At;
 
-                        if(GetKeyword(Tokenizer, &Token))
-                        {
-                                Tokenizer->At += Token.TextLength;
-                        }
+                        if(GetKeyword(Tokenizer, &Token)) {}
+                        else if(GetCharacter(Tokenizer, &Token)) {}
+                        else if(GetPreprocessorCommand(Tokenizer, &Token)) {}
+                        else if(GetComment(Tokenizer, &Token)) {}
                         else
                         {
                                 /*
@@ -328,47 +301,7 @@ GetToken(struct tokenizer *Tokenizer)
                 } break;
         }
 
-        /* else if(GetFirstCharacterLiteral(&FileContents, &match) && match.Data == FileContents.Data) */
-        /*         { */
-        /*                 snprintf(print_buffer, match.Length + strlen("<character literal>") + 1, "<character literal>%s", match.Data); */
-        /*                 puts(print_buffer); */
-        /*                 IncrementBuffer(&FileContents, match.Length); */
-        /*                 pos += match.Length; */
-        /*         } */
-        /* else if(GetFirstComment(&FileContents, &match) && match.Data == FileContents.Data) */
-        /*         { */
-        /*                 snprintf(print_buffer, match.Length + strlen("<comment>") + 1, "<comment>%s", match.Data); */
-        /*                 puts(print_buffer); */
-        /*                 IncrementBuffer(&FileContents, match.Length); */
-        /*                 pos += match.Length; */
-        /*         } */
-        /* else if(GetFirstStringLiteral(&FileContents, &match) && match.Data == FileContents.Data) */
-        /*         { */
-        /*                 snprintf(print_buffer, match.Length + strlen("<string literal>") + 1, "<string literal>%s", match.Data); */
-        /*                 puts(print_buffer); */
-        /*                 IncrementBuffer(&FileContents, match.Length); */
-        /*                 pos += match.Length; */
-        /*         } */
-        /* else if(GetFirstPreprocessorCommand(&FileContents, &match) && match.Data == FileContents.Data) */
-        /*         { */
-        /*                 snprintf(print_buffer, match.Length + strlen("<preprocessor command>") + 1, "<preprocessor command>%s", match.Data); */
-        /*                 puts(print_buffer); */
-        /*                 IncrementBuffer(&FileContents, match.Length); */
-        /*                 pos += match.Length; */
-        /*         } */
-        /* else if(IsSymbol(FileContents.Data[0])) */
-        /*         { */
-        /*                 snprintf(print_buffer, 2 + strlen("<symbol>"), "<symbol>%c", FileContents.Data[0]); */
-        /*                 puts(print_buffer); */
-        /*                 IncrementBuffer(&FileContents, 1); */
-        /*                 pos += 1; */
-        /*         } */
-        /* else */
-        /*         { */
-        /*                 /\* printf("No token found at character [%u]\n", pos); *\/ */
-        /*                 IncrementBuffer(&FileContents, 1); */
-        /*                 pos += 1; */
-        /*         } */
+        /* else if(GetFirstString(&FileContents, &match) && match.Data == FileContents.Data) */
         return(Token);
 }
 
@@ -393,6 +326,7 @@ main(int argc, char *argv[])
         int pos = 0;
 
         struct tokenizer Tokenizer;
+        Tokenizer.Beginning = FileContents.Data;
         Tokenizer.At = FileContents.Data;
 
         bool Parsing = true;
@@ -401,16 +335,39 @@ main(int argc, char *argv[])
                 struct token Token = GetToken(&Tokenizer);
                 switch(Token.Type)
                 {
-                        case Token_EndOfStream: {
-                                Parsing = false;
-                        } break;
+                        case Token_EndOfStream:         { Parsing = false; } break;
 
-                        case Token_Keyword: {
-                                printf("Keyword: %.*s\n", Token.TextLength, Token.Text);
-                        } break;
+                        case Token_Keyword:             { printf("Keyword: "); } break;
+                        case Token_Character:           { printf("Character: "); } break;
+                        case Token_PreprocessorCommand: { printf("Preprocessor: "); } break;
+                        case Token_Comment:             { printf("Comment: "); } break;
 
-                        default: {
-                        } break;
+                        case Token_Asterisk:
+                        case Token_Ampersand:
+                        case Token_OpenParen:
+                        case Token_CloseParen:
+                        case Token_OpenBracket:
+                        case Token_CloseBracket:
+                        case Token_OpenBrace:
+                        case Token_CloseBrace:
+                        case Token_Colon:
+                        case Token_SemiColon:
+                        case Token_Comma:
+                        case Token_Cross:
+                        case Token_Dash:
+                        case Token_Equal:
+                        case Token_Slash:
+                        case Token_Dot:
+                        case Token_Arrow:               { printf("Symbol: "); } break;
+
+                        case Token_Unknown:             {} break;
+
+                        default:                        {} break;
+                }
+
+                if (Token.Type != Token_Unknown)
+                {
+                        printf("%.*s\n", (int)Token.TextLength, Token.Text);
                 }
         }
 
