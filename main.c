@@ -291,16 +291,43 @@ struct token
 GetToken(struct tokenizer *Tokenizer)
 {
         EatAllWhitespace(Tokenizer);
+        struct buffer match; /* TODO(AARON): Legacy - should be removed when unused */
 
         struct token Token;
-        struct buffer match;
-        if(GetKeyword(Tokenizer, &Token))
+        Token.Text = Tokenizer->At;
+        Token.TextLength = 1;
+        Token.Type = Token_Unknown;
+
+        char C = Tokenizer->At[0];
+        ++Tokenizer->At;
+
+        switch(C)
         {
-                /* snprintf(print_buffer, match.Length + strlen("<keyword>") + 1, "<keyword>%s", match.Data); */
-                /* puts(print_buffer); */
-                /* IncrementBuffer(&FileContents, match.Length); */
-                /* pos += match.Length; */
+                case '\0': { Token.Type = Token_EndOfStream; } break;
+                default: {
+                        /*
+                          Put the Tokenizer back to the start of the current
+                          phrase. The following functions assume a "clean
+                          slate" for operation.
+                        */
+                        --Tokenizer->At;
+
+                        if(GetKeyword(Tokenizer, &Token))
+                        {
+                                Tokenizer->At += Token.TextLength;
+                        }
+                        else
+                        {
+                                /*
+                                  Put the Tokenizer forward again to consume
+                                  the current input.  We don't know what the
+                                  input was, but we need to move on.
+                                */
+                                ++Tokenizer->At;
+                        }
+                } break;
         }
+
         /* else if(GetFirstCharacterLiteral(&FileContents, &match) && match.Data == FileContents.Data) */
         /*         { */
         /*                 snprintf(print_buffer, match.Length + strlen("<character literal>") + 1, "<character literal>%s", match.Data); */
@@ -374,8 +401,16 @@ main(int argc, char *argv[])
                 struct token Token = GetToken(&Tokenizer);
                 switch(Token.Type)
                 {
-                        case Token_EndOfStream: { Parsing = false; } break;
-                        default: { } break;
+                        case Token_EndOfStream: {
+                                Parsing = false;
+                        } break;
+
+                        case Token_Keyword: {
+                                printf("Keyword: %.*s\n", Token.TextLength, Token.Text);
+                        } break;
+
+                        default: {
+                        } break;
                 }
         }
 

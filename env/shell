@@ -21,6 +21,6 @@ function run() {
 function debug() {
     local debugger=`which kdbg`
     if [[ -f env/build/run ]] && [[ ! -z "$debugger" ]]; then
-        $($debugger env/build/run)
+        $($debugger env/build/run -a main.c)
     fi
 }
