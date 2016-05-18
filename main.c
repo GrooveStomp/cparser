@@ -48,6 +48,7 @@ enum token_type
         Token_Keyword,
         Token_PreprocessorCommand,
         Token_Comment,
+	Token_Number,
 
         Token_EndOfStream,
 };
@@ -134,41 +135,44 @@ GetCharacter(struct tokenizer *Tokenizer, struct token *Token)
 }
 
 bool
-GetFirstStringLiteral(const struct buffer *buff, struct buffer *string)
+GetString(struct tokenizer *Tokenizer, struct token *Token)
 {
-        char *string_open_match;
-        char *string_close_match;
+	char *Text = Tokenizer->At;
+	if(Tokenizer->At[0] != '"') return(false);
 
-        /* TODO(AARON): Assuming entirety of string fits within both buffer and tmp_buffer. */
-        char tmp_buffer[kilobytes(1)] = {0};
-        strncpy(tmp_buffer, buff->Data, min(buff->Length, kilobytes(1)-1));
+	while(true)
+	{
+                ++Tokenizer->At;
+                if(Tokenizer->At[0] == '\0') return(false);
+		if(Tokenizer->At[0] == '"' && *(Tokenizer->At - 1) != '\\') break;
+	}
+	++Tokenizer->At; /* Swallow the last double quote. */
 
-        if((string_open_match = strstr(tmp_buffer, "\"")) != NULL)
-        {
-                /* TODO(AARON): Handle nested strings. */
-                string_close_match = strstr(tmp_buffer + 1, "\"");
-                char *close_tmp_buffer;
-                while(*(string_close_match - 1) == '\\' || strncmp(string_close_match - 1, "'\"'", 4) == 0)
-                {
-                        close_tmp_buffer = string_close_match + 1;
+	Token->Text = Text;
+	Token->TextLength = Tokenizer->At - Token->Text;
+	Token->Type = Token_String;
 
-                        if(close_tmp_buffer >= tmp_buffer + min(buff->Length, kilobytes(1)-1))
-                        {
-                                AbortWithMessage("Couldn't terminate string properly");
-                        }
+        return(true);
+}
 
-                        string_close_match = strstr(close_tmp_buffer, "\"");
-                }
-                /* TODO(AARON): Raise a big fuss if string_close_match is NULL. */
+bool
+GetNumber(struct tokenizer *Tokenizer, struct token *Token)
+{
+  if(Tokenizer->At[0] < '0' || Tokenizer->At[0] > '9') return(false);
 
-                string->Data = buff->Data + (string_open_match - tmp_buffer);
-                string->Length = string_close_match - string_open_match + 1;
-                string->Capacity = string->Length;
+  char *Text = Tokenizer->At;
 
-                return(true);
-        }
+  for(;
+      Tokenizer->At[0] < '0' ||
+	Tokenizer->At[0] > '9' ||
+	Tokenizer->At[0] == '\0';
+      ++Tokenizer->At);
 
-        return(false);
+  Token->Text = Text;
+  Token->TextLength = Tokenizer->At - Token->Text;
+  Token->Type = Token_Number;
+
+  return(true);
 }
 
 bool
@@ -197,9 +201,11 @@ bool
 GetKeyword(struct tokenizer *Tokenizer, struct token *Token)
 {
         static char *Keywords[] = {
-                "auto", "break", "case", "char", "const", "continue", "default", "do", "double", "else", "enum", "extern",
-                "float", "for", "goto", "if", "int", "long", "register", "return", "short", "signed", "sizeof", "static",
-                "struct", "switch", "typedef", "union", "unsigned", "void", "volatile", "while"
+                "auto", "break", "case", "char", "const", "continue", "default",
+		"do", "double", "else", "enum", "extern", "float", "for",
+		"goto", "if", "int", "long", "register", "return", "short",
+		"signed", "sizeof", "static", "struct", "switch", "typedef",
+		"union", "unsigned", "void", "volatile", "while"
         };
 
         Token->Text = Tokenizer->At;
@@ -289,6 +295,9 @@ GetToken(struct tokenizer *Tokenizer)
                         else if(GetCharacter(Tokenizer, &Token)) {}
                         else if(GetPreprocessorCommand(Tokenizer, &Token)) {}
                         else if(GetComment(Tokenizer, &Token)) {}
+			else if(GetString(Tokenizer, &Token)) {}
+			else if(GetNumber(Tokenizer, &Token)) {}
+			/* GetIdentifier */
                         else
                         {
                                 /*
@@ -300,8 +309,7 @@ GetToken(struct tokenizer *Tokenizer)
                         }
                 } break;
         }
-
-        /* else if(GetFirstString(&FileContents, &match) && match.Data == FileContents.Data) */
+	
         return(Token);
 }
 
@@ -339,8 +347,10 @@ main(int argc, char *argv[])
 
                         case Token_Keyword:             { printf("Keyword: "); } break;
                         case Token_Character:           { printf("Character: "); } break;
+                        case Token_String:              { printf("String: "); } break;
                         case Token_PreprocessorCommand: { printf("Preprocessor: "); } break;
                         case Token_Comment:             { printf("Comment: "); } break;
+                        case Token_Number:              { printf("Number: "); } break;
 
                         case Token_Asterisk:
                         case Token_Ampersand:
