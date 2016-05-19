@@ -34,13 +34,18 @@ enum token_type
         Token_CloseBrace,
         Token_Colon,
         Token_SemiColon,
+        Token_PercentSign,
+        Token_QuestionMark,
+        Token_EqualSign,        /*  = */
+        Token_Carat,
         Token_Comma,            /*  , */
         Token_Cross,            /*  + */
         Token_Dash,             /*  - */
-        Token_Equal,            /*  = */
         Token_Slash,            /*  / */
         Token_Dot,              /*  . */
         Token_Arrow,            /* -> */
+        Token_Bang,
+        Token_Pipe,
 
         Token_Character,
         Token_String,
@@ -48,7 +53,7 @@ enum token_type
         Token_Keyword,
         Token_PreprocessorCommand,
         Token_Comment,
-	Token_Number,
+        Token_Number,
 
         Token_EndOfStream,
 };
@@ -99,6 +104,27 @@ IsWhitespace(char C)
                IsEndOfLine(C));
 }
 
+bool
+IsDigit(char C)
+{
+        bool Result = (C >= '0' && C <= '9');
+        return(Result);
+}
+
+bool
+IsAlphabetical(char C)
+{
+        bool Result = ((C >= 'a' && C <= 'z') || (C >= 'A' && C <= 'Z'));
+        return(Result);
+}
+
+bool
+IsIdentifierCharacter(char C)
+{
+        bool Result = (IsAlphabetical(C) || IsDigit(C) || C == '_');
+        return(Result);
+}
+
 static void
 EatAllWhitespace(struct tokenizer *Tokenizer)
 {
@@ -131,6 +157,7 @@ GetCharacter(struct tokenizer *Tokenizer, struct token *Token)
         Token->TextLength = Close - Tokenizer->At + 1;
         Token->Type = Token_Character;
         Tokenizer->At += Token->TextLength;
+
         return(true);
 }
 
@@ -158,21 +185,41 @@ GetString(struct tokenizer *Tokenizer, struct token *Token)
 bool
 GetNumber(struct tokenizer *Tokenizer, struct token *Token)
 {
-  if(Tokenizer->At[0] < '0' || Tokenizer->At[0] > '9') return(false);
+        if(!IsDigit(Tokenizer->At[0])) return(false);
 
-  char *Text = Tokenizer->At;
+        char *Text = Tokenizer->At;
 
-  for(;
-      Tokenizer->At[0] < '0' ||
-	Tokenizer->At[0] > '9' ||
-	Tokenizer->At[0] == '\0';
-      ++Tokenizer->At);
+        while(true)
+        {
+                if(!IsDigit(Tokenizer->At[0])) break;
+                ++Tokenizer->At;
+        }
 
-  Token->Text = Text;
-  Token->TextLength = Tokenizer->At - Token->Text;
-  Token->Type = Token_Number;
+        Token->Text = Text;
+        Token->TextLength = Tokenizer->At - Token->Text;
+        Token->Type = Token_Number;
 
-  return(true);
+        return(true);
+}
+
+bool
+GetIdentifier(struct tokenizer *Tokenizer, struct token *Token)
+{
+        if(!IsAlphabetical(Tokenizer->At[0])) return(false);
+
+        char *Text = Tokenizer->At;
+
+        while(true)
+        {
+                if(!IsIdentifierCharacter(Tokenizer->At[0])) break;
+                ++Tokenizer->At;
+        }
+
+        Token->Text = Text;
+        Token->TextLength = Tokenizer->At - Token->Text;
+        Token->Type = Token_Identifier;
+
+        return(true);
 }
 
 bool
@@ -255,7 +302,6 @@ struct token
 GetToken(struct tokenizer *Tokenizer)
 {
         EatAllWhitespace(Tokenizer);
-        struct buffer match; /* TODO(AARON): Legacy - should be removed when unused */
 
         struct token Token;
         Token.Text = Tokenizer->At;
@@ -265,12 +311,23 @@ GetToken(struct tokenizer *Tokenizer)
         char C = Tokenizer->At[0];
         ++Tokenizer->At;
 
+        if(false)
+        {
+                /*
+                  TODO(AARON):
+                  Check for these multi-character symbols:
+                  '->', '||', '&&', '>>', '<<'
+                 */
+        }
+
+        if(Token.Type != Token_Unknown) return(Token);
+
         switch(C)
         {
                 /*
-                  NOTE(AARON): Still need to check for these symbols!
-                  '#', ',', '-', '+', '=', '^', '&', '%', '$', '?', '<', '>',
-                  '!', '/', '|', '~', '.', '\'', '"'
+                  TODO(AARON):
+                  Check for these single-character symbols:
+                  '#', '$', '<', '>', '~', '.', '\'', '"'
                 */
                 case '\0':{ Token.Type = Token_EndOfStream; } break;
                 case '(': { Token.Type = Token_OpenParen; } break;
@@ -282,34 +339,47 @@ GetToken(struct tokenizer *Tokenizer)
                 case ']': { Token.Type = Token_CloseBracket; } break;
                 case '{': { Token.Type = Token_OpenBrace; } break;
                 case '}': { Token.Type = Token_CloseBrace; } break;
-
-                default: {
-                        /*
-                          Put the Tokenizer back to the start of the current
-                          phrase. The following functions assume a "clean
-                          slate" for operation.
-                        */
-                        --Tokenizer->At;
-
-                        if(GetKeyword(Tokenizer, &Token)) {}
-                        else if(GetCharacter(Tokenizer, &Token)) {}
-                        else if(GetPreprocessorCommand(Tokenizer, &Token)) {}
-                        else if(GetComment(Tokenizer, &Token)) {}
-			else if(GetString(Tokenizer, &Token)) {}
-			else if(GetNumber(Tokenizer, &Token)) {}
-			/* GetIdentifier */
-                        else
-                        {
-                                /*
-                                  Put the Tokenizer forward again to consume
-                                  the current input.  We don't know what the
-                                  input was, but we need to move on.
-                                */
-                                ++Tokenizer->At;
-                        }
-                } break;
+                case ',': { Token.Type = Token_Comma; } break;
+                case '-': { Token.Type = Token_Dash; } break;
+                case '+': { Token.Type = Token_Cross; } break;
+                case '=': { Token.Type = Token_EqualSign; } break;
+                case '^': { Token.Type = Token_Carat; } break;
+                case '&': { Token.Type = Token_Ampersand; } break;
+                case '%': { Token.Type = Token_PercentSign; } break;
+                case '?': { Token.Type = Token_QuestionMark; } break;
+                case '!': { Token.Type = Token_Bang; } break;
+                case '/': { Token.Type = Token_Slash; } break;
+                case '|': { Token.Type = Token_Pipe; } break;
         }
-	
+
+        if(Token.Type == Token_Unknown)
+        {
+                /*
+                  Put the Tokenizer back to the start of the current
+                  phrase. The following functions assume a "clean
+                  slate" for operation.
+                */
+                --Tokenizer->At;
+
+                GetKeyword(Tokenizer, &Token) ||
+                GetCharacter(Tokenizer, &Token) ||
+                GetPreprocessorCommand(Tokenizer, &Token) ||
+                GetComment(Tokenizer, &Token) ||
+                GetString(Tokenizer, &Token) ||
+                GetNumber(Tokenizer, &Token) ||
+                GetIdentifier(Tokenizer, &Token);
+        }
+
+        if(Token.Type == Token_Unknown)
+        {
+                /*
+                  Put the Tokenizer forward again to consume
+                  the current input.  We don't know what the
+                  input was, but we need to move on.
+                */
+                ++Tokenizer->At;
+        }
+
         return(Token);
 }
 
@@ -351,6 +421,7 @@ main(int argc, char *argv[])
                         case Token_PreprocessorCommand: { printf("Preprocessor: "); } break;
                         case Token_Comment:             { printf("Comment: "); } break;
                         case Token_Number:              { printf("Number: "); } break;
+                        case Token_Identifier:          { printf("Identifier: "); } break;
 
                         case Token_Asterisk:
                         case Token_Ampersand:
@@ -362,12 +433,17 @@ main(int argc, char *argv[])
                         case Token_CloseBrace:
                         case Token_Colon:
                         case Token_SemiColon:
+                        case Token_PercentSign:
+                        case Token_QuestionMark:
+                        case Token_EqualSign:
+                        case Token_Carat:
                         case Token_Comma:
                         case Token_Cross:
                         case Token_Dash:
-                        case Token_Equal:
                         case Token_Slash:
                         case Token_Dot:
+                        case Token_Bang:
+                        case Token_Pipe:
                         case Token_Arrow:               { printf("Symbol: "); } break;
 
                         case Token_Unknown:             {} break;
