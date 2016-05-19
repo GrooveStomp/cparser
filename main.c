@@ -46,6 +46,11 @@ enum token_type
         Token_Arrow,            /* -> */
         Token_Bang,
         Token_Pipe,
+        
+        Token_DoublePipe,
+        Token_DoubleAmpersand,
+        Token_DoubleLessThan,
+        Token_DoubleGreaterThan,
 
         Token_Character,
         Token_String,
@@ -130,7 +135,6 @@ EatAllWhitespace(struct tokenizer *Tokenizer)
 {
         while(true)
         {
-                /* Eat all regular 'ol whitespace. */
                 if(IsWhitespace(Tokenizer->At[0]))
                 {
                         ++Tokenizer->At;
@@ -164,20 +168,20 @@ GetCharacter(struct tokenizer *Tokenizer, struct token *Token)
 bool
 GetString(struct tokenizer *Tokenizer, struct token *Token)
 {
-	char *Text = Tokenizer->At;
-	if(Tokenizer->At[0] != '"') return(false);
+        char *Text = Tokenizer->At;
+        if(Tokenizer->At[0] != '"') return(false);
 
-	while(true)
-	{
+        while(true)
+        {
                 ++Tokenizer->At;
                 if(Tokenizer->At[0] == '\0') return(false);
-		if(Tokenizer->At[0] == '"' && *(Tokenizer->At - 1) != '\\') break;
-	}
-	++Tokenizer->At; /* Swallow the last double quote. */
+                if(Tokenizer->At[0] == '"' && *(Tokenizer->At - 1) != '\\') break;
+        }
+        ++Tokenizer->At; /* Swallow the last double quote. */
 
-	Token->Text = Text;
-	Token->TextLength = Tokenizer->At - Token->Text;
-	Token->Type = Token_String;
+        Token->Text = Text;
+        Token->TextLength = Tokenizer->At - Token->Text;
+        Token->Type = Token_String;
 
         return(true);
 }
@@ -249,10 +253,10 @@ GetKeyword(struct tokenizer *Tokenizer, struct token *Token)
 {
         static char *Keywords[] = {
                 "auto", "break", "case", "char", "const", "continue", "default",
-		"do", "double", "else", "enum", "extern", "float", "for",
-		"goto", "if", "int", "long", "register", "return", "short",
-		"signed", "sizeof", "static", "struct", "switch", "typedef",
-		"union", "unsigned", "void", "volatile", "while"
+                "do", "double", "else", "enum", "extern", "float", "for",
+                "goto", "if", "int", "long", "register", "return", "short",
+                "signed", "sizeof", "static", "struct", "switch", "typedef",
+                "union", "unsigned", "void", "volatile", "while"
         };
 
         Token->Text = Tokenizer->At;
@@ -298,6 +302,22 @@ GetPreprocessorCommand(struct tokenizer *Tokenizer, struct token *Token)
         return(true);
 }
 
+bool
+GetSymbol(struct tokenizer *Tokenizer, struct token *Token, char *Symbol, enum token_type Type)
+{
+        int Length = strlen(Symbol);
+        int Match = strncmp(Tokenizer->At, Symbol, Length);
+        if(Match != 0) return(false);
+
+        Token->Text = Tokenizer->At;
+        Token->TextLength = Length;
+        Token->Type = Type;
+
+        Tokenizer->At += Length;
+
+        return(true);
+}
+
 struct token
 GetToken(struct tokenizer *Tokenizer)
 {
@@ -305,30 +325,38 @@ GetToken(struct tokenizer *Tokenizer)
 
         struct token Token;
         Token.Text = Tokenizer->At;
-        Token.TextLength = 1;
+        Token.TextLength = 0;
         Token.Type = Token_Unknown;
 
+        {
+                /* TODO: It looks like these aren't getting set properly. */
+                /* >= <= */
+                GetSymbol(Tokenizer, &Token, "->", Token_Arrow) ||
+                GetSymbol(Tokenizer, &Token, "||", Token_DoublePipe) ||
+                GetSymbol(Tokenizer, &Token, "&&", Token_DoubleAmpersand) ||
+                GetSymbol(Tokenizer, &Token, "<<", Token_DoubleLessThan) ||
+                GetSymbol(Tokenizer, &Token, ">>", Token_DoubleGreaterThan);
+        }
+        if(Token.Type != Token_Unknown) return(Token);
+        
+        {
+                GetKeyword(Tokenizer, &Token) ||
+                GetCharacter(Tokenizer, &Token) ||
+                GetPreprocessorCommand(Tokenizer, &Token) ||
+                GetComment(Tokenizer, &Token) ||
+                GetString(Tokenizer, &Token) ||
+                GetNumber(Tokenizer, &Token) ||
+                GetIdentifier(Tokenizer, &Token);
+        }
+        if(Token.Type != Token_Unknown) return(Token);
+        
         char C = Tokenizer->At[0];
         ++Tokenizer->At;
-
-        if(false)
-        {
-                /*
-                  TODO(AARON):
-                  Check for these multi-character symbols:
-                  '->', '||', '&&', '>>', '<<'
-                 */
-        }
-
-        if(Token.Type != Token_Unknown) return(Token);
+        Token.TextLength = 1;
 
         switch(C)
         {
-                /*
-                  TODO(AARON):
-                  Check for these single-character symbols:
-                  '#', '$', '<', '>', '~', '.', '\'', '"'
-                */
+                /* TODO: '#', '$', '<', '>', '~', '.', '\'', '"' */
                 case '\0':{ Token.Type = Token_EndOfStream; } break;
                 case '(': { Token.Type = Token_OpenParen; } break;
                 case ')': { Token.Type = Token_CloseParen; } break;
@@ -350,34 +378,6 @@ GetToken(struct tokenizer *Tokenizer)
                 case '!': { Token.Type = Token_Bang; } break;
                 case '/': { Token.Type = Token_Slash; } break;
                 case '|': { Token.Type = Token_Pipe; } break;
-        }
-
-        if(Token.Type == Token_Unknown)
-        {
-                /*
-                  Put the Tokenizer back to the start of the current
-                  phrase. The following functions assume a "clean
-                  slate" for operation.
-                */
-                --Tokenizer->At;
-
-                GetKeyword(Tokenizer, &Token) ||
-                GetCharacter(Tokenizer, &Token) ||
-                GetPreprocessorCommand(Tokenizer, &Token) ||
-                GetComment(Tokenizer, &Token) ||
-                GetString(Tokenizer, &Token) ||
-                GetNumber(Tokenizer, &Token) ||
-                GetIdentifier(Tokenizer, &Token);
-        }
-
-        if(Token.Type == Token_Unknown)
-        {
-                /*
-                  Put the Tokenizer forward again to consume
-                  the current input.  We don't know what the
-                  input was, but we need to move on.
-                */
-                ++Tokenizer->At;
         }
 
         return(Token);
@@ -444,6 +444,10 @@ main(int argc, char *argv[])
                         case Token_Dot:
                         case Token_Bang:
                         case Token_Pipe:
+                        case Token_DoublePipe:
+                        case Token_DoubleAmpersand:
+                        case Token_DoubleLessThan:
+                        case Token_DoubleGreaterThan:
                         case Token_Arrow:               { printf("Symbol: "); } break;
 
                         case Token_Unknown:             {} break;

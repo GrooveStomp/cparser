@@ -4,3 +4,5 @@ a.out
 c-lexer/env/
 !env/shell
 env/build/run
+!env/.emacs
+env/.emacs~
