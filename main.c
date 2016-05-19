@@ -1,7 +1,9 @@
 /*
  * TODO(AARON):
- * - Parse data stream into tokens instead of buffers.
  * - Build a parse tree consisting of all tokens.
+ * - Integers (hex, octal, decimal, prefixes and suffixes)
+ * - Floating point numbers (decimal point, suffix, scientific notation)
+ * - Remove dependency on string.h
  */
 #include <stdio.h>
 #include <alloca.h>
@@ -43,15 +45,21 @@ enum token_type
 	Token_Dash,		/*  - */
 	Token_Slash,		/*  / */
 	Token_Dot,		/*  . */
-	Token_Arrow,		/* -> */
 	Token_Bang,
 	Token_Pipe,
-	
-	Token_DoublePipe,
-	Token_DoubleAmpersand,
-	Token_DoubleLessThan,
-	Token_DoubleGreaterThan,
+	Token_LessThan,
+	Token_GreaterThan,
+	Token_Tilde,
 
+	Token_NotEqual,
+	Token_GreaterThanEqual,
+	Token_LessThanEqual,
+	Token_LogicalOr,
+	Token_LogicalAnd,
+	Token_BitShiftLeft,
+	Token_BitShiftRight,
+	Token_Arrow,		/* -> */
+	
 	Token_Character,
 	Token_String,
 	Token_Identifier,
@@ -329,13 +337,14 @@ GetToken(struct tokenizer *Tokenizer)
 	Token.Type = Token_Unknown;
 
 	{
-		/* TODO: It looks like these aren't getting set properly. */
-		/* >= <= */
+		GetSymbol(Tokenizer, &Token, "!=", Token_NotEqual) ||
+		GetSymbol(Tokenizer, &Token, ">=", Token_GreaterThanEqual) ||
+		GetSymbol(Tokenizer, &Token, "<=", Token_LessThanEqual) ||
 		GetSymbol(Tokenizer, &Token, "->", Token_Arrow) ||
-		GetSymbol(Tokenizer, &Token, "||", Token_DoublePipe) ||
-		GetSymbol(Tokenizer, &Token, "&&", Token_DoubleAmpersand) ||
-		GetSymbol(Tokenizer, &Token, "<<", Token_DoubleLessThan) ||
-		GetSymbol(Tokenizer, &Token, ">>", Token_DoubleGreaterThan);
+		GetSymbol(Tokenizer, &Token, "||", Token_LogicalOr) ||
+		GetSymbol(Tokenizer, &Token, "&&", Token_LogicalAnd) ||
+		GetSymbol(Tokenizer, &Token, "<<", Token_BitShiftLeft) ||
+		GetSymbol(Tokenizer, &Token, ">>", Token_BitShiftRight);
 	}
 	if(Token.Type != Token_Unknown) return(Token);
 	
@@ -356,7 +365,6 @@ GetToken(struct tokenizer *Tokenizer)
 
 	switch(C)
 	{
-		/* TODO: '#', '$', '<', '>', '~', '.', '\'', '"' */
 		case '\0':{ Token.Type = Token_EndOfStream; } break;
 		case '(': { Token.Type = Token_OpenParen; } break;
 		case ')': { Token.Type = Token_CloseParen; } break;
@@ -378,6 +386,10 @@ GetToken(struct tokenizer *Tokenizer)
 		case '!': { Token.Type = Token_Bang; } break;
 		case '/': { Token.Type = Token_Slash; } break;
 		case '|': { Token.Type = Token_Pipe; } break;
+		case '<': { Token.Type = Token_LessThan; } break;
+		case '>': { Token.Type = Token_GreaterThan; } break;
+		case '~': { Token.Type = Token_Tilde; } break;
+		case '.': { Token.Type = Token_Dot; } break;
 	}
 
 	return(Token);
@@ -444,10 +456,17 @@ main(int argc, char *argv[])
 			case Token_Dot:
 			case Token_Bang:
 			case Token_Pipe:
-			case Token_DoublePipe:
-			case Token_DoubleAmpersand:
-			case Token_DoubleLessThan:
-			case Token_DoubleGreaterThan:
+			case Token_LessThan:
+			case Token_GreaterThan:
+			case Token_Tilde:			
+				
+			case Token_NotEqual:
+			case Token_GreaterThanEqual:
+			case Token_LessThanEqual:
+			case Token_LogicalOr:
+			case Token_LogicalAnd:
+			case Token_BitShiftLeft:
+			case Token_BitShiftRight:
 			case Token_Arrow:		{ printf("Symbol: "); } break;
 
 			case Token_Unknown:		{} break;
@@ -461,5 +480,5 @@ main(int argc, char *argv[])
 		}
 	}
 
-	return(0);
+	return(EXIT_SUCCESS);
 }

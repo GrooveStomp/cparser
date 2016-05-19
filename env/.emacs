@@ -1,8 +1,14 @@
+(setq undo-limit 20000000)
+(setq undo-strong-limit 40000000)
 (setq-default c-basic-offset 8
 	      tab-width 8
 	      indent-tabs-mode t)
 
 (setq c-default-style "linux")
+(add-hook 'c-mode-common-hook
+	  (lambda ()
+	    ;; Make `case' statements in `switch' blocks indent normally.
+	    (c-set-offset 'case-label '+)))
 
 (defun open-next-line (arg)
   "Move to the next line and open a new line there. See also `newline-and-indent'."
