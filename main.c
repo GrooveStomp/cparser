@@ -1,7 +1,7 @@
 /*
  * TODO(AARON):
  * - Build a parse tree consisting of all tokens.
- * - Integers (hex, octal, decimal, prefixes and suffixes)
+ * - Octal support for integers
  * - Floating point numbers (decimal point, suffix, scientific notation)
  * - Remove dependency on string.h
  */
@@ -14,13 +14,14 @@
 
 typedef int bool;
 
+#define PARSE_NODE_DEFAULT_CAPACITY 1000
 #define ARRAY_SIZE(Array) (sizeof((Array)) / sizeof((Array)[0]))
 #define false 0
 #define true !false
 
-#define min(a,b) ((a) < (b) ? (a) : (b))
-#define bytes(n) (n)
-#define kilobytes(n) (bytes(n) * 1000)
+#define Min(a,b) ((a) < (b) ? (a) : (b))
+#define Bytes(n) (n)
+#define Kilobytes(n) (Bytes(n) * 1000)
 
 enum token_type
 {
@@ -66,16 +67,80 @@ enum token_type
 	Token_Keyword,
 	Token_PreprocessorCommand,
 	Token_Comment,
-	Token_Number,
+	Token_Integer,
+	Token_PrecisionNumber,
 
 	Token_EndOfStream,
 };
+
+char *
+TokenName(enum token_type Type)
+{
+	switch(Type)
+	{
+		case Token_Unknown: { return "Unknown"; } break;
+
+		case Token_Asterisk: { return "Asterisk"; } break;
+		case Token_Ampersand: { return "Ampersand"; } break;
+		case Token_OpenParen: { return "OpenParen"; } break;
+		case Token_CloseParen: { return "CloseParen"; } break;
+		case Token_OpenBracket: { return "OpenBracket"; } break;
+		case Token_CloseBracket: { return "CloseBracket"; } break;
+		case Token_OpenBrace: { return "OpenBrace"; } break;
+		case Token_CloseBrace: { return "CloseBrace"; } break;
+		case Token_Colon: { return "Colon"; } break;
+		case Token_SemiColon: { return "SemiColon"; } break;
+		case Token_PercentSign: { return ""; } break;
+		case Token_QuestionMark: { return ""; } break;
+		case Token_EqualSign: { return ""; } break;
+		case Token_Carat: { return ""; } break;
+		case Token_Comma: { return ""; } break;
+		case Token_Cross: { return ""; } break;
+		case Token_Dash: { return ""; } break;
+		case Token_Slash: { return ""; } break;
+		case Token_Dot: { return ""; } break;
+		case Token_Bang: { return ""; } break;
+		case Token_Pipe: { return ""; } break;
+		case Token_LessThan: { return ""; } break;
+		case Token_GreaterThan: { return ""; } break;
+		case Token_Tilde: { return ""; } break;
+
+		case Token_NotEqual: { return ""; } break;
+		case Token_GreaterThanEqual: { return ""; } break;
+		case Token_LessThanEqual: { return ""; } break;
+		case Token_LogicalOr: { return ""; } break;
+		case Token_LogicalAnd: { return ""; } break;
+		case Token_BitShiftLeft: { return ""; } break;
+		case Token_BitShiftRight: { return ""; } break;
+		case Token_Arrow: { return ""; } break;
+	
+		case Token_Character: { return "Character"; } break;
+		case Token_String: { return "String"; } break;
+		case Token_Identifier: { return "Identifier"; } break;
+		case Token_Keyword: { return "Keyword"; } break;
+		case Token_PreprocessorCommand: { return "PreprocessorCommand"; } break;
+		case Token_Comment: { return "Comment"; } break;
+		case Token_Integer: { return "Integer"; } break;
+		case Token_PrecisionNumber: { return "PrecisionNumber"; } break;
+
+		case Token_EndOfStream: { return "EndOfStream"; } break;
+	}
+}
 
 struct token
 {
 	char *Text;
 	size_t TextLength;
 	enum token_type Type;
+};
+
+struct parse_node
+{
+	struct token Token;
+	struct parse_node *Children;
+	struct parse_node *Parent;
+	int NumChildren;
+	int Capacity;
 };
 
 struct tokenizer
@@ -195,23 +260,80 @@ GetString(struct tokenizer *Tokenizer, struct token *Token)
 }
 
 bool
-GetNumber(struct tokenizer *Tokenizer, struct token *Token)
+IsHexadecimal(char *Text, int Length)
 {
-	if(!IsDigit(Tokenizer->At[0])) return(false);
+	if(Length < 2) return(false);
+	
+	char First, Second, Last, Current;
 
-	char *Text = Tokenizer->At;
+	First = Text[0];
+	Second = Text[1];
+	Last = Text[Length-1];
 
-	while(true)
+	if(First != '0') return(false);
+	if(Second != 'x' && Second != 'X') return(false);
+	if(!IsDigit(Last) &&
+	   !(Last >= 'a' || Last <= 'f') &&
+	   !(Last >= 'A' || Last <= 'F') ||
+	   Last == 'u' ||
+	   Last == 'U' ||
+	   Last == 'l' ||
+	   Last == 'L')
 	{
-		if(!IsDigit(Tokenizer->At[0])) break;
-		++Tokenizer->At;
+		return(false);
 	}
 
-	Token->Text = Text;
-	Token->TextLength = Tokenizer->At - Token->Text;
-	Token->Type = Token_Number;
+	for(int i=2; i<Length-1; ++i)
+	{
+		if(!IsDigit(Last) &&
+		   !(Last >= 'a' || Last <= 'f') &&
+		   !(Last >= 'A' || Last <= 'F'))
+		{
+			return(false);
+		}
+	}
 
 	return(true);
+}
+
+bool
+GetInteger(struct tokenizer *Tokenizer, struct token *Token)
+{
+	char *LastChar = Tokenizer->At;
+	for(; LastChar && (IsDigit(*LastChar) || IsAlphabetical(*LastChar)); ++LastChar);
+	
+	int Length = LastChar - Tokenizer->At;
+	--LastChar;
+	
+	Token->Type = Token_Unknown;
+	Token->Text = Tokenizer->At;
+	Token->TextLength = Length;
+
+	if(Length < 1) return(false);
+	/* if ((IsOctal(Tokenizer->At, Length) || IsHexadecimal(Tokenizer->At, Length)) || */
+	/*    (1 == Length || '0' == Tokenizer->At[0])) */
+	/* { */
+	/* 	Token->Type = Token_Integer; */
+	/* 	return true; */
+	/* } */
+	
+	/* Can't have a multi-digit integer starting with zero unless it's Octal. */
+	if(Tokenizer->At[0] == '0') return(false);
+	
+	for(int i=0; i<Length-1; ++i)
+	{
+		if(!IsDigit(Tokenizer->At[i])) return(false);
+	}
+	
+	/* If IsIntegerSuffix(*LastChar) */
+	if('u' == *LastChar || 'U' == *LastChar || 'l' == *LastChar || 'L' == *LastChar || IsDigit(*LastChar))
+	{
+		Tokenizer->At += Length;
+		Token->Type = Token_Integer;
+		return(true);
+	}
+	
+	return(false);
 }
 
 bool
@@ -354,7 +476,7 @@ GetToken(struct tokenizer *Tokenizer)
 		GetPreprocessorCommand(Tokenizer, &Token) ||
 		GetComment(Tokenizer, &Token) ||
 		GetString(Tokenizer, &Token) ||
-		GetNumber(Tokenizer, &Token) ||
+		GetInteger(Tokenizer, &Token) ||
 		GetIdentifier(Tokenizer, &Token);
 	}
 	if(Token.Type != Token_Unknown) return(Token);
@@ -395,6 +517,76 @@ GetToken(struct tokenizer *Tokenizer)
 	return(Token);
 }
 
+void
+CopyToken(struct token *Destination, struct token *Source)
+{
+	Destination->Type = Source->Type;
+	Destination->Text = Source->Text;
+	Destination->TextLength = Source->TextLength;
+}
+
+struct token
+UnknownToken()
+{
+	struct token Token;
+	Token.Type = Token_Unknown;
+	Token.Text = NULL;
+	Token.TextLength = 0;
+	return(Token);
+}
+
+struct parse_node
+NewParseNode(struct token Token)
+{
+	struct parse_node Node;
+	CopyToken(&Node.Token, &Token);
+	Node.Children = (struct parse_node *)malloc(sizeof(struct parse_node) * PARSE_NODE_DEFAULT_CAPACITY);
+	Node.Parent = NULL;
+	Node.NumChildren = 0;
+	Node.Capacity = PARSE_NODE_DEFAULT_CAPACITY;
+	return(Node);
+}
+
+void
+PrintParseTree(struct parse_node *Node, int Indent)
+{
+	char *RootText = "Root";
+	char *Text = Node->Token.Text;
+	int TextLength = Node->Token.TextLength;
+	if(!Node->Parent)
+	{
+		Text = RootText;
+		TextLength = strlen(RootText);
+	}
+
+	for(int i=0; i<Indent; ++i) printf(" ");
+	printf("%s: %.*s\n", TokenName(Node->Token.Type), TextLength, Text);
+	if(Node->NumChildren != 0)
+	{
+		for (int i = 0; i < Node->NumChildren; ++i)
+		{
+			PrintParseTree(&(Node->Children[i]), Indent + 4);
+		}
+	}
+}
+
+bool
+AddParseNode(struct parse_node *Parent, struct parse_node Node)
+{
+	/* Allocate new space and copy existing contents */
+	if(!Parent || Parent->NumChildren >= Parent->Capacity)
+	{
+		PrintParseTree(Parent, 0);
+		AbortWithMessage("Parse Node out of space.");
+	}
+	
+	struct parse_node *New = &(Parent->Children[Parent->NumChildren++]);
+	Node.Parent = Parent;
+	memcpy(New, &Node, sizeof(Node));
+
+	return true;
+}
+
 /* argv[1] is the input file name. */
 int
 main(int argc, char *argv[])
@@ -407,17 +599,20 @@ main(int argc, char *argv[])
 	/* Allocate space on the stack. */
 	BufferSet(&FileContents, (char *)alloca(AllocSize), 0, AllocSize);
 
-	if(COPY_FILE_OK != CopyFileIntoBuffer(argv[1], &FileContents))
+	if(!CopyFileIntoBuffer(argv[1], &FileContents))
 	{
 		AbortWithMessage("Couldn't copy entire file to buffer");
 	}
 
-	char print_buffer[kilobytes(1)] = { 0 };
+	char print_buffer[Kilobytes(1)] = { 0 };
 	int pos = 0;
 
 	struct tokenizer Tokenizer;
 	Tokenizer.Beginning = FileContents.Data;
 	Tokenizer.At = FileContents.Data;
+	
+	struct parse_node RootParseNode = NewParseNode(UnknownToken());
+	struct parse_node *ParseNode = &RootParseNode;
 
 	bool Parsing = true;
 	while(Parsing)
@@ -425,24 +620,37 @@ main(int argc, char *argv[])
 		struct token Token = GetToken(&Tokenizer);
 		switch(Token.Type)
 		{
-			case Token_EndOfStream:		{ Parsing = false; } break;
+			case Token_EndOfStream: {
+				Parsing = false;
+			} break;
+				
+			/* case Token_PreprocessorCommand: { printf("Preprocessor: "); } break; */
+			/* case Token_Comment:		{ printf("Comment: "); } break; */
+			case Token_Keyword:
+			case Token_Character:
+			case Token_String:
+			case Token_Integer:
+			case Token_PrecisionNumber:
+			case Token_Identifier: {
+				AddParseNode(ParseNode, NewParseNode(Token));
+			} break;
 
-			case Token_Keyword:		{ printf("Keyword: "); } break;
-			case Token_Character:		{ printf("Character: "); } break;
-			case Token_String:		{ printf("String: "); } break;
-			case Token_PreprocessorCommand: { printf("Preprocessor: "); } break;
-			case Token_Comment:		{ printf("Comment: "); } break;
-			case Token_Number:		{ printf("Number: "); } break;
-			case Token_Identifier:		{ printf("Identifier: "); } break;
-
+			case Token_OpenBracket:
+			case Token_OpenBrace:
+			case Token_OpenParen: {
+				AddParseNode(ParseNode, NewParseNode(Token));
+				ParseNode = &(ParseNode->Children[ParseNode->NumChildren-1]);
+			} break;
+			
+			case Token_CloseBracket:
+			case Token_CloseBrace:
+			case Token_CloseParen: {
+				ParseNode = ParseNode->Parent;
+				AddParseNode(ParseNode, NewParseNode(Token));
+			} break;
+							
 			case Token_Asterisk:
 			case Token_Ampersand:
-			case Token_OpenParen:
-			case Token_CloseParen:
-			case Token_OpenBracket:
-			case Token_CloseBracket:
-			case Token_OpenBrace:
-			case Token_CloseBrace:
 			case Token_Colon:
 			case Token_SemiColon:
 			case Token_PercentSign:
@@ -467,18 +675,15 @@ main(int argc, char *argv[])
 			case Token_LogicalAnd:
 			case Token_BitShiftLeft:
 			case Token_BitShiftRight:
-			case Token_Arrow:		{ printf("Symbol: "); } break;
+			/* case Token_Arrow:		{ printf("Symbol: "); } break; */
 
 			case Token_Unknown:		{} break;
 
 			default:			{} break;
 		}
-
-		if (Token.Type != Token_Unknown)
-		{
-			printf("%.*s\n", (int)Token.TextLength, Token.Text);
-		}
 	}
+	
+	PrintParseTree(&RootParseNode, 0);
 
 	return(EXIT_SUCCESS);
 }
