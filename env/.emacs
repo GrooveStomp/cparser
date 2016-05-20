@@ -19,8 +19,6 @@
   (when newline-and-indent
     (indent-according-to-mode)))
 
-(global-set-key (kbd "C-o") 'open-next-line)
-
 (defun open-previous-line (arg)
   "Open a new line before the current one. See also `newline-and-indent'."
   (interactive "p")
@@ -29,29 +27,38 @@
   (when newline-and-indent
     (indent-according-to-mode)))
 
-(global-set-key (kbd "M-o") 'open-previous-line)
+;; Delete all whitespace from point to next word.
+(defun delete-horizontal-space-forward ()
+  "*Delete all spaces and tabs after point."
+  (interactive "*")
+  (delete-region (point) (progn (skip-chars-forward " \t") (point))))
+
+(global-set-key (kbd "C-o")     'open-next-line)
+(global-set-key (kbd "M-o")     'open-previous-line)
+(global-set-key (kbd "RET")     'newline-and-indent)
+(global-set-key (kbd "C-x C-o") 'dirtree-show)
+(global-set-key (kbd "M-\\")    'delete-horizontal-space-forward)
+(global-set-key (kbd "C-c C-w") 'copy-word)
+(global-set-key (kbd "C-c C-l") 'copy-line)
+(global-set-key (kbd "C-c C-p") 'copy-paragraph)
+(global-set-key (kbd "M-n")     'forward-paragraph)
+(global-set-key (kbd "M-p")     'backward-paragraph)
 
 ;; Autoindent open-*-lines
 (defvar newline-and-indent t
   "Modify the behavior of the open-*-line functions to cause them to autoindent.")
 
-(global-hl-line-mode 1)
-(set-face-background 'hl-line "lime green")
-
 (if window-system
     (tool-bar-mode 0))
 
-;(require 'ido)
-;(ido-mode t)
-
-;; TODO: M-< to start of file
-;; TODO: M-> to end of file
+;; TODO: Map right-alt (altgr?) on Dell Mini 10 to Meta.
+;;       ^ Then: 'M-<', 'M->' will work.
+;;
 ;; TODO: Custom font-lock mode for C
 ;;       - Comments
 ;;       - Strings?
 ;;       - Preprocessor
 ;;       - Faded curly braces?
-;; TODO: indentation of `case' items under `switch'
 
 ;; Bright red TODOs
 (setq fixme-modes '(c++-mode c-mode emacs-lisp-mode))
@@ -73,11 +80,26 @@
 (modify-face 'font-lock-note-face "Dark Green" nil nil t nil t nil nil)
 
 (defun post-load-stuff ()
+  (setq aaron-fg-color "#cdba96"
+	aaron-bg-color "#2e2e2e"
+	aaron-hl-color "#898989"
+	)
+  
   (interactive)
   (menu-bar-mode -1)
-  (maximize-frame)
-  (set-foreground-color "burlywood3")
-  (set-background-color "#161616")
-  (set-cursor-color "#40FF40"))
+  (windmove-default-keybindings)
+  (add-hook 'before-save-hook 'delete-trailing-whitespace)
+  (set-default 'truncate-lines t)  
+  (set-foreground-color aaron-fg-color)
+  (set-background-color aaron-bg-color)
+  (set-cursor-color "#cd6839")
+  
+  ;; Set the highlight colors for a selected region.
+  (set-face-attribute 'region nil :background "#bd5829")
+  (set-face-attribute 'region nil :foreground aaron-bg-color)
+  (global-hl-line-mode 1)
+  (set-face-background 'hl-line aaron-hl-color)
+  (set-face-foreground 'hl-line aaron-bg-color)
+  )
 
 (add-hook 'window-setup-hook 'post-load-stuff t)
