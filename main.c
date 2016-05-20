@@ -260,6 +260,39 @@ GetString(struct tokenizer *Tokenizer, struct token *Token)
 }
 
 bool
+IsOctal(char *Text, int Length)
+{
+	if(Length < 3) return(false);
+  
+	char First, Last, Current;
+
+	First = *Text;
+	Last = Text[Length-1];
+
+	/* Leading 0 required for octal integers. */
+	if('0' != First) return(false);
+
+	if(!('u' == Last ||
+	     'U' == Last ||
+	     'l' == Last ||
+	     'L' == Last ||
+	     (Last >= '0' && Last <= '7')))
+	{
+		return(false);
+	}
+
+	for(int i=0; i < Length -1; ++i)
+	{
+		if(!(Text[i] >= '0' && Text[i] <= '7'))
+		{
+			return(false);
+		}
+	}
+
+	return(true);	
+}
+
+bool
 IsHexadecimal(char *Text, int Length)
 {
 	if(Length < 2) return(false);
@@ -310,12 +343,12 @@ GetInteger(struct tokenizer *Tokenizer, struct token *Token)
 	Token->TextLength = Length;
 
 	if(Length < 1) return(false);
-	/* if ((IsOctal(Tokenizer->At, Length) || IsHexadecimal(Tokenizer->At, Length)) || */
-	/*    (1 == Length || '0' == Tokenizer->At[0])) */
-	/* { */
-	/* 	Token->Type = Token_Integer; */
-	/* 	return true; */
-	/* } */
+	if ((IsOctal(Tokenizer->At, Length) || IsHexadecimal(Tokenizer->At, Length)) ||
+	   (1 == Length || '0' == Tokenizer->At[0]))
+	{
+		Token->Type = Token_Integer;
+		return true;
+	}
 	
 	/* Can't have a multi-digit integer starting with zero unless it's Octal. */
 	if(Tokenizer->At[0] == '0') return(false);
