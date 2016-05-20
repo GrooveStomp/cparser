@@ -5,6 +5,7 @@
 	      indent-tabs-mode t)
 
 (setq c-default-style "linux")
+(add-hook 'before-save-hook 'delete-trailing-whitespace)
 (add-hook 'c-mode-common-hook
 	  (lambda ()
 	    ;; Make `case' statements in `switch' blocks indent normally.
@@ -82,24 +83,23 @@
 (defun post-load-stuff ()
   (setq aaron-fg-color "#cdba96"
 	aaron-bg-color "#2e2e2e"
-	aaron-hl-color "#898989"
+	aaron-hl-color "#3f3f3f"
 	)
-  
+
   (interactive)
   (menu-bar-mode -1)
   (windmove-default-keybindings)
-  (add-hook 'before-save-hook 'delete-trailing-whitespace)
-  (set-default 'truncate-lines t)  
+  (set-default 'truncate-lines t)
   (set-foreground-color aaron-fg-color)
   (set-background-color aaron-bg-color)
   (set-cursor-color "#cd6839")
-  
+
   ;; Set the highlight colors for a selected region.
   (set-face-attribute 'region nil :background "#bd5829")
   (set-face-attribute 'region nil :foreground aaron-bg-color)
   (global-hl-line-mode 1)
   (set-face-background 'hl-line aaron-hl-color)
-  (set-face-foreground 'hl-line aaron-bg-color)
+  (set-face-foreground 'hl-line aaron-fg-color)
   )
 
 (add-hook 'window-setup-hook 'post-load-stuff t)
