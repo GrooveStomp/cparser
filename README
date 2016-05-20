@@ -1,0 +1,26 @@
+Adds Symbol and Preprocessor command tokenization to the lexer.
+
+Program that lexes C keywords and comments.
+This is prep work for my C compiler that I'm working on in my spare time.
+
+Requirements:
+
+- gcc (for build command in env/shell)
+- kdbg (for debug command in env/shell)
+
+Setup:
+
+> cd /path/to/project/root
+> source env/shell
+
+Building:
+
+> build
+
+Running:
+
+> run main.c
+
+Debugging:
+
+> debug

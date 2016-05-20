@@ -1,439 +1,721 @@
+/*
+ * TODO(AARON):
+ * - Build a parse tree consisting of all tokens.
+ * - Octal support for integers
+ * - Floating point numbers (decimal point, suffix, scientific notation)
+ * - Remove dependency on string.h
+ */
 #include <stdio.h>
-#include <stdlib.h>
+#include <alloca.h>
 #include <string.h>
+#include <stdlib.h> /* EXIT_SUCCESS, EXIT_FAILURE */
 
-typedef char byte;
+#include "file_buffer.c"
+
 typedef int bool;
-typedef int word;
-typedef unsigned int uint;
-#define global_variable static
-#define local_persist static
-#define false 0
-#define true ~false
-#define MAX(a, b) ((a) >= (b) ? (a) : (b))
-#define MIN(a, b) ((a) <= (b) ? (a) : (b))
+
+#define PARSE_NODE_DEFAULT_CAPACITY 1000
 #define ARRAY_SIZE(Array) (sizeof((Array)) / sizeof((Array)[0]))
+#define false 0
+#define true !false
 
-//------------------------------------------------------------------------------------------------------------
-// Global State
-//------------------------------------------------------------------------------------------------------------
+#define Min(a,b) ((a) < (b) ? (a) : (b))
+#define Bytes(n) (n)
+#define Kilobytes(n) (Bytes(n) * 1000)
 
-char *Keywords[] = {"auto", "break", "case", "char", "const", "continue", "default", "do", "double", "else",
-                    "enum", "extern", "float", "for", "goto", "if", "int", "long", "register", "return",
-                    "short", "signed", "sizeof", "static", "struct", "switch", "typedef", "union",
-                    "unsigned", "void", "volatile", "while"};
+enum token_type
+{
+	Token_Unknown,
 
-enum {
-  TokenNone,
-  TokenIdentifier,
-  TokenKeyword,
-  TokenSymbol,
-  TokenConstant,
-  TokenIntegerConstant,
-  TokenStringLiteral,
-  TokenCharacterConstant,
-  TokenOperator,
-  TokenSeparator,
-  TokenWhitespace
-} TokenTypes;
+	Token_Asterisk,
+	Token_Ampersand,
+	Token_OpenParen,
+	Token_CloseParen,
+	Token_OpenBracket,
+	Token_CloseBracket,
+	Token_OpenBrace,
+	Token_CloseBrace,
+	Token_Colon,
+	Token_SemiColon,
+	Token_PercentSign,
+	Token_QuestionMark,
+	Token_EqualSign,	/*  = */
+	Token_Carat,
+	Token_Comma,		/*  , */
+	Token_Cross,		/*  + */
+	Token_Dash,		/*  - */
+	Token_Slash,		/*  / */
+	Token_Dot,		/*  . */
+	Token_Bang,
+	Token_Pipe,
+	Token_LessThan,
+	Token_GreaterThan,
+	Token_Tilde,
 
-char *TokenNames[] = {"None", "Identifier", "Keyword", "Symbol", "Constant", "IntegerConstant",
-                      "StringLiteral", "CharacterConstant", "Operator", "Separator", "Whitespace"};
+	Token_NotEqual,
+	Token_GreaterThanEqual,
+	Token_LessThanEqual,
+	Token_LogicalOr,
+	Token_LogicalAnd,
+	Token_BitShiftLeft,
+	Token_BitShiftRight,
+	Token_Arrow,		/* -> */
 
-char *Symbols = "#{}[],;-+=*^&%$?<>()!/|~.'";
+	Token_Character,
+	Token_String,
+	Token_Identifier,
+	Token_Keyword,
+	Token_PreprocessorCommand,
+	Token_Comment,
+	Token_Integer,
+	Token_PrecisionNumber,
 
-void integer_type() {
-  /*
-    Octal: 0[0-7]+
-    Hex: 0X[0-9A-F]+/i # ignore case
-
-    Any Integer can have suffix of [uU] or [lL] for unsigned and long, respectively.
-
-    if unsuffixed and decimal, it has the first of these types in which it can be represented:
-    [int, long int, unsigned long int]
-
-    if it is unsuffxed octal or hexadecimal, it has the first possible of these types:
-    [int, unsigned int, long int, unsigned long int]
-
-    if it is suffixed by u or U then:
-    [unsigned int, unsigned long int]
-
-    if it is suffixed by l or L then:
-    [long int, unsigned long int]
-  */
-}
-
-void print_character(byte ByteBuffer[], int Size) {
-  byte Char;
-  if (Size == 1) {
-    Char = ByteBuffer[0];
-    if (Char >= 32 && Char <= 126) {
-      printf("<%s> '%c'\n", TokenNames[TokenCharacterConstant], Char);
-      return;
-    }
-    else {
-      printf("<%s> DEC: '%d'\n", TokenNames[TokenCharacterConstant], Char);
-      return;
-    }
-  }
-  else if (Size == 2 && ByteBuffer[0] == '\\') {
-    Char = ByteBuffer[1];
-    if (Char >= 32 && Char <= 126) {
-      printf("<%s> '\\%c'\n", TokenNames[TokenCharacterConstant], Char);
-      return;
-    }
-    else {
-      printf("<%s> DEC: '\\%d'\n", TokenNames[TokenCharacterConstant], Char);
-      return;
-    }
-  }
-  printf("<UnknownToken> '%s'\n", ByteBuffer);
-}
-
-//------------------------------------------------------------------------------------------------------------
-// Identity Tests
-//------------------------------------------------------------------------------------------------------------
-
-bool is_whitespace(byte Byte) {
-  return (Byte == ' ' || Byte == '\t' || Byte == '\n' || Byte == '\r');
-}
-
-bool is_letter(byte Byte) {
-  return (Byte >= 'A' && Byte <= 'Z') || (Byte >= 'a' && Byte <= 'z') || (Byte == '_');
-}
-
-bool is_digit(byte Byte) {
-  return (Byte >= '0' && Byte <= '9');
-}
-
-bool is_integer_suffix(byte LastByte) {
-  if (LastByte != 'u' && LastByte != 'U' && LastByte != 'l' && LastByte != 'L' && !is_digit(LastByte)) {
-    return false;
-  }
-  return true;
-}
-
-bool is_octal_digit(byte Byte) {
-  return (Byte >= '0' && Byte <= '7');
-}
-
-bool is_octal(byte ByteBuffer[], uint BufferSize) {
-  byte FirstByte, LastByte, CurrentByte;
-  int i;
-
-  if (BufferSize < 3) { return false; }
-
-  FirstByte = ByteBuffer[0];
-  LastByte = ByteBuffer[BufferSize - 1];
-
-  if (BufferSize < 2) { return false; }
-  if (FirstByte != '0') { return false; }
-  if (! (LastByte == 'u' || LastByte == 'U' || LastByte == 'l' || LastByte == 'L' || (LastByte >= '0' && LastByte <= '7')) ) {
-    return false;
-  }
-
-  for (i = 1; i < BufferSize-1; ++i) {
-    if (!is_octal_digit(ByteBuffer[i])) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-bool is_hex_digit(byte Byte) {
-  return (is_digit(Byte) || (Byte >= 'a' && Byte <= 'f') || (Byte >= 'A' && Byte <= 'F'));
-}
-
-bool is_hexadecimal(byte ByteBuffer[], uint BufferSize) {
-  byte FirstByte, SecondByte, LastByte, CurrentByte;
-  int i;
-
-  if (BufferSize < 2) { return false; }
-
-  FirstByte = ByteBuffer[0];
-  SecondByte = ByteBuffer[1];
-  LastByte = ByteBuffer[BufferSize - 1];
-
-  if (BufferSize < 2) { return false; }
-  if (FirstByte != '0') { return false; }
-  if (SecondByte != 'x' && SecondByte != 'X') { return false; }
-  if (! (is_hex_digit(LastByte) || LastByte == 'u' || LastByte == 'U' || LastByte == 'l' || LastByte == 'L') ) {
-    return false;
-  }
-
-  for (i = 2; i < BufferSize-1; ++i) {
-    if (!is_hex_digit(ByteBuffer[i])) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-bool is_integer_constant(byte ByteBuffer[], uint BufferSize) {
-  int i;
-  byte LastByte;
-
-  if (BufferSize < 1) { return false; }
-
-  LastByte = ByteBuffer[BufferSize - 1];
-
-  if (is_octal(ByteBuffer, BufferSize) || is_hexadecimal(ByteBuffer, BufferSize)) { return true; }
-
-  if (BufferSize == 1 && ByteBuffer[0] == '0') { return true; }
-  if (ByteBuffer[0] == '0') { return false; }
-
-  for (i = 0; i < BufferSize - 1; ++i) {
-    if (!is_digit(ByteBuffer[i])) {
-      return false;
-    }
-  }
-
-  return is_integer_suffix(LastByte);
-}
-
-bool is_character_constant() {
-  return true;
-}
-
-bool is_float_constant() {
-}
-
-bool is_enumeration_constant() {
-}
-
-bool is_string_literal() {
-  return true;
-}
-
-bool is_symbol(word Character) {
-  int i;
-  for (i = 0; i < strlen(Symbols); ++i) {
-    if (Character == (word)Symbols[i]) {
-      return true;
-    }
-  }
-  return false;
-}
-
-bool is_keyword(byte ByteBuffer[], uint BufferSize) {
-  int i;
-
-  if (BufferSize < 2) { return false; }
-
-  for (i=0; i < ARRAY_SIZE(Keywords); ++i) {
-    if (0 == strncmp(ByteBuffer, Keywords[i], BufferSize)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-bool is_identifier(byte ByteBuffer[], uint BufferSize) {
-  int i;
-
-  if (is_keyword(ByteBuffer, BufferSize)) { return false; }
-
-  if (!is_letter(ByteBuffer[0])) { return false; }
-
-  for (i = 1; i < BufferSize; ++i) {
-    if (!(is_letter(ByteBuffer[i]) || is_digit(ByteBuffer[i]))) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-//------------------------------------------------------------------------------------------------------------
-// Main
-//------------------------------------------------------------------------------------------------------------
-
-void render_buffer_token(byte ByteBuffer[], uint BufferSize);
-void flush_buffer(byte ByteBuffer[], uint *BufferSize);
-
-enum {
-  StatusNormal,
-  StatusLineComment,
-  StatusBlockComment,
-  StatusWhitespace,
-  StatusStringLiteral,
-  StatusCharacterConstant,
+	Token_EndOfStream,
 };
-int CurrentState = StatusNormal;
 
-void usage() {
-  printf("Usage: ./a.out file\n");
-  printf("  file: must be a file in this directory\n");
-  printf("  Specify '-h' or '--help' instead of file for this help text\n");
-  exit(0);
+char *
+TokenName(enum token_type Type)
+{
+	switch(Type)
+	{
+		case Token_Unknown: { return "Unknown"; } break;
+
+		case Token_Asterisk: { return "Asterisk"; } break;
+		case Token_Ampersand: { return "Ampersand"; } break;
+		case Token_OpenParen: { return "OpenParen"; } break;
+		case Token_CloseParen: { return "CloseParen"; } break;
+		case Token_OpenBracket: { return "OpenBracket"; } break;
+		case Token_CloseBracket: { return "CloseBracket"; } break;
+		case Token_OpenBrace: { return "OpenBrace"; } break;
+		case Token_CloseBrace: { return "CloseBrace"; } break;
+		case Token_Colon: { return "Colon"; } break;
+		case Token_SemiColon: { return "SemiColon"; } break;
+		case Token_PercentSign: { return ""; } break;
+		case Token_QuestionMark: { return ""; } break;
+		case Token_EqualSign: { return ""; } break;
+		case Token_Carat: { return ""; } break;
+		case Token_Comma: { return ""; } break;
+		case Token_Cross: { return ""; } break;
+		case Token_Dash: { return ""; } break;
+		case Token_Slash: { return ""; } break;
+		case Token_Dot: { return ""; } break;
+		case Token_Bang: { return ""; } break;
+		case Token_Pipe: { return ""; } break;
+		case Token_LessThan: { return ""; } break;
+		case Token_GreaterThan: { return ""; } break;
+		case Token_Tilde: { return ""; } break;
+
+		case Token_NotEqual: { return ""; } break;
+		case Token_GreaterThanEqual: { return ""; } break;
+		case Token_LessThanEqual: { return ""; } break;
+		case Token_LogicalOr: { return ""; } break;
+		case Token_LogicalAnd: { return ""; } break;
+		case Token_BitShiftLeft: { return ""; } break;
+		case Token_BitShiftRight: { return ""; } break;
+		case Token_Arrow: { return ""; } break;
+
+		case Token_Character: { return "Character"; } break;
+		case Token_String: { return "String"; } break;
+		case Token_Identifier: { return "Identifier"; } break;
+		case Token_Keyword: { return "Keyword"; } break;
+		case Token_PreprocessorCommand: { return "PreprocessorCommand"; } break;
+		case Token_Comment: { return "Comment"; } break;
+		case Token_Integer: { return "Integer"; } break;
+		case Token_PrecisionNumber: { return "PrecisionNumber"; } break;
+
+		case Token_EndOfStream: { return "EndOfStream"; } break;
+	}
 }
 
-local_persist int BlockComment = 0;
+struct token
+{
+	char *Text;
+	size_t TextLength;
+	enum token_type Type;
+};
 
-void increment_block_comment() {
-  ++BlockComment;
-  CurrentState = StatusBlockComment;
+struct parse_node
+{
+	struct token Token;
+	struct parse_node *Children;
+	struct parse_node *Parent;
+	int NumChildren;
+	int Capacity;
+};
+
+struct tokenizer
+{
+	char *Beginning;
+	char *At;
+};
+
+void
+AbortWithMessage(const char *msg)
+{
+	fprintf(stderr, "%s\n", msg);
+	exit(EXIT_FAILURE);
 }
 
-void decrement_block_comment() {
-  --BlockComment;
-  if (!BlockComment && CurrentState == StatusBlockComment) {
-    CurrentState = StatusNormal;
-  }
+void
+Usage()
+{
+	printf("Usage: program file\n");
+	printf("  file: must be a file in this directory\n");
+	printf("  Specify '-h' or '--help' for this help text\n");
+	exit(EXIT_SUCCESS);
 }
 
-bool in_comment() {
-  return (CurrentState == StatusLineComment || CurrentState == StatusBlockComment);
+bool
+IsEndOfLine(char C)
+{
+	return((C == '\n') ||
+	       (C == '\r'));
 }
 
-int main(int argc, char *argv[]) {
-  if (argc != 2 || argv[1] == "-h" || argv[1] == "--help") { usage(); }
-
-  FILE *InFile = fopen(argv[1], "r");
-  byte ByteBuffer[256] = {0};
-  word InputChar = 0;
-  word LastChar = 0;
-  int CurrentToken = TokenNone;
-  int BlockComment = 0; // Increment on entry, decrement on exit.
-  uint BufferTail, i; BufferTail = 0;
-
-  while (1) {
-    LastChar = InputChar;
-    if (EOF == (InputChar = fgetc(InFile))) {
-      if (ferror(InFile)) {
-        perror("Error!");
-        fclose(InFile);
-        exit(1);
-      } else {
-        printf("Done reading file\n");
-        if (BufferTail > 0) {
-          ByteBuffer[BufferTail] = '\0';
-          BufferTail++;
-          printf("Last partial token: %s\n", ByteBuffer);
-        }
-        break;
-      }
-    }
-    else {
-
-      if (InputChar == '\'' && CurrentState != StatusCharacterConstant && !in_comment() && CurrentState != StatusStringLiteral) {
-        if (BufferTail != 0) {
-          ungetc(InputChar, InFile);
-          InputChar = ' ';
-        }
-        else {
-          CurrentState = StatusCharacterConstant;
-          continue;
-        }
-      }
-      else if (InputChar == '\'' && CurrentState == StatusCharacterConstant && LastChar != '\\') {
-        if (is_character_constant(ByteBuffer, BufferTail)) {
-          print_character(ByteBuffer, BufferTail);
-        }
-        else {
-          printf("<UnknownToken> %s\n", ByteBuffer);
-        }
-        flush_buffer(ByteBuffer, &BufferTail);
-        CurrentState = StatusNormal;
-        continue;
-      }
-
-      if ((InputChar == '"') && CurrentState != StatusStringLiteral && !in_comment() && CurrentState != StatusCharacterConstant) {
-        CurrentState = StatusStringLiteral;
-        continue;
-      }
-      else if ((InputChar == '"') && CurrentState == StatusStringLiteral && LastChar != '\\') {
-        CurrentState = StatusNormal;
-        if (is_string_literal(ByteBuffer, BufferTail)) {
-          printf("<%s> \"%s\"\n", TokenNames[TokenStringLiteral], ByteBuffer);
-          flush_buffer(ByteBuffer, &BufferTail);
-          continue;
-        }
-      }
-
-      if (InputChar == '\n' && CurrentState == StatusLineComment) { CurrentState = StatusNormal; }
-      if (InputChar == '/' && CurrentState != StatusLineComment) {
-        if (LastChar == '/' && CurrentState != StatusBlockComment) {
-          CurrentState = StatusLineComment;
-          InputChar = '\0';
-          continue;
-        }
-        else if (LastChar == '*') {
-          decrement_block_comment();
-          InputChar = '\0';
-          continue;
-        }
-        else if (CurrentState != StatusBlockComment) {
-          continue;
-        }
-      }
-
-      if (LastChar == '/' && CurrentState != StatusLineComment) {
-        if (InputChar == '*') {
-          increment_block_comment();
-          continue;
-        }
-        else if (CurrentState != StatusBlockComment) {
-          ungetc(InputChar, InFile);
-          InputChar = LastChar;
-          LastChar = '\0';
-        }
-      }
-
-      if ((is_symbol(InputChar) || is_whitespace(InputChar)) && !in_comment() && CurrentState != StatusStringLiteral && CurrentState != StatusCharacterConstant) {
-        if (is_keyword(ByteBuffer, BufferTail)) {
-          printf("<%s> %s\n", TokenNames[TokenKeyword], ByteBuffer);
-        }
-        else if (is_identifier(ByteBuffer, BufferTail)) {
-          printf("<%s> %s\n", TokenNames[TokenIdentifier], ByteBuffer);
-        }
-        else if (is_integer_constant(ByteBuffer, BufferTail)) {
-          printf("<%s> %s\n", TokenNames[TokenIntegerConstant], ByteBuffer);
-        }
-        else if (BufferTail > 0) {
-          printf("<UnknownToken> %s\n", ByteBuffer);
-        }
-
-        if (is_symbol(InputChar)) {
-          if (CurrentState == StatusWhitespace) { CurrentState = StatusNormal; }
-          printf("<%s> %c\n", TokenNames[TokenSymbol], InputChar);
-        }
-        else if (is_whitespace(InputChar)) {
-          if (InputChar == '\n' && CurrentState == StatusLineComment) {
-            CurrentState = StatusNormal;
-          }
-          if (CurrentState != StatusWhitespace) {
-            CurrentState = StatusWhitespace;
-          }
-        }
-
-        flush_buffer(ByteBuffer, &BufferTail);
-        if (InputChar == '/') { InputChar = '\0'; } // NOTE(AARON): To prevent '/' from being handled next go.
-      }
-      else if (InputChar == '\n' && CurrentState == StatusLineComment) {
-        CurrentState = StatusNormal;
-      }
-      else if ((is_letter(InputChar) || is_digit(InputChar)) && BufferTail < 255 && !in_comment()) {
-        if (CurrentState == StatusWhitespace) { CurrentState = StatusNormal; }
-        ByteBuffer[BufferTail] = (char)InputChar;
-        BufferTail = MIN(BufferTail + 1, 255);
-      }
-      else if (CurrentState == StatusStringLiteral || CurrentState == StatusCharacterConstant) {
-        ByteBuffer[BufferTail] = (char)InputChar;
-        BufferTail = MIN(BufferTail + 1, 255);
-        if ((InputChar == '\\' && LastChar == '\\') || (InputChar != '\\')) {
-          InputChar = '\0';
-        }
-      }
-    }
-  }
-
-  fclose(InFile);
+bool
+IsWhitespace(char C)
+{
+	return((C == ' ') ||
+	       (C == '\t') ||
+	       (C == '\v') ||
+	       (C == '\f') ||
+	       IsEndOfLine(C));
 }
 
-void flush_buffer(byte ByteBuffer[], uint *BufferSize) {
-  memset(ByteBuffer, '\0', *BufferSize);
-  *BufferSize = 0;
+bool
+IsOctal(char C)
+{
+	bool Result = (C >= '0' && C <= '7');
+	return(Result);
+}
+
+bool
+IsDecimal(char C)
+{
+	bool Result = (C >= '0' && C <= '9');
+	return(Result);
+}
+
+bool
+IsHexadecimal(char C)
+{
+	bool Result = ((C >= '0' && C <= '9') ||
+		       (C >= 'a' && C <= 'f') ||
+		       (C >= 'A' && C <= 'F'));
+	return(Result);
+}
+
+bool
+IsIntegerSuffix(char C)
+{
+	bool Result = (C == 'u' ||
+		       C == 'U' ||
+		       C == 'l' ||
+		       C == 'L');
+	return(Result);
+}
+
+bool
+IsAlphabetical(char C)
+{
+	bool Result = ((C >= 'a' && C <= 'z') || (C >= 'A' && C <= 'Z'));
+	return(Result);
+}
+
+bool
+IsIdentifierCharacter(char C)
+{
+	bool Result = (IsAlphabetical(C) || IsDecimal(C) || C == '_');
+	return(Result);
+}
+
+static void
+EatAllWhitespace(struct tokenizer *Tokenizer)
+{
+	while(true)
+	{
+		if(IsWhitespace(Tokenizer->At[0]))
+		{
+			++Tokenizer->At;
+		}
+		else
+		{
+			break;
+		}
+	}
+}
+
+bool
+GetCharacter(struct tokenizer *Tokenizer, struct token *Token)
+{
+	if(Tokenizer->At[0] != '\'') return(false);
+
+	char *Close = Tokenizer->At + 0x1l;
+	if(*Close != '\'') Close += 1;
+	if(*Close != '\'') return(false);
+	if(*Close == '\'' && *(Close-1) == '\\') Close += 1;
+	if(*Close != '\'') return(false);
+
+	Token->Text = Tokenizer->At;
+	Token->TextLength = Close - Tokenizer->At + 1;
+	Token->Type = Token_Character;
+	Tokenizer->At += Token->TextLength;
+
+	return(true);
+}
+
+bool
+GetString(struct tokenizer *Tokenizer, struct token *Token)
+{
+	char *Text = Tokenizer->At;
+	if(Tokenizer->At[0] != '"') return(false);
+
+	while(true)
+	{
+		++Tokenizer->At;
+		if(Tokenizer->At[0] == '\0') return(false);
+		if(Tokenizer->At[0] == '"' && *(Tokenizer->At - 1) != '\\') break;
+	}
+	++Tokenizer->At; /* Swallow the last double quote. */
+
+	Token->Text = Text;
+	Token->TextLength = Tokenizer->At - Token->Text;
+	Token->Type = Token_String;
+
+	return(true);
+}
+
+bool
+IsOctalString(char *Text, int Length)
+{
+	if(Length < 2) return(false);
+
+	char Last = Text[Length-1];
+
+	/* Leading 0 required for octal integers. */
+	if('0' != Text[0]) return(false);
+
+	if(!(IsOctal(Last) || IsIntegerSuffix(Last))) return(false);
+
+	/* Loop from character after leading '0' to second-last. */
+	for(int i=1; i<Length-1; ++i)
+	{
+		if(!IsOctal(Text[i])) return(false);
+	}
+
+	return(true);
+}
+
+bool
+IsHexadecimalString(char *Text, int Length)
+{
+	if(Length < 3) return(false);
+
+	char Last = Text[Length-1];
+
+	/* Hex numbers must start with: '0x' or '0X'. */
+	if(!(Text[0] == '0' && (Text[1] == 'x' || Text[1] == 'X'))) return(false);
+
+	if(!(IsHexadecimal(Last) || IsIntegerSuffix(Last))) return(false);
+
+	/* Loop from character after leading '0x' to second-last. */
+	for(int i=2; i<Length-1; ++i)
+	{
+		if(!IsHexadecimal(Text[i])) return(false);
+	}
+
+	return(true);
+}
+
+bool
+GetInteger(struct tokenizer *Tokenizer, struct token *Token)
+{
+	char *LastChar = Tokenizer->At;
+	for(; LastChar && (IsDecimal(*LastChar) || IsAlphabetical(*LastChar)); ++LastChar);
+
+	int Length = LastChar - Tokenizer->At;
+	--LastChar;
+
+	Token->Type = Token_Unknown;
+	Token->Text = Tokenizer->At;
+	Token->TextLength = Length;
+
+	if(Length < 1) return(false);
+
+	if ((IsOctalString(Tokenizer->At, Length) || IsHexadecimalString(Tokenizer->At, Length)) ||
+	   (1 == Length && '0' == Tokenizer->At[0]))
+	{
+		Tokenizer->At += Length;
+		Token->Type = Token_Integer;
+		return true;
+	}
+
+	/* Can't have a multi-digit integer starting with zero unless it's Octal. */
+	if(Tokenizer->At[0] == '0') return(false);
+
+	for(int i=0; i<Length-1; ++i)
+	{
+		if(!IsDecimal(Tokenizer->At[i])) return(false);
+	}
+
+	if(IsDecimal(*LastChar) || IsIntegerSuffix(*LastChar))
+	{
+		Tokenizer->At += Length;
+		Token->Type = Token_Integer;
+		return(true);
+	}
+
+	return(false);
+}
+
+bool
+GetIdentifier(struct tokenizer *Tokenizer, struct token *Token)
+{
+	if(!IsAlphabetical(Tokenizer->At[0])) return(false);
+
+	char *Text = Tokenizer->At;
+
+	while(true)
+	{
+		if(!IsIdentifierCharacter(Tokenizer->At[0])) break;
+		++Tokenizer->At;
+	}
+
+	Token->Text = Text;
+	Token->TextLength = Tokenizer->At - Token->Text;
+	Token->Type = Token_Identifier;
+
+	return(true);
+}
+
+bool
+GetComment(struct tokenizer *Tokenizer, struct token *Token)
+{
+	if(Tokenizer->At[0] != '/' || Tokenizer->At[1] != '*') return(false);
+
+	char *Text = Tokenizer->At;
+
+	while(true)
+	{
+		if(Tokenizer->At[0] == '\0') return(false);
+		if(Tokenizer->At[0] == '*' && Tokenizer->At[1] == '/') break;
+		++Tokenizer->At;
+	}
+
+	Tokenizer->At += 2; /* Swallow last two characters. */
+
+	Token->Text = Text;
+	Token->TextLength = Tokenizer->At - Token->Text;
+	Token->Type = Token_Comment;
+	return(true);
+}
+
+bool
+GetKeyword(struct tokenizer *Tokenizer, struct token *Token)
+{
+	static char *Keywords[] = {
+		"auto", "break", "case", "char", "const", "continue", "default",
+		"do", "double", "else", "enum", "extern", "float", "for",
+		"goto", "if", "int", "long", "register", "return", "short",
+		"signed", "sizeof", "static", "struct", "switch", "typedef",
+		"union", "unsigned", "void", "volatile", "while"
+	};
+
+	Token->Text = Tokenizer->At;
+	Token->TextLength = 0;
+	Token->Type = Token_Unknown;
+
+	for(int i = 0; i < ARRAY_SIZE(Keywords); ++i)
+	{
+		if(strstr(Tokenizer->At, Keywords[i]) == Tokenizer->At)
+		{
+			Token->TextLength = strlen(Keywords[i]);
+			Token->Type = Token_Keyword;
+			Tokenizer->At += Token->TextLength;
+			return(true);
+		}
+	}
+
+	return(false);
+}
+
+bool
+GetPreprocessorCommand(struct tokenizer *Tokenizer, struct token *Token)
+{
+	if(Tokenizer->At[0] != '#') return(false);
+
+	char *Text, *Marker;
+	Text = Marker = Tokenizer->At++;
+
+	/* Preprocessor commands must start a line on their own. */
+	for(--Marker; Marker > Tokenizer->Beginning && IsWhitespace(*Marker); --Marker);
+	if(*(++Marker) != '\n') return(false);
+
+	while(true)
+	{
+		if(Tokenizer->At[0] == '\n' && *(Tokenizer->At - 1) != '\\') break;
+		if(Tokenizer->At[0] == '\0') break;
+		++Tokenizer->At;
+	}
+
+	Token->Text = Text;
+	Token->TextLength = Tokenizer->At - Token->Text;
+	Token->Type = Token_PreprocessorCommand;
+	return(true);
+}
+
+bool
+GetSymbol(struct tokenizer *Tokenizer, struct token *Token, char *Symbol, enum token_type Type)
+{
+	int Length = strlen(Symbol);
+	int Match = strncmp(Tokenizer->At, Symbol, Length);
+	if(Match != 0) return(false);
+
+	Token->Text = Tokenizer->At;
+	Token->TextLength = Length;
+	Token->Type = Type;
+
+	Tokenizer->At += Length;
+
+	return(true);
+}
+
+struct token
+GetToken(struct tokenizer *Tokenizer)
+{
+	EatAllWhitespace(Tokenizer);
+
+	struct token Token;
+	Token.Text = Tokenizer->At;
+	Token.TextLength = 0;
+	Token.Type = Token_Unknown;
+
+	{
+		GetSymbol(Tokenizer, &Token, "!=", Token_NotEqual) ||
+		GetSymbol(Tokenizer, &Token, ">=", Token_GreaterThanEqual) ||
+		GetSymbol(Tokenizer, &Token, "<=", Token_LessThanEqual) ||
+		GetSymbol(Tokenizer, &Token, "->", Token_Arrow) ||
+		GetSymbol(Tokenizer, &Token, "||", Token_LogicalOr) ||
+		GetSymbol(Tokenizer, &Token, "&&", Token_LogicalAnd) ||
+		GetSymbol(Tokenizer, &Token, "<<", Token_BitShiftLeft) ||
+		GetSymbol(Tokenizer, &Token, ">>", Token_BitShiftRight);
+	}
+	if(Token.Type != Token_Unknown) return(Token);
+
+	{
+		GetKeyword(Tokenizer, &Token) ||
+		GetCharacter(Tokenizer, &Token) ||
+		GetPreprocessorCommand(Tokenizer, &Token) ||
+		GetComment(Tokenizer, &Token) ||
+		GetString(Tokenizer, &Token) ||
+		GetInteger(Tokenizer, &Token) ||
+		GetIdentifier(Tokenizer, &Token);
+	}
+	if(Token.Type != Token_Unknown) return(Token);
+
+	char C = Tokenizer->At[0];
+	++Tokenizer->At;
+	Token.TextLength = 1;
+
+	switch(C)
+	{
+		case '\0':{ Token.Type = Token_EndOfStream; } break;
+		case '(': { Token.Type = Token_OpenParen; } break;
+		case ')': { Token.Type = Token_CloseParen; } break;
+		case ':': { Token.Type = Token_Colon; } break;
+		case ';': { Token.Type = Token_SemiColon; } break;
+		case '*': { Token.Type = Token_Asterisk; } break;
+		case '[': { Token.Type = Token_OpenBracket; } break;
+		case ']': { Token.Type = Token_CloseBracket; } break;
+		case '{': { Token.Type = Token_OpenBrace; } break;
+		case '}': { Token.Type = Token_CloseBrace; } break;
+		case ',': { Token.Type = Token_Comma; } break;
+		case '-': { Token.Type = Token_Dash; } break;
+		case '+': { Token.Type = Token_Cross; } break;
+		case '=': { Token.Type = Token_EqualSign; } break;
+		case '^': { Token.Type = Token_Carat; } break;
+		case '&': { Token.Type = Token_Ampersand; } break;
+		case '%': { Token.Type = Token_PercentSign; } break;
+		case '?': { Token.Type = Token_QuestionMark; } break;
+		case '!': { Token.Type = Token_Bang; } break;
+		case '/': { Token.Type = Token_Slash; } break;
+		case '|': { Token.Type = Token_Pipe; } break;
+		case '<': { Token.Type = Token_LessThan; } break;
+		case '>': { Token.Type = Token_GreaterThan; } break;
+		case '~': { Token.Type = Token_Tilde; } break;
+		case '.': { Token.Type = Token_Dot; } break;
+	}
+
+	return(Token);
+}
+
+void
+CopyToken(struct token *Destination, struct token *Source)
+{
+	Destination->Type = Source->Type;
+	Destination->Text = Source->Text;
+	Destination->TextLength = Source->TextLength;
+}
+
+struct token
+UnknownToken()
+{
+	struct token Token;
+	Token.Type = Token_Unknown;
+	Token.Text = NULL;
+	Token.TextLength = 0;
+	return(Token);
+}
+
+struct parse_node
+NewParseNode(struct token Token)
+{
+	struct parse_node Node;
+	CopyToken(&Node.Token, &Token);
+	Node.Children = (struct parse_node *)malloc(sizeof(struct parse_node) * PARSE_NODE_DEFAULT_CAPACITY);
+	Node.Parent = NULL;
+	Node.NumChildren = 0;
+	Node.Capacity = PARSE_NODE_DEFAULT_CAPACITY;
+	return(Node);
+}
+
+void
+PrintParseTree(struct parse_node *Node, int Indent)
+{
+	char *RootText = "Root";
+	char *Text = Node->Token.Text;
+	int TextLength = Node->Token.TextLength;
+	if(!Node->Parent)
+	{
+		Text = RootText;
+		TextLength = strlen(RootText);
+	}
+
+	for(int i=0; i<Indent; ++i) printf(" ");
+	printf("%s: %.*s\n", TokenName(Node->Token.Type), TextLength, Text);
+	if(Node->NumChildren != 0)
+	{
+		for (int i = 0; i < Node->NumChildren; ++i)
+		{
+			PrintParseTree(&(Node->Children[i]), Indent + 4);
+		}
+	}
+}
+
+bool
+AddParseNode(struct parse_node *Parent, struct parse_node Node)
+{
+	/* Allocate new space and copy existing contents */
+	if(!Parent || Parent->NumChildren >= Parent->Capacity)
+	{
+		PrintParseTree(Parent, 0);
+		AbortWithMessage("Parse Node out of space.");
+	}
+
+	struct parse_node *New = &(Parent->Children[Parent->NumChildren++]);
+	Node.Parent = Parent;
+	memcpy(New, &Node, sizeof(Node));
+
+	return true;
+}
+
+/* argv[1] is the input file name. */
+int
+main(int argc, char *argv[])
+{
+	if(argc != 2 || strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) Usage();
+
+	size_t AllocSize = FileSize(argv[1]);
+	struct buffer FileContents;
+
+	/* Allocate space on the stack. */
+	BufferSet(&FileContents, (char *)alloca(AllocSize), 0, AllocSize);
+
+	if(!CopyFileIntoBuffer(argv[1], &FileContents))
+	{
+		AbortWithMessage("Couldn't copy entire file to buffer");
+	}
+
+	char print_buffer[Kilobytes(1)] = { 0 };
+	int pos = 0;
+
+	struct tokenizer Tokenizer;
+	Tokenizer.Beginning = FileContents.Data;
+	Tokenizer.At = FileContents.Data;
+
+	struct parse_node RootParseNode = NewParseNode(UnknownToken());
+	struct parse_node *ParseNode = &RootParseNode;
+
+	bool Parsing = true;
+	while(Parsing)
+	{
+		struct token Token = GetToken(&Tokenizer);
+		switch(Token.Type)
+		{
+			case Token_EndOfStream: {
+				Parsing = false;
+			} break;
+
+			/* case Token_PreprocessorCommand: { printf("Preprocessor: "); } break; */
+			/* case Token_Comment:		{ printf("Comment: "); } break; */
+			case Token_Keyword:
+			case Token_Character:
+			case Token_String:
+			case Token_Integer:
+			case Token_PrecisionNumber:
+			case Token_Identifier: {
+				AddParseNode(ParseNode, NewParseNode(Token));
+			} break;
+
+			case Token_OpenBracket:
+			case Token_OpenBrace:
+			case Token_OpenParen: {
+				AddParseNode(ParseNode, NewParseNode(Token));
+				ParseNode = &(ParseNode->Children[ParseNode->NumChildren-1]);
+			} break;
+
+			case Token_CloseBracket:
+			case Token_CloseBrace:
+			case Token_CloseParen: {
+				ParseNode = ParseNode->Parent;
+				AddParseNode(ParseNode, NewParseNode(Token));
+			} break;
+
+			case Token_Asterisk:
+			case Token_Ampersand:
+			case Token_Colon:
+			case Token_SemiColon:
+			case Token_PercentSign:
+			case Token_QuestionMark:
+			case Token_EqualSign:
+			case Token_Carat:
+			case Token_Comma:
+			case Token_Cross:
+			case Token_Dash:
+			case Token_Slash:
+			case Token_Dot:
+			case Token_Bang:
+			case Token_Pipe:
+			case Token_LessThan:
+			case Token_GreaterThan:
+			case Token_Tilde:
+
+			case Token_NotEqual:
+			case Token_GreaterThanEqual:
+			case Token_LessThanEqual:
+			case Token_LogicalOr:
+			case Token_LogicalAnd:
+			case Token_BitShiftLeft:
+			case Token_BitShiftRight:
+			/* case Token_Arrow:		{ printf("Symbol: "); } break; */
+
+			case Token_Unknown:		{} break;
+
+			default:			{} break;
+		}
+	}
+
+	PrintParseTree(&RootParseNode, 0);
+
+	return(EXIT_SUCCESS);
 }

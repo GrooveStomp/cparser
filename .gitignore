@@ -1,4 +1,8 @@
 a.out
 .kdev4
 *.kdev4
-c-lexer/
+c-lexer/env/
+!env/shell
+env/build/run
+!env/.emacs
+env/.emacs~
