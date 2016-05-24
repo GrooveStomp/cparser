@@ -1,10 +1,3 @@
-/*
- * TODO(AARON):
- * - Build a parse tree consisting of all tokens.
- * - Octal support for integers
- * - Floating point numbers (decimal point, suffix, scientific notation)
- * - Remove dependency on string.h
- */
 #include <stdio.h>
 #include <alloca.h>
 #include <string.h>
@@ -355,7 +348,79 @@ IsHexadecimalString(char *Text, int Length)
 bool
 GetPrecisionNumber(struct tokenizer *Tokenizer, struct token *Token)
 {
-	/* TODO: Implement GetPrecisionNumber! */
+	/*
+	  A floating constant consists of an integer part, a decimal point, a
+	  fraction part, an e or E, an optionally signed integer exponent and an
+	  optional type suffix, one of f, F, l, or L.
+	  The integer and fraction parts both consist of a sequence of digits.
+	  Either the integer part or the fraction part (not both) may be
+	  missing; either the decimal point or the e and the exponent (not both)
+	  may be missing.
+	  The type is determined by the suffix; F or f makes it float, L or l
+	  makes it long double; otherwise it is double.
+	 */
+
+	char *ReadCursor = Tokenizer->At;
+
+	bool HasIntegerPart = false;
+	bool HasDecimalPoint = false;
+	bool HasFractionalPart = false;
+	bool HasExponentPart = false;
+
+	if(IsDecimal(Tokenizer->At[0]))
+	{
+		for(; IsDecimal(Tokenizer->At[0]); ++Tokenizer->At);
+		HasIntegerPart = true;
+	}
+
+	if('.' == Tokenizer->At[0])
+	{
+		++Tokenizer->At;
+		HasDecimalPoint = true;
+		if(IsDecimal(Tokenizer->At[0]))
+		{
+			for(; IsDecimal(Tokenizer->At[0]); ++Tokenizer->At);
+			HasFractionalPart = true;
+		}
+	}
+
+	if('e' == Tokenizer->At[0] || 'E' == Tokenizer->At[0])
+	{
+		++Tokenizer->At;
+		HasExponentPart = true;
+
+		/* Optional negative sign for exponent is allowed. */
+		if('-' == Tokenizer->At[0])
+		{
+			++Tokenizer->At;
+		}
+
+		/* Exponent must contain an exponent part. */
+		if(!IsDecimal(Tokenizer->At[0]))
+		{
+			Tokenizer->At = ReadCursor;
+			return(false);
+		}
+
+		for(; IsDecimal(Tokenizer->At[0]); ++Tokenizer->At);
+	}
+
+	/* IsFloatSuffix(C) */
+	char C = Tokenizer->At[0];
+	if('f' == C || 'F' == C || 'l' == C || 'L' == C)
+	{
+		++Tokenizer->At;
+	}
+
+	if((HasIntegerPart || HasFractionalPart) &&
+	   (HasDecimalPoint || HasExponentPart))
+	{
+		Token->Type = Token_PrecisionNumber;
+		Token->Text = ReadCursor;
+		Token->TextLength = Tokenizer->At - ReadCursor;
+	}
+
+	Tokenizer->At = ReadCursor;
 	return(false);
 }
 
@@ -379,15 +444,23 @@ GetInteger(struct tokenizer *Tokenizer, struct token *Token)
 	{
 		Tokenizer->At += Length;
 		Token->Type = Token_Integer;
-		return true;
+		return(true);
 	}
 
 	/* Can't have a multi-digit integer starting with zero unless it's Octal. */
-	if(Tokenizer->At[0] == '0') return(false);
+	if(Tokenizer->At[0] == '0')
+	{
+		Tokenizer->At = Token->Text;
+		return(false);
+	}
 
 	for(int i=0; i<Length-1; ++i)
 	{
-		if(!IsDecimal(Tokenizer->At[i])) return(false);
+		if(!IsDecimal(Tokenizer->At[i]))
+		{
+			Tokenizer->At = Token->Text;
+			return(false);
+		}
 	}
 
 	if(IsDecimal(*LastChar) || IsIntegerSuffix(*LastChar))
@@ -397,6 +470,7 @@ GetInteger(struct tokenizer *Tokenizer, struct token *Token)
 		return(true);
 	}
 
+	Tokenizer->At = Token->Text;
 	return(false);
 }
 
@@ -429,12 +503,19 @@ GetComment(struct tokenizer *Tokenizer, struct token *Token)
 
 	while(true)
 	{
-		if(Tokenizer->At[0] == '\0') return(false);
-		if(Tokenizer->At[0] == '*' && Tokenizer->At[1] == '/') break;
+		if(Tokenizer->At[0] == '\0')
+		{
+			Tokenizer->At = Text;
+			return(false);
+		}
+		if(Tokenizer->At[0] == '*' && Tokenizer->At[1] == '/')
+		{
+			break;
+		}
 		++Tokenizer->At;
 	}
 
-	Tokenizer->At += 2; /* Swallow last two characters. */
+	Tokenizer->At += 2; /* Swallow last two characters: asterisk, slash */
 
 	Token->Text = Text;
 	Token->TextLength = Tokenizer->At - Token->Text;
@@ -481,7 +562,11 @@ GetPreprocessorCommand(struct tokenizer *Tokenizer, struct token *Token)
 
 	/* Preprocessor commands must start a line on their own. */
 	for(--Marker; Marker > Tokenizer->Beginning && IsWhitespace(*Marker); --Marker);
-	if(*(++Marker) != '\n') return(false);
+	if(*(++Marker) != '\n')
+	{
+		Tokenizer->At = Text;
+		return(false);
+	}
 
 	while(true)
 	{
@@ -953,21 +1038,24 @@ Parse()
 }
 
 /*******************************************************************************
- * Main entrypoint.
+ * Main entrypoints.
  *******************************************************************************/
-/* argv[1] is the input file name. */
-int
-main(int argc, char *argv[])
-{
-	if(argc != 2 || strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) Usage();
 
-	size_t AllocSize = FileSize(argv[1]);
+void
+OldMain(char *FileName)
+{
+}
+
+void
+NewMain(char *FileName)
+{
+	size_t AllocSize = FileSize(FileName);
 	struct buffer FileContents;
 
 	/* Allocate space on the stack. */
 	BufferSet(&FileContents, (char *)alloca(AllocSize), 0, AllocSize);
 
-	if(!CopyFileIntoBuffer(argv[1], &FileContents))
+	if(!CopyFileIntoBuffer(FileName, &FileContents))
 	{
 		AbortWithMessage("Couldn't copy entire file to buffer");
 	}
@@ -986,4 +1074,18 @@ main(int argc, char *argv[])
 	}
 
 	return(EXIT_SUCCESS);
+}
+
+int main(int ArgCount, char *Args)
+{
+	if(ArgCount != 2 || strcmp(Args[1], "-h") == 0 || strcmp(Args[1], "--help") == 0) Usage();
+
+	if(true)
+	{
+		return(OldMain(Args[1]));
+	}
+	else
+	{
+		return(NewMain(Args[1]));
+	}
 }
