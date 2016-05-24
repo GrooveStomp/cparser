@@ -60,6 +60,18 @@ enum token_type
 	Token_BitShiftLeft,
 	Token_BitShiftRight,
 	Token_Arrow,		/* -> */
+	Token_PlusPlus,
+	Token_MinusMinus,
+	Token_MultiplyEquals,
+	Token_DivideEquals,
+	Token_ModuloEquals,
+	Token_PlusEquals,
+	Token_MinusEquals,
+	Token_DoubleLessThanEquals,
+	Token_DoubleGreaterThanEquals,
+	Token_AmpersandEquals,
+	Token_CaratEquals,
+	Token_PipeEquals,
 
 	Token_Character,
 	Token_String,
@@ -113,6 +125,19 @@ TokenName(enum token_type Type)
 		case Token_BitShiftLeft: { return ""; } break;
 		case Token_BitShiftRight: { return ""; } break;
 		case Token_Arrow: { return ""; } break;
+		case Token_PlusPlus: { return "Symbol"; } break;
+		case Token_MinusMinus: { return "Symbol"; } break;
+
+		case Token_MultiplyEquals: { return "Symbol"; } break;
+		case Token_DivideEquals: { return "Symbol"; } break;
+		case Token_ModuloEquals: { return "Symbol"; } break;
+		case Token_PlusEquals: { return "Symbol"; } break;
+		case Token_MinusEquals: { return "Symbol"; } break;
+		case Token_DoubleLessThanEquals: { return "Symbol"; } break;
+		case Token_DoubleGreaterThanEquals: { return "Symbol"; } break;
+		case Token_AmpersandEquals: { return "Symbol"; } break;
+		case Token_CaratEquals: { return "Symbol"; } break;
+		case Token_PipeEquals: { return "Symbol"; } break;
 
 		case Token_Character: { return "Character"; } break;
 		case Token_String: { return "String"; } break;
@@ -328,6 +353,13 @@ IsHexadecimalString(char *Text, int Length)
 }
 
 bool
+GetPrecisionNumber(struct tokenizer *Tokenizer, struct token *Token)
+{
+	/* TODO: Implement GetPrecisionNumber! */
+	return(false);
+}
+
+bool
 GetInteger(struct tokenizer *Tokenizer, struct token *Token)
 {
 	char *LastChar = Tokenizer->At;
@@ -498,7 +530,21 @@ GetToken(struct tokenizer *Tokenizer)
 		GetSymbol(Tokenizer, &Token, "||", Token_LogicalOr) ||
 		GetSymbol(Tokenizer, &Token, "&&", Token_LogicalAnd) ||
 		GetSymbol(Tokenizer, &Token, "<<", Token_BitShiftLeft) ||
-		GetSymbol(Tokenizer, &Token, ">>", Token_BitShiftRight);
+		GetSymbol(Tokenizer, &Token, ">>", Token_BitShiftRight) ||
+		GetSymbol(Tokenizer, &Token, "++", Token_PlusPlus) ||
+		GetSymbol(Tokenizer, &Token, "--", Token_MinusMinus) ||
+
+		GetSymbol(Tokenizer, &Token, "*=", Token_MultiplyEquals) ||
+		GetSymbol(Tokenizer, &Token, "/=", Token_DivideEquals) ||
+		GetSymbol(Tokenizer, &Token, "%=", Token_ModuloEquals) ||
+		GetSymbol(Tokenizer, &Token, "+=", Token_PlusEquals) ||
+		GetSymbol(Tokenizer, &Token, "-=", Token_MinusEquals) ||
+		GetSymbol(Tokenizer, &Token, "<<=", Token_DoubleLessThanEquals) ||
+		GetSymbol(Tokenizer, &Token, ">>=", Token_DoubleGreaterThanEquals) ||
+		GetSymbol(Tokenizer, &Token, "&=", Token_AmpersandEquals) ||
+		GetSymbol(Tokenizer, &Token, "^=", Token_CaratEquals) ||
+		GetSymbol(Tokenizer, &Token, "|=", Token_PipeEquals);
+
 	}
 	if(Token.Type != Token_Unknown) return(Token);
 
@@ -549,76 +595,366 @@ GetToken(struct tokenizer *Tokenizer)
 	return(Token);
 }
 
-void
-CopyToken(struct token *Destination, struct token *Source)
-{
-	Destination->Type = Source->Type;
-	Destination->Text = Source->Text;
-	Destination->TextLength = Source->TextLength;
-}
+/*******************************************************************************
+ * Recursive Descent Parsing Routines.
+ *******************************************************************************/
 
-struct token
-UnknownToken()
+bool
+ParseConstant(struct tokenizer *Tokenizer)
 {
-	struct token Token;
-	Token.Type = Token_Unknown;
-	Token.Text = NULL;
-	Token.TextLength = 0;
-	return(Token);
-}
+	char *ReadCursor = Tokenizer->At;
+	struct token Token = GetToken(Tokenizer);
 
-struct parse_node
-NewParseNode(struct token Token)
-{
-	struct parse_node Node;
-	CopyToken(&Node.Token, &Token);
-	Node.Children = (struct parse_node *)malloc(sizeof(struct parse_node) * PARSE_NODE_DEFAULT_CAPACITY);
-	Node.Parent = NULL;
-	Node.NumChildren = 0;
-	Node.Capacity = PARSE_NODE_DEFAULT_CAPACITY;
-	return(Node);
-}
-
-void
-PrintParseTree(struct parse_node *Node, int Indent)
-{
-	char *RootText = "Root";
-	char *Text = Node->Token.Text;
-	int TextLength = Node->Token.TextLength;
-	if(!Node->Parent)
+	switch(Token.Type)
 	{
-		Text = RootText;
-		TextLength = strlen(RootText);
+		case Token_Integer:
+		case Token_Character:
+		case Token_PrecisionNumber:
+/*	TODO:	case Token_Enumeration:*/
+		{
+			return(true);
+		} break;
+		default:
+		{
+			Tokenizer->At = ReadCursor;
+			return(false);
+		}
+	}
+}
+
+bool ParseExpression(struct tokenizer *Tokenizer);
+
+bool
+ParsePrimaryExpression(struct tokenizer *Tokenizer)
+{
+	char *ReadCursor = Tokenizer->At;
+	struct token Token = GetToken(Tokenizer);
+
+	switch(Token.Type)
+	{
+		case Token_Identifier:
+		case Token_String:
+		{
+			return(true);
+		} break;
+
+		default:
+		{
+			/* Do nothing. Logic continues outside of Switch
+			   statement below. */
+			;
+		} break;
 	}
 
-	for(int i=0; i<Indent; ++i) printf(" ");
-	printf("%s: %.*s\n", TokenName(Node->Token.Type), TextLength, Text);
-	if(Node->NumChildren != 0)
+	/* We haven't had a match yet, so we need to reset Tokenizer->At in
+	   order to see what we've got. */
+	Tokenizer->At = ReadCursor;
+	if(ParseConstant(Tokenizer))
 	{
-		for (int i = 0; i < Node->NumChildren; ++i)
+		return(true);
+	}
+
+	Tokenizer->At = ReadCursor;
+	if(Token_OpenParen == GetToken(Tokenizer).Type &&
+	   ParseExpression(Tokenizer) &&
+	   Token_CloseParen == GetToken(Tokenizer).Type)
+	{
+		return true;
+	}
+
+	/* There were no matches. Parsing for PrimaryExpression failed.
+	   Reset the Tokenizer and return false. */
+	Tokenizer->At = ReadCursor;
+	return(false);
+}
+
+bool ParseAssignmentExpression(struct tokenizer *Tokenizer);
+
+bool
+ParseExpression(struct tokenizer *Tokenizer)
+{
+	char *ReadCursor = Tokenizer->At;
+
+	if(ParseAssignmentExpression(Tokenizer))
+	{
+		return(true);
+	}
+
+	Tokenizer->At = ReadCursor;
+	if(ParseExpression(Tokenizer) &&
+	   Token_Comma == GetToken(Tokenizer).Type &&
+	   ParseAssignmentExpression(Tokenizer))
+	{
+		return(true);
+	}
+
+	Tokenizer->At = ReadCursor;
+	return(false);
+}
+
+bool
+ParseArgumentExpressionList(struct tokenizer *Tokenizer)
+{
+	char *ReadCursor = Tokenizer->At;
+
+	if(ParseAssignmentExpression(Tokenizer))
+	{
+		return(true);
+	}
+
+	Tokenizer->At = ReadCursor;
+	if(ParseArgumentExpressionList(Tokenizer) &&
+	   Token_Comma == GetToken(Tokenizer).Type &&
+	   ParseAssignmentExpression(Tokenizer))
+	{
+		return(true);
+	}
+
+
+	Tokenizer->At = ReadCursor;
+	return(false);
+}
+
+bool
+ParsePostfixExpression(struct tokenizer *Tokenizer)
+{
+	char *ReadCursor = Tokenizer->At;
+
+	if(ParsePrimaryExpression(Tokenizer))
+	{
+		return(true);
+	}
+
+	Tokenizer->At = ReadCursor;
+	if(ParsePostfixExpression(Tokenizer) &&
+	   Token_OpenBracket == GetToken(Tokenizer).Type &&
+	   ParseExpression(Tokenizer) &&
+	   Token_CloseBracket == GetToken(Tokenizer).Type)
+	{
+		return(true);
+	}
+
+	Tokenizer->At = ReadCursor;
+	if(ParsePostfixExpression(Tokenizer) &&
+	   Token_OpenParen == GetToken(Tokenizer).Type &&
+	   ParseArgumentExpressionList(Tokenizer) &&
+	   Token_CloseParen == GetToken(Tokenizer).Type)
+	{
+		return(true);
+	}
+
+	Tokenizer->At = ReadCursor;
+	if(ParsePostfixExpression(Tokenizer) &&
+	   Token_OpenParen == GetToken(Tokenizer).Type &&
+	   Token_CloseParen == GetToken(Tokenizer).Type)
+	{
+		return(true);
+	}
+
+	Tokenizer->At = ReadCursor;
+	if(ParsePostfixExpression(Tokenizer) &&
+	   Token_Dot == GetToken(Tokenizer).Type &&
+	   Token_Identifier == GetToken(Tokenizer).Type)
+	{
+		return(true);
+	}
+
+	Tokenizer->At = ReadCursor;
+	if(ParsePostfixExpression(Tokenizer) &&
+	   Token_Arrow == GetToken(Tokenizer).Type &&
+	   Token_Identifier == GetToken(Tokenizer).Type)
+	{
+		return(true);
+	}
+
+	Tokenizer->At = ReadCursor;
+	if(ParsePostfixExpression(Tokenizer) &&
+	   Token_PlusPlus == GetToken(Tokenizer).Type)
+	{
+		return(true);
+	}
+
+	Tokenizer->At = ReadCursor;
+	if(ParsePostfixExpression(Tokenizer) &&
+	   Token_MinusMinus == GetToken(Tokenizer).Type)
+	{
+		return(true);
+	}
+
+	Tokenizer->At = ReadCursor;
+	return(false);
+}
+
+bool
+ParseUnaryOperator(struct tokenizer *Tokenizer)
+{
+	char *ReadCursor = Tokenizer->At;
+	struct token Token = GetToken(Tokenizer);
+	switch(Token.Type)
+	{
+		case Token_Ampersand:
+		case Token_Asterisk:
+		case Token_Cross:
+		case Token_Dash:
+		case Token_Tilde:
+		case Token_Bang:
 		{
-			PrintParseTree(&(Node->Children[i]), Indent + 4);
+			return(true);
+		}
+		default:
+		{
+			Tokenizer->At = ReadCursor;
+			return(false);
+		}
+	}
+}
+
+bool ParseUnaryExpression(struct tokenizer *Tokenizer);
+
+bool
+ParseCastExpression(struct tokenizer *Tokenizer)
+{
+	char *ReadCursor = Tokenizer->At;
+
+	if(ParseUnaryExpression)
+	{
+		return(true);
+	}
+
+	Tokenizer->At = ReadCursor;
+	if(Token_OpenParen == GetToken(Tokenizer).Type &&
+	   ParseTypeName(Tokenizer) &&
+	   Token_CloseParen == GetToken(Tokenizer).Type)
+	{
+		return(true);
+	}
+
+	Tokenizer->At = ReadCursor;
+	return(false);
+}
+
+bool ParseConditionalExpression(struct tokenizer *Tokenizer);
+bool
+ParseUnaryExpression(struct tokenizer *Tokenizer)
+{
+	struct token Token;
+	char *ReadCursor = Tokenizer->At;
+
+	if(ParsePostfixExpression(Tokenizer))
+	{
+		return(true);
+	}
+
+	Tokenizer->At = ReadCursor;
+	if(Token_PlusPlus == GetToken(Tokenizer).Type &&
+	   ParseUnaryExpression(Tokenizer))
+	{
+		return(true);
+	}
+
+	Tokenizer->At = ReadCursor;
+	if(Token_MinusMinus == GetToken(Tokenizer).Type &&
+	   ParseUnaryExpression(Tokenizer))
+	{
+		return(true);
+	}
+
+	Tokenizer->At = ReadCursor;
+	if(ParseUnaryOperator(Tokenizer) &&
+	   ParseCastExpression(Tokenizer))
+	{
+		return(true);
+	}
+
+	Tokenizer->At = ReadCursor;
+	Token = GetToken(Tokenizer);
+	if(Token_Keyword == Token.Type)
+	{
+		if(strncmp("sizeof", Token.Text, strlen("sizeof")) == 0)
+		{
+			char *CurrentCursor = Tokenizer->At;
+			if(ParseUnaryExpression(Tokenizer))
+			{
+				return(true);
+			}
+
+			Tokenizer->At = CurrentCursor;
+			if(Token_OpenParen == GetToken(Tokenizer).Type &&
+			   ParseTypeName(Tokenizer) &&
+			   Token_CloseParen == GetToken(Tokenizer).Type)
+			{
+				return(true);
+			}
+		}
+	}
+
+	Tokenizer->At = ReadCursor;
+	return(false);
+}
+
+bool
+ParseAssignmentOperator(struct tokenizer *Tokenizer)
+{
+	char *ReadCursor = Tokenizer->At;
+	struct token Token = GetToken(Tokenizer);
+
+	switch(Token.Type)
+	{
+		case Token_EqualSign:
+		case Token_MultiplyEquals:
+		case Token_DivideEquals:
+		case Token_ModuloEquals:
+		case Token_PlusEquals:
+		case Token_MinusEquals:
+		case Token_DoubleLessThanEquals:
+		case Token_DoubleGreaterThanEquals:
+		case Token_AmpersandEquals:
+		case Token_CaratEquals:
+		case Token_PipeEquals:
+		{
+			return(true);
+		}
+
+		default:
+		{
+			Tokenizer->At = ReadCursor;
+			return(false);
 		}
 	}
 }
 
 bool
-AddParseNode(struct parse_node *Parent, struct parse_node Node)
+ParseAssignmentExpression(struct tokenizer *Tokenizer)
 {
-	/* Allocate new space and copy existing contents */
-	if(!Parent || Parent->NumChildren >= Parent->Capacity)
+	char *ReadCursor = Tokenizer->At;
+
+	if(ParseConditionalExpression(Tokenizer))
 	{
-		PrintParseTree(Parent, 0);
-		AbortWithMessage("Parse Node out of space.");
+		return(true);
 	}
 
-	struct parse_node *New = &(Parent->Children[Parent->NumChildren++]);
-	Node.Parent = Parent;
-	memcpy(New, &Node, sizeof(Node));
+	Tokenizer->At = ReadCursor;
+	if(ParseUnaryExpression(Tokenizer) &&
+		ParseAssignmentOperator(Tokenizer) &&
+		ParseAssignmentExpression(Tokenizer))
+	{
+		return(true);
+	}
 
-	return true;
+	Tokenizer->At = ReadCursor;
+	return(false);
 }
 
+bool
+Parse()
+{
+	/* TODO: Recursively descend into parsing. */
+	return(true);
+}
+
+/*******************************************************************************
+ * Main entrypoint.
+ *******************************************************************************/
 /* argv[1] is the input file name. */
 int
 main(int argc, char *argv[])
@@ -636,86 +972,18 @@ main(int argc, char *argv[])
 		AbortWithMessage("Couldn't copy entire file to buffer");
 	}
 
-	char print_buffer[Kilobytes(1)] = { 0 };
-	int pos = 0;
-
 	struct tokenizer Tokenizer;
 	Tokenizer.Beginning = FileContents.Data;
 	Tokenizer.At = FileContents.Data;
 
-	struct parse_node RootParseNode = NewParseNode(UnknownToken());
-	struct parse_node *ParseNode = &RootParseNode;
-
-	bool Parsing = true;
-	while(Parsing)
+	if(Parse(&Tokenizer))
 	{
-		struct token Token = GetToken(&Tokenizer);
-		switch(Token.Type)
-		{
-			case Token_EndOfStream: {
-				Parsing = false;
-			} break;
-
-			/* case Token_PreprocessorCommand: { printf("Preprocessor: "); } break; */
-			/* case Token_Comment:		{ printf("Comment: "); } break; */
-			case Token_Keyword:
-			case Token_Character:
-			case Token_String:
-			case Token_Integer:
-			case Token_PrecisionNumber:
-			case Token_Identifier: {
-				AddParseNode(ParseNode, NewParseNode(Token));
-			} break;
-
-			case Token_OpenBracket:
-			case Token_OpenBrace:
-			case Token_OpenParen: {
-				AddParseNode(ParseNode, NewParseNode(Token));
-				ParseNode = &(ParseNode->Children[ParseNode->NumChildren-1]);
-			} break;
-
-			case Token_CloseBracket:
-			case Token_CloseBrace:
-			case Token_CloseParen: {
-				ParseNode = ParseNode->Parent;
-				AddParseNode(ParseNode, NewParseNode(Token));
-			} break;
-
-			case Token_Asterisk:
-			case Token_Ampersand:
-			case Token_Colon:
-			case Token_SemiColon:
-			case Token_PercentSign:
-			case Token_QuestionMark:
-			case Token_EqualSign:
-			case Token_Carat:
-			case Token_Comma:
-			case Token_Cross:
-			case Token_Dash:
-			case Token_Slash:
-			case Token_Dot:
-			case Token_Bang:
-			case Token_Pipe:
-			case Token_LessThan:
-			case Token_GreaterThan:
-			case Token_Tilde:
-
-			case Token_NotEqual:
-			case Token_GreaterThanEqual:
-			case Token_LessThanEqual:
-			case Token_LogicalOr:
-			case Token_LogicalAnd:
-			case Token_BitShiftLeft:
-			case Token_BitShiftRight:
-			/* case Token_Arrow:		{ printf("Symbol: "); } break; */
-
-			case Token_Unknown:		{} break;
-
-			default:			{} break;
-		}
+		printf("Success\n");
 	}
-
-	PrintParseTree(&RootParseNode, 0);
+	else
+	{
+		printf("Failure\n");
+	}
 
 	return(EXIT_SUCCESS);
 }
