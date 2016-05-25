@@ -1072,6 +1072,13 @@ Lex(struct buffer *FileContents)
 		switch(Token.Type)
 		{
 			case Token_EndOfStream: { Parsing = false; } break;
+			case Token_Unknown:
+			{
+				printf("Token Name: %20s, Token Text: %.*s (%.*s)\n",
+				       TokenName(Token.Type),
+				       Token.TextLength, Token.Text,
+				       Token.TextLength + 4, Token.Text - 2);
+			} break;
 			default:
 			{
 				printf("Token Name: %20s, Token Text: %.*s\n",
