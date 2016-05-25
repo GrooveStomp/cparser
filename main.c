@@ -358,6 +358,12 @@ GetPrecisionNumber(struct tokenizer *Tokenizer, struct token *Token)
 	bool HasFractionalPart = false;
 	bool HasExponentPart = false;
 
+	/* Accept leading negative, if present. */
+	if('-' == Tokenizer->At[0])
+	{
+		++Tokenizer->At;
+	}
+
 	if(IsDecimal(Tokenizer->At[0]))
 	{
 		for(; IsDecimal(Tokenizer->At[0]); ++Tokenizer->At);
