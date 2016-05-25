@@ -563,7 +563,7 @@ GetPreprocessorCommand(struct tokenizer *Tokenizer, struct token *Token)
 
 	/* Preprocessor commands must start a line on their own. */
 	for(--Marker; Marker > Tokenizer->Beginning && IsWhitespace(*Marker); --Marker);
-	if(*(++Marker) != '\n')
+	if(*(++Marker) != '\n' && Marker != Tokenizer->Beginning)
 	{
 		Tokenizer->At = Text;
 		return(false);
