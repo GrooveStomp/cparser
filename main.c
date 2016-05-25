@@ -418,6 +418,7 @@ GetPrecisionNumber(struct tokenizer *Tokenizer, struct token *Token)
 		Token->Type = Token_PrecisionNumber;
 		Token->Text = ReadCursor;
 		Token->TextLength = Tokenizer->At - ReadCursor;
+		return(true);
 	}
 
 	Tokenizer->At = ReadCursor;
