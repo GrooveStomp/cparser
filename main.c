@@ -641,9 +641,10 @@ GetToken(struct tokenizer *Tokenizer)
 		GetPreprocessorCommand(Tokenizer, &Token) ||
 		GetComment(Tokenizer, &Token) ||
 		GetString(Tokenizer, &Token) ||
+		GetPrecisionNumber(Tokenizer, &Token) ||
 		GetInteger(Tokenizer, &Token) ||
-		GetIdentifier(Tokenizer, &Token) ||
-		GetPrecisionNumber(Tokenizer, &Token);
+		GetIdentifier(Tokenizer, &Token);
+
 	}
 	if(Token.Type != Token_Unknown) return(Token);
 
