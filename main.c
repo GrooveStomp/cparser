@@ -95,42 +95,42 @@ TokenName(enum token_type Type)
 		case Token_CloseBrace: { return "CloseBrace"; } break;
 		case Token_Colon: { return "Colon"; } break;
 		case Token_SemiColon: { return "SemiColon"; } break;
-		case Token_PercentSign: { return ""; } break;
-		case Token_QuestionMark: { return ""; } break;
-		case Token_EqualSign: { return ""; } break;
-		case Token_Carat: { return ""; } break;
-		case Token_Comma: { return ""; } break;
-		case Token_Cross: { return ""; } break;
-		case Token_Dash: { return ""; } break;
-		case Token_Slash: { return ""; } break;
-		case Token_Dot: { return ""; } break;
-		case Token_Bang: { return ""; } break;
-		case Token_Pipe: { return ""; } break;
-		case Token_LessThan: { return ""; } break;
-		case Token_GreaterThan: { return ""; } break;
-		case Token_Tilde: { return ""; } break;
+		case Token_PercentSign: { return "PercentSign"; } break;
+		case Token_QuestionMark: { return "QuestionMark"; } break;
+		case Token_EqualSign: { return "EqualSign"; } break;
+		case Token_Carat: { return "Carat"; } break;
+		case Token_Comma: { return "Comma"; } break;
+		case Token_Cross: { return "Cross"; } break;
+		case Token_Dash: { return "Dash"; } break;
+		case Token_Slash: { return "Slash"; } break;
+		case Token_Dot: { return "Dot"; } break;
+		case Token_Bang: { return "Bang"; } break;
+		case Token_Pipe: { return "Pipe"; } break;
+		case Token_LessThan: { return "LessThan"; } break;
+		case Token_GreaterThan: { return "GreaterThan"; } break;
+		case Token_Tilde: { return "Tilde"; } break;
 
-		case Token_NotEqual: { return ""; } break;
-		case Token_GreaterThanEqual: { return ""; } break;
-		case Token_LessThanEqual: { return ""; } break;
-		case Token_LogicalOr: { return ""; } break;
-		case Token_LogicalAnd: { return ""; } break;
-		case Token_BitShiftLeft: { return ""; } break;
-		case Token_BitShiftRight: { return ""; } break;
-		case Token_Arrow: { return ""; } break;
-		case Token_PlusPlus: { return "Symbol"; } break;
-		case Token_MinusMinus: { return "Symbol"; } break;
+		case Token_NotEqual: { return "NotEqual"; } break;
+		case Token_GreaterThanEqual: { return "GreaterThanEqual"; } break;
+		case Token_LessThanEqual: { return "LessThanEqual"; } break;
+		case Token_LogicalOr: { return "LogicalOr"; } break;
+		case Token_LogicalAnd: { return "LogicalAnd"; } break;
+		case Token_BitShiftLeft: { return "BitShiftLeft"; } break;
+		case Token_BitShiftRight: { return "BitShiftRight"; } break;
+		case Token_Arrow: { return "Arrow"; } break;
+		case Token_PlusPlus: { return "PlusPlus"; } break;
+		case Token_MinusMinus: { return "MinusMinus"; } break;
 
-		case Token_MultiplyEquals: { return "Symbol"; } break;
-		case Token_DivideEquals: { return "Symbol"; } break;
-		case Token_ModuloEquals: { return "Symbol"; } break;
-		case Token_PlusEquals: { return "Symbol"; } break;
-		case Token_MinusEquals: { return "Symbol"; } break;
-		case Token_DoubleLessThanEquals: { return "Symbol"; } break;
-		case Token_DoubleGreaterThanEquals: { return "Symbol"; } break;
-		case Token_AmpersandEquals: { return "Symbol"; } break;
-		case Token_CaratEquals: { return "Symbol"; } break;
-		case Token_PipeEquals: { return "Symbol"; } break;
+		case Token_MultiplyEquals: { return "MultiplyEquals"; } break;
+		case Token_DivideEquals: { return "DivideEquals"; } break;
+		case Token_ModuloEquals: { return "ModuloEquals"; } break;
+		case Token_PlusEquals: { return "PlusEquals"; } break;
+		case Token_MinusEquals: { return "MinusEquals"; } break;
+		case Token_DoubleLessThanEquals: { return "DoubleLessThanEquals"; } break;
+		case Token_DoubleGreaterThanEquals: { return "DoubleGreaterThanEquals"; } break;
+		case Token_AmpersandEquals: { return "AmpersandEquals"; } break;
+		case Token_CaratEquals: { return "CaratEquals"; } break;
+		case Token_PipeEquals: { return "PipeEquals"; } break;
 
 		case Token_Character: { return "Character"; } break;
 		case Token_String: { return "String"; } break;
@@ -177,9 +177,10 @@ AbortWithMessage(const char *msg)
 void
 Usage()
 {
-	printf("Usage: program file\n");
-	printf("  file: must be a file in this directory\n");
-	printf("  Specify '-h' or '--help' for this help text\n");
+	printf("Usage: program operation file\n");
+	printf("  operation: One of: [parse, lex].\n");
+	printf("  file: Must be a file in this directory.\n");
+	printf("  Specify '-h' or '--help' for this help text.\n");
 	exit(EXIT_SUCCESS);
 }
 
@@ -641,7 +642,8 @@ GetToken(struct tokenizer *Tokenizer)
 		GetComment(Tokenizer, &Token) ||
 		GetString(Tokenizer, &Token) ||
 		GetInteger(Tokenizer, &Token) ||
-		GetIdentifier(Tokenizer, &Token);
+		GetIdentifier(Tokenizer, &Token) ||
+		GetPrecisionNumber(Tokenizer, &Token);
 	}
 	if(Token.Type != Token_Unknown) return(Token);
 
@@ -898,6 +900,13 @@ ParseUnaryOperator(struct tokenizer *Tokenizer)
 bool ParseUnaryExpression(struct tokenizer *Tokenizer);
 
 bool
+ParseTypeName(struct tokenizer *Tokenizer)
+{
+	/* TODO: Implement ParseTypeName */
+	return(false);
+}
+
+bool
 ParseCastExpression(struct tokenizer *Tokenizer)
 {
 	char *ReadCursor = Tokenizer->At;
@@ -919,7 +928,13 @@ ParseCastExpression(struct tokenizer *Tokenizer)
 	return(false);
 }
 
-bool ParseConditionalExpression(struct tokenizer *Tokenizer);
+bool
+ParseConditionalExpression(struct tokenizer *Tokenizer)
+{
+	/* TODO: Implement ParseConditionalExpression */
+	return(false);
+}
+
 bool
 ParseUnaryExpression(struct tokenizer *Tokenizer)
 {
@@ -1031,62 +1046,81 @@ ParseAssignmentExpression(struct tokenizer *Tokenizer)
 	return(false);
 }
 
-bool
-Parse()
-{
-	/* TODO: Recursively descend into parsing. */
-	return(true);
-}
-
 /*******************************************************************************
  * Main entrypoints.
  *******************************************************************************/
 
 void
-OldMain(char *FileName)
+Lex(struct buffer *FileContents)
 {
+	struct tokenizer Tokenizer;
+	Tokenizer.Beginning = FileContents->Data;
+	Tokenizer.At = FileContents->Data;
+
+	bool Parsing = true;
+	while(Parsing)
+	{
+		struct token Token = GetToken(&Tokenizer);
+		switch(Token.Type)
+		{
+			case Token_EndOfStream: { Parsing = false; } break;
+			default:
+			{
+				printf("Token Name: %20s, Token Text: %.*s\n",
+				       TokenName(Token.Type),
+				       Token.TextLength, Token.Text);
+			} break;
+		}
+	}
 }
 
 void
-NewMain(char *FileName)
+Parse(struct buffer *FileContents)
 {
-	size_t AllocSize = FileSize(FileName);
+	struct tokenizer Tokenizer;
+	Tokenizer.Beginning = FileContents->Data;
+	Tokenizer.At = FileContents->Data;
+
+/* TODO: Call Recursive Descent Entrypoint. */
+}
+
+int main(int ArgCount, char **Args)
+{
+	for(int Index = 0; Index < ArgCount; ++Index)
+	{
+		if(strncmp(Args[Index], "-h", strlen("-h")) == 0 ||
+		   strncmp(Args[Index], "--help", strlen("--help")) == 0)
+		{
+			Usage();
+		}
+	}
+	if(ArgCount != 3) Usage();
+
+	if(strncmp(Args[1], "parse", strlen("parse")) != 0 &&
+	   strncmp(Args[1], "lex", strlen("lex")) != 0)
+	{
+		Usage();
+	}
+
+	size_t AllocSize = FileSize(Args[2]);
 	struct buffer FileContents;
 
 	/* Allocate space on the stack. */
 	BufferSet(&FileContents, (char *)alloca(AllocSize), 0, AllocSize);
 
-	if(!CopyFileIntoBuffer(FileName, &FileContents))
+	if(!CopyFileIntoBuffer(Args[2], &FileContents))
 	{
 		AbortWithMessage("Couldn't copy entire file to buffer");
 	}
 
-	struct tokenizer Tokenizer;
-	Tokenizer.Beginning = FileContents.Data;
-	Tokenizer.At = FileContents.Data;
-
-	if(Parse(&Tokenizer))
+	if(strncmp(Args[1], "parse", strlen("parse")) == 0)
 	{
-		printf("Success\n");
+		Parse(&FileContents);
 	}
 	else
 	{
-		printf("Failure\n");
+		Lex(&FileContents);
 	}
 
 	return(EXIT_SUCCESS);
-}
-
-int main(int ArgCount, char *Args)
-{
-	if(ArgCount != 2 || strcmp(Args[1], "-h") == 0 || strcmp(Args[1], "--help") == 0) Usage();
-
-	if(true)
-	{
-		return(OldMain(Args[1]));
-	}
-	else
-	{
-		return(NewMain(Args[1]));
-	}
 }
