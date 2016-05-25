@@ -267,7 +267,7 @@ GetCharacter(struct tokenizer *Tokenizer, struct token *Token)
 	for(; *Cursor != '\''; ++Cursor);
 
 	/* If previous character is an escape, then closing quote is next char. */
-	if(*(Cursor-1) == '\\')
+	if(*(Cursor-1) == '\\' && *(Cursor -2) != '\\')
 	{
 		++Cursor;
 	}
