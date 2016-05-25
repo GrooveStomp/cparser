@@ -257,18 +257,29 @@ EatAllWhitespace(struct tokenizer *Tokenizer)
 bool
 GetCharacter(struct tokenizer *Tokenizer, struct token *Token)
 {
-	if(Tokenizer->At[0] != '\'') return(false);
+	char *Cursor = Tokenizer->At;
 
-	char *Close = Tokenizer->At + 0x1l;
-	if(*Close != '\'') Close += 1;
-	if(*Close != '\'') return(false);
-	if(*Close == '\'' && *(Close-1) == '\\') Close += 1;
-	if(*Close != '\'') return(false);
+	/* First character must be a single quote. */
+	if(*Cursor != '\'') return(false);
+	++Cursor; /* Skip past the first single quote. */
+
+	/* Read until closing single quote. */
+	for(; *Cursor != '\''; ++Cursor);
+
+	/* If previous character is an escape, then closing quote is next char. */
+	if(*(Cursor-1) == '\\')
+	{
+		++Cursor;
+	}
+	++Cursor; /* Point to character after literal. */
+
+	/* Longest char literal is: '\''. */
+	if(Cursor - Tokenizer->At > 4) return(false);
 
 	Token->Text = Tokenizer->At;
-	Token->TextLength = Close - Tokenizer->At + 1;
+	Token->TextLength = Cursor - Tokenizer->At;
 	Token->Type = Token_Character;
-	Tokenizer->At += Token->TextLength;
+	Tokenizer->At = Cursor;
 
 	return(true);
 }
