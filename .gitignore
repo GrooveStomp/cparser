@@ -6,3 +6,4 @@ c-lexer/env/
 env/build/run
 !env/.emacs
 env/.emacs~
+*~
