@@ -1,16 +1,16 @@
 #include <stdio.h>
 #include <alloca.h>
-#include <string.h>
 #include <stdlib.h> /* EXIT_SUCCESS, EXIT_FAILURE */
 
-#include "file_buffer.c"
-
 typedef int bool;
-
-#define PARSE_NODE_DEFAULT_CAPACITY 1000
-#define ARRAY_SIZE(Array) (sizeof((Array)) / sizeof((Array)[0]))
 #define false 0
 #define true !false
+
+#include "file_buffer.c"
+#include "string.h"
+#include "char.h"
+
+#define ARRAY_SIZE(Array) (sizeof((Array)) / sizeof((Array)[0]))
 
 #define Min(a,b) ((a) < (b) ? (a) : (b))
 #define Bytes(n) (n)
@@ -152,101 +152,11 @@ struct token
 	enum token_type Type;
 };
 
-struct parse_node
-{
-	struct token Token;
-	struct parse_node *Children;
-	struct parse_node *Parent;
-	int NumChildren;
-	int Capacity;
-};
-
 struct tokenizer
 {
 	char *Beginning;
 	char *At;
 };
-
-void
-AbortWithMessage(const char *msg)
-{
-	fprintf(stderr, "%s\n", msg);
-	exit(EXIT_FAILURE);
-}
-
-void
-Usage()
-{
-	printf("Usage: program operation file\n");
-	printf("  operation: One of: [parse, lex].\n");
-	printf("  file: Must be a file in this directory.\n");
-	printf("  Specify '-h' or '--help' for this help text.\n");
-	exit(EXIT_SUCCESS);
-}
-
-bool
-IsEndOfLine(char C)
-{
-	return((C == '\n') ||
-	       (C == '\r'));
-}
-
-bool
-IsWhitespace(char C)
-{
-	return((C == ' ') ||
-	       (C == '\t') ||
-	       (C == '\v') ||
-	       (C == '\f') ||
-	       IsEndOfLine(C));
-}
-
-bool
-IsOctal(char C)
-{
-	bool Result = (C >= '0' && C <= '7');
-	return(Result);
-}
-
-bool
-IsDecimal(char C)
-{
-	bool Result = (C >= '0' && C <= '9');
-	return(Result);
-}
-
-bool
-IsHexadecimal(char C)
-{
-	bool Result = ((C >= '0' && C <= '9') ||
-		       (C >= 'a' && C <= 'f') ||
-		       (C >= 'A' && C <= 'F'));
-	return(Result);
-}
-
-bool
-IsIntegerSuffix(char C)
-{
-	bool Result = (C == 'u' ||
-		       C == 'U' ||
-		       C == 'l' ||
-		       C == 'L');
-	return(Result);
-}
-
-bool
-IsAlphabetical(char C)
-{
-	bool Result = ((C >= 'a' && C <= 'z') || (C >= 'A' && C <= 'Z'));
-	return(Result);
-}
-
-bool
-IsIdentifierCharacter(char C)
-{
-	bool Result = (IsAlphabetical(C) || IsDecimal(C) || C == '_');
-	return(Result);
-}
 
 static void
 EatAllWhitespace(struct tokenizer *Tokenizer)
@@ -549,9 +459,9 @@ GetKeyword(struct tokenizer *Tokenizer, struct token *Token)
 
 	for(int i = 0; i < ARRAY_SIZE(Keywords); ++i)
 	{
-		if(strstr(Tokenizer->At, Keywords[i]) == Tokenizer->At)
+		if(StringEqual(Tokenizer->At, Keywords[i], StringLength(Keywords[i])))
 		{
-			Token->TextLength = strlen(Keywords[i]);
+			Token->TextLength = StringLength(Keywords[i]);
 			Token->Type = Token_Keyword;
 			Tokenizer->At += Token->TextLength;
 			return(true);
@@ -593,9 +503,8 @@ GetPreprocessorCommand(struct tokenizer *Tokenizer, struct token *Token)
 bool
 GetSymbol(struct tokenizer *Tokenizer, struct token *Token, char *Symbol, enum token_type Type)
 {
-	int Length = strlen(Symbol);
-	int Match = strncmp(Tokenizer->At, Symbol, Length);
-	if(Match != 0) return(false);
+	int Length = StringLength(Symbol);
+	if(!StringEqual(Tokenizer->At, Symbol, Length)) return(false);
 
 	Token->Text = Tokenizer->At;
 	Token->TextLength = Length;
@@ -979,7 +888,7 @@ ParseUnaryExpression(struct tokenizer *Tokenizer)
 	Token = GetToken(Tokenizer);
 	if(Token_Keyword == Token.Type)
 	{
-		if(strncmp("sizeof", Token.Text, strlen("sizeof")) == 0)
+		if(StringEqual("sizeof", Token.Text, StringLength("sizeof")))
 		{
 			char *CurrentCursor = Tokenizer->At;
 			if(ParseUnaryExpression(Tokenizer))
@@ -1096,23 +1005,39 @@ Parse(struct buffer *FileContents)
 	Tokenizer.Beginning = FileContents->Data;
 	Tokenizer.At = FileContents->Data;
 
-/* TODO: Call Recursive Descent Entrypoint. */
+}
+
+void
+AbortWithMessage(const char *msg)
+{
+	fprintf(stderr, "%s\n", msg);
+	exit(EXIT_FAILURE);
+}
+
+void
+Usage()
+{
+	printf("Usage: program operation file\n");
+	printf("  operation: One of: [parse, lex].\n");
+	printf("  file: Must be a file in this directory.\n");
+	printf("  Specify '-h' or '--help' for this help text.\n");
+	exit(EXIT_SUCCESS);
 }
 
 int main(int ArgCount, char **Args)
 {
 	for(int Index = 0; Index < ArgCount; ++Index)
 	{
-		if(strncmp(Args[Index], "-h", strlen("-h")) == 0 ||
-		   strncmp(Args[Index], "--help", strlen("--help")) == 0)
+		if(StringEqual(Args[Index], "-h", StringLength("-h")) ||
+		   StringEqual(Args[Index], "--help", StringLength("--help")))
 		{
 			Usage();
 		}
 	}
 	if(ArgCount != 3) Usage();
 
-	if(strncmp(Args[1], "parse", strlen("parse")) != 0 &&
-	   strncmp(Args[1], "lex", strlen("lex")) != 0)
+	if(!StringEqual(Args[1], "parse", StringLength("parse")) &&
+	   !StringEqual(Args[1], "lex", StringLength("lex")))
 	{
 		Usage();
 	}
@@ -1128,7 +1053,7 @@ int main(int ArgCount, char **Args)
 		AbortWithMessage("Couldn't copy entire file to buffer");
 	}
 
-	if(strncmp(Args[1], "parse", strlen("parse")) == 0)
+	if(StringEqual(Args[1], "parse", StringLength("parse")))
 	{
 		Parse(&FileContents);
 	}
