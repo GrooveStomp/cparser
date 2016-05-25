@@ -251,17 +251,7 @@ IsIdentifierCharacter(char C)
 static void
 EatAllWhitespace(struct tokenizer *Tokenizer)
 {
-	while(true)
-	{
-		if(IsWhitespace(Tokenizer->At[0]))
-		{
-			++Tokenizer->At;
-		}
-		else
-		{
-			break;
-		}
-	}
+	for(; IsWhitespace(Tokenizer->At[0]); ++Tokenizer->At);
 }
 
 bool
