@@ -1,3 +1,4 @@
+/* TODO(AARON): Remove unary '-' inclusion in integer and float lexing. This is an operator the parser will pick up. */
 #include <stdio.h>
 #include <alloca.h>
 #include <stdlib.h> /* EXIT_SUCCESS, EXIT_FAILURE */
@@ -150,18 +151,49 @@ struct token
 	char *Text;
 	size_t TextLength;
 	enum token_type Type;
+	int Line;
+	int Column;
 };
 
 struct tokenizer
 {
 	char *Beginning;
 	char *At;
+	int Line;
+	int Column;
 };
 
-static void
+void
+AdvanceTokenizer(struct tokenizer *Tokenizer)
+{
+	if(Tokenizer->At[0] == '\n')
+	{
+		++Tokenizer->Line;
+		Tokenizer->Column = 0;
+	}
+	else
+	{
+		++Tokenizer->Column;
+	}
+	++Tokenizer->At;
+}
+
+bool
+AdvanceAndCopy(struct tokenizer *Tokenizer, struct token *Token, int Length, enum token_type Type)
+{
+	Token->Text = Tokenizer->At;
+	Token->TextLength = Length;
+	Token->Type = Type;
+	Token->Line = Tokenizer->Line;
+	Token->Column = Tokenizer->Column;
+
+	for(int I=0; I<Length; ++I) AdvanceTokenizer(Tokenizer);
+}
+
+void
 EatAllWhitespace(struct tokenizer *Tokenizer)
 {
-	for(; IsWhitespace(Tokenizer->At[0]); ++Tokenizer->At);
+	for(; IsWhitespace(Tokenizer->At[0]); AdvanceTokenizer(Tokenizer));
 }
 
 bool
@@ -186,10 +218,7 @@ GetCharacter(struct tokenizer *Tokenizer, struct token *Token)
 	/* Longest char literal is: '\''. */
 	if(Cursor - Tokenizer->At > 4) return(false);
 
-	Token->Text = Tokenizer->At;
-	Token->TextLength = Cursor - Tokenizer->At;
-	Token->Type = Token_Character;
-	Tokenizer->At = Cursor;
+	AdvanceAndCopy(Tokenizer, Token, Cursor - Tokenizer->At, Token_Character);
 
 	return(true);
 }
@@ -197,20 +226,18 @@ GetCharacter(struct tokenizer *Tokenizer, struct token *Token)
 bool
 GetString(struct tokenizer *Tokenizer, struct token *Token)
 {
-	char *Text = Tokenizer->At;
-	if(Tokenizer->At[0] != '"') return(false);
+	char *Cursor = Tokenizer->At;
+	if(*Cursor != '"') return(false);
 
 	while(true)
 	{
-		++Tokenizer->At;
-		if(Tokenizer->At[0] == '\0') return(false);
-		if(Tokenizer->At[0] == '"' && *(Tokenizer->At - 1) != '\\') break;
+		++Cursor;
+		if(*Cursor == '\0') return(false);
+		if(*Cursor == '"' && *(Cursor - 1) != '\\') break;
 	}
-	++Tokenizer->At; /* Swallow the last double quote. */
+	++Cursor; /* Swallow the last double quote. */
 
-	Token->Text = Text;
-	Token->TextLength = Tokenizer->At - Token->Text;
-	Token->Type = Token_String;
+	AdvanceAndCopy(Tokenizer, Token, Cursor - Tokenizer->At, Token_String);
 
 	return(true);
 }
@@ -272,7 +299,7 @@ GetPrecisionNumber(struct tokenizer *Tokenizer, struct token *Token)
 	  makes it long double; otherwise it is double.
 	 */
 
-	char *ReadCursor = Tokenizer->At;
+	char *Cursor = Tokenizer->At;
 
 	bool HasIntegerPart = false;
 	bool HasDecimalPoint = false;
@@ -280,66 +307,62 @@ GetPrecisionNumber(struct tokenizer *Tokenizer, struct token *Token)
 	bool HasExponentPart = false;
 
 	/* Accept leading negative, if present. */
-	if('-' == Tokenizer->At[0])
+	if('-' == *Cursor)
 	{
-		++Tokenizer->At;
+		++Cursor;
 	}
 
-	if(IsDecimal(Tokenizer->At[0]))
+	if(IsDecimal(*Cursor))
 	{
-		for(; IsDecimal(Tokenizer->At[0]); ++Tokenizer->At);
+		for(; IsDecimal(*Cursor); ++Cursor);
 		HasIntegerPart = true;
 	}
 
-	if('.' == Tokenizer->At[0])
+	if('.' == *Cursor)
 	{
-		++Tokenizer->At;
+		++Cursor;
 		HasDecimalPoint = true;
-		if(IsDecimal(Tokenizer->At[0]))
+		if(IsDecimal(*Cursor))
 		{
-			for(; IsDecimal(Tokenizer->At[0]); ++Tokenizer->At);
+			for(; IsDecimal(*Cursor); ++Cursor);
 			HasFractionalPart = true;
 		}
 	}
 
-	if('e' == Tokenizer->At[0] || 'E' == Tokenizer->At[0])
+	if('e' == *Cursor || 'E' == *Cursor)
 	{
-		++Tokenizer->At;
+		++Cursor;
 		HasExponentPart = true;
 
 		/* Optional negative sign for exponent is allowed. */
-		if('-' == Tokenizer->At[0])
+		if('-' == *Cursor)
 		{
-			++Tokenizer->At;
+			++Cursor;
 		}
 
 		/* Exponent must contain an exponent part. */
-		if(!IsDecimal(Tokenizer->At[0]))
+		if(!IsDecimal(*Cursor))
 		{
-			Tokenizer->At = ReadCursor;
 			return(false);
 		}
 
-		for(; IsDecimal(Tokenizer->At[0]); ++Tokenizer->At);
+		for(; IsDecimal(*Cursor); ++Cursor);
 	}
 
 	/* IsFloatSuffix(C) */
-	char C = Tokenizer->At[0];
+	char C = *Cursor;
 	if('f' == C || 'F' == C || 'l' == C || 'L' == C)
 	{
-		++Tokenizer->At;
+		++Cursor;
 	}
 
 	if((HasIntegerPart || HasFractionalPart) &&
 	   (HasDecimalPoint || HasExponentPart))
 	{
-		Token->Type = Token_PrecisionNumber;
-		Token->Text = ReadCursor;
-		Token->TextLength = Tokenizer->At - ReadCursor;
+		AdvanceAndCopy(Tokenizer, Token, Cursor - Tokenizer->At, Token_PrecisionNumber);
 		return(true);
 	}
 
-	Tokenizer->At = ReadCursor;
 	return(false);
 }
 
@@ -347,49 +370,46 @@ bool
 GetInteger(struct tokenizer *Tokenizer, struct token *Token)
 {
 	char *LastChar = Tokenizer->At;
-	for(; LastChar && (IsDecimal(*LastChar) || IsAlphabetical(*LastChar)); ++LastChar);
+	for(; *LastChar && (IsDecimal(*LastChar) || IsAlphabetical(*LastChar)); ++LastChar);
 
 	int Length = LastChar - Tokenizer->At;
 	--LastChar;
 
-	Token->Type = Token_Unknown;
-	Token->Text = Tokenizer->At;
-	Token->TextLength = Length;
+	/* Token->Type = Token_Unknown; */
+	/* Token->Text = Tokenizer->At; */
+	/* Token->TextLength = Length; */
 
 	if(Length < 1) return(false);
 
-	if ((IsOctalString(Tokenizer->At, Length) || IsHexadecimalString(Tokenizer->At, Length)) ||
-	   (1 == Length && '0' == Tokenizer->At[0]))
+	char *Cursor = Tokenizer->At;
+
+	if ((IsOctalString(Cursor, Length) || IsHexadecimalString(Cursor, Length)) ||
+	    (1 == Length && '0' == *Cursor))
 	{
-		Tokenizer->At += Length;
-		Token->Type = Token_Integer;
+		AdvanceAndCopy(Tokenizer, Token, Length, Token_Integer);
 		return(true);
 	}
 
 	/* Can't have a multi-digit integer starting with zero unless it's Octal. */
-	if(Tokenizer->At[0] == '0')
+	if('0' == *Cursor)
 	{
-		Tokenizer->At = Token->Text;
 		return(false);
 	}
 
-	for(int i=0; i<Length-1; ++i)
+	for(int I=0; I<Length-1; ++I)
 	{
-		if(!IsDecimal(Tokenizer->At[i]))
+		if(!IsDecimal(Cursor[I]))
 		{
-			Tokenizer->At = Token->Text;
 			return(false);
 		}
 	}
 
 	if(IsDecimal(*LastChar) || IsIntegerSuffix(*LastChar))
 	{
-		Tokenizer->At += Length;
-		Token->Type = Token_Integer;
+		AdvanceAndCopy(Tokenizer, Token, Length, Token_Integer);
 		return(true);
 	}
 
-	Tokenizer->At = Token->Text;
 	return(false);
 }
 
@@ -398,17 +418,15 @@ GetIdentifier(struct tokenizer *Tokenizer, struct token *Token)
 {
 	if(!IsAlphabetical(Tokenizer->At[0])) return(false);
 
-	char *Text = Tokenizer->At;
+	char *Cursor = Tokenizer->At;
 
 	while(true)
 	{
-		if(!IsIdentifierCharacter(Tokenizer->At[0])) break;
-		++Tokenizer->At;
+		if(!IsIdentifierCharacter(*Cursor)) break;
+		++Cursor;
 	}
 
-	Token->Text = Text;
-	Token->TextLength = Tokenizer->At - Token->Text;
-	Token->Type = Token_Identifier;
+	AdvanceAndCopy(Tokenizer, Token, Cursor - Tokenizer->At, Token_Identifier);
 
 	return(true);
 }
@@ -418,27 +436,25 @@ GetComment(struct tokenizer *Tokenizer, struct token *Token)
 {
 	if(Tokenizer->At[0] != '/' || Tokenizer->At[1] != '*') return(false);
 
-	char *Text = Tokenizer->At;
+	char *Cursor = Tokenizer->At;
 
 	while(true)
 	{
-		if(Tokenizer->At[0] == '\0')
+		if('\0' == *Cursor)
 		{
-			Tokenizer->At = Text;
 			return(false);
 		}
-		if(Tokenizer->At[0] == '*' && Tokenizer->At[1] == '/')
+		if('*' == Cursor[0] && '/' == Cursor[1])
 		{
 			break;
 		}
-		++Tokenizer->At;
+		++Cursor;
 	}
 
-	Tokenizer->At += 2; /* Swallow last two characters: asterisk, slash */
+	Cursor += 2; /* Swallow last two characters: asterisk, slash */
 
-	Token->Text = Text;
-	Token->TextLength = Tokenizer->At - Token->Text;
-	Token->Type = Token_Comment;
+	AdvanceAndCopy(Tokenizer, Token, Cursor - Tokenizer->At, Token_Comment);
+
 	return(true);
 }
 
@@ -453,17 +469,12 @@ GetKeyword(struct tokenizer *Tokenizer, struct token *Token)
 		"union", "unsigned", "void", "volatile", "while"
 	};
 
-	Token->Text = Tokenizer->At;
-	Token->TextLength = 0;
-	Token->Type = Token_Unknown;
-
 	for(int i = 0; i < ARRAY_SIZE(Keywords); ++i)
 	{
 		if(StringEqual(Tokenizer->At, Keywords[i], StringLength(Keywords[i])))
 		{
-			Token->TextLength = StringLength(Keywords[i]);
-			Token->Type = Token_Keyword;
-			Tokenizer->At += Token->TextLength;
+			AdvanceAndCopy(Tokenizer, Token, StringLength(Keywords[i]), Token_Keyword);
+
 			return(true);
 		}
 	}
@@ -476,27 +487,26 @@ GetPreprocessorCommand(struct tokenizer *Tokenizer, struct token *Token)
 {
 	if(Tokenizer->At[0] != '#') return(false);
 
-	char *Text, *Marker;
-	Text = Marker = Tokenizer->At++;
+	char *Cursor = Tokenizer->At;
 
 	/* Preprocessor commands must start a line on their own. */
-	for(--Marker; Marker > Tokenizer->Beginning && IsWhitespace(*Marker); --Marker);
-	if(*(++Marker) != '\n' && Marker != Tokenizer->Beginning)
+	for(--Cursor; Cursor > Tokenizer->Beginning && IsWhitespace(*Cursor); --Cursor);
+
+	if(*(++Cursor) != '\n' && Cursor != Tokenizer->Beginning)
 	{
-		Tokenizer->At = Text;
 		return(false);
 	}
+	Cursor = Tokenizer->At + 1; /* Skip the starting '#' for macros. */
 
 	while(true)
 	{
-		if(Tokenizer->At[0] == '\n' && *(Tokenizer->At - 1) != '\\') break;
-		if(Tokenizer->At[0] == '\0') break;
-		++Tokenizer->At;
+		if(*Cursor == '\n' && *(Cursor - 1) != '\\') break;
+		if(*Cursor == '\0') break;
+		++Cursor;
 	}
 
-	Token->Text = Text;
-	Token->TextLength = Tokenizer->At - Token->Text;
-	Token->Type = Token_PreprocessorCommand;
+	AdvanceAndCopy(Tokenizer, Token, Cursor - Tokenizer->At, Token_PreprocessorCommand);
+
 	return(true);
 }
 
@@ -506,11 +516,7 @@ GetSymbol(struct tokenizer *Tokenizer, struct token *Token, char *Symbol, enum t
 	int Length = StringLength(Symbol);
 	if(!StringEqual(Tokenizer->At, Symbol, Length)) return(false);
 
-	Token->Text = Tokenizer->At;
-	Token->TextLength = Length;
-	Token->Type = Type;
-
-	Tokenizer->At += Length;
+	AdvanceAndCopy(Tokenizer, Token, Length, Type);
 
 	return(true);
 }
@@ -981,14 +987,18 @@ Lex(struct buffer *FileContents)
 			case Token_EndOfStream: { Parsing = false; } break;
 			case Token_Unknown:
 			{
-				printf("Token Name: %20s, Token Text: %.*s (%.*s)\n",
+				printf("[%d,%d] Token Name: %20s, Token Text: %.*s (%.*s)\n",
+				       Token.Line,
+				       Token.Column,
 				       TokenName(Token.Type),
 				       Token.TextLength, Token.Text,
 				       Token.TextLength + 4, Token.Text - 2);
 			} break;
 			default:
 			{
-				printf("Token Name: %20s, Token Text: %.*s\n",
+				printf("[%d,%d] Token Name: %20s, Token Text: %.*s\n",
+				       Token.Line,
+				       Token.Column,
 				       TokenName(Token.Type),
 				       Token.TextLength, Token.Text);
 			} break;
