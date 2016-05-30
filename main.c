@@ -627,7 +627,29 @@ ParseConstant(struct tokenizer *Tokenizer)
 	}
 }
 
-bool ParseExpression(struct tokenizer *Tokenizer);
+bool ParseAssignmentExpression(struct tokenizer *Tokenizer);
+
+bool
+ParseExpression(struct tokenizer *Tokenizer)
+{
+	char *ReadCursor = Tokenizer->At;
+
+	if(ParseAssignmentExpression(Tokenizer))
+	{
+		return(true);
+	}
+
+	Tokenizer->At = ReadCursor;
+	if(ParseExpression(Tokenizer) &&
+	   Token_Comma == GetToken(Tokenizer).Type &&
+	   ParseAssignmentExpression(Tokenizer))
+	{
+		return(true);
+	}
+
+	Tokenizer->At = ReadCursor;
+	return(false);
+}
 
 bool
 ParsePrimaryExpression(struct tokenizer *Tokenizer)
@@ -669,30 +691,6 @@ ParsePrimaryExpression(struct tokenizer *Tokenizer)
 
 	/* There were no matches. Parsing for PrimaryExpression failed.
 	   Reset the Tokenizer and return false. */
-	Tokenizer->At = ReadCursor;
-	return(false);
-}
-
-bool ParseAssignmentExpression(struct tokenizer *Tokenizer);
-
-bool
-ParseExpression(struct tokenizer *Tokenizer)
-{
-	char *ReadCursor = Tokenizer->At;
-
-	if(ParseAssignmentExpression(Tokenizer))
-	{
-		return(true);
-	}
-
-	Tokenizer->At = ReadCursor;
-	if(ParseExpression(Tokenizer) &&
-	   Token_Comma == GetToken(Tokenizer).Type &&
-	   ParseAssignmentExpression(Tokenizer))
-	{
-		return(true);
-	}
-
 	Tokenizer->At = ReadCursor;
 	return(false);
 }
@@ -1005,6 +1003,28 @@ Parse(struct buffer *FileContents)
 	Tokenizer.Beginning = FileContents->Data;
 	Tokenizer.At = FileContents->Data;
 
+	bool Parsing = true;
+	while(Parsing)
+	{
+		char *Cursor = Tokenizer.At;
+		struct token Token = GetToken(&Tokenizer);
+		switch(Token.Type)
+		{
+			case Token_EndOfStream: { Parsing = false; } break;
+			case Token_Unknown: { Parsing = false; } break;
+			case Token_Comment: { } break;
+			case Token_PreprocessorCommand: { } break;
+			default:
+			{
+				/*
+				  TODO: Call top-most parse entrypoint.
+				  This is currently ParseExpression, but as I translate more, this will
+				  change.
+				*/
+				ParseExpression(&Tokenizer);
+			} break;
+		}
+	}
 }
 
 void
