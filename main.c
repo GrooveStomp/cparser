@@ -1,4 +1,3 @@
-/* TODO(AARON): Remove unary '-' inclusion in integer and float lexing. This is an operator the parser will pick up. */
 #include <stdio.h>
 #include <alloca.h>
 #include <stdlib.h> /* EXIT_SUCCESS, EXIT_FAILURE */
@@ -16,6 +15,13 @@ typedef int bool;
 #define Min(a,b) ((a) < (b) ? (a) : (b))
 #define Bytes(n) (n)
 #define Kilobytes(n) (Bytes(n) * 1000)
+
+/* GCC-specific defines that let us remove compiler size warnings below. */
+#if __LP64__
+#define CastSizeIntTo32Bits(x) (int)(x)
+#else
+#define CastSizeIntTo32Bits(x) (x)
+#endif
 
 enum token_type
 {
@@ -306,12 +312,6 @@ GetPrecisionNumber(struct tokenizer *Tokenizer, struct token *Token)
 	bool HasFractionalPart = false;
 	bool HasExponentPart = false;
 
-	/* Accept leading negative, if present. */
-	if('-' == *Cursor)
-	{
-		++Cursor;
-	}
-
 	if(IsDecimal(*Cursor))
 	{
 		for(; IsDecimal(*Cursor); ++Cursor);
@@ -420,11 +420,7 @@ GetIdentifier(struct tokenizer *Tokenizer, struct token *Token)
 
 	char *Cursor = Tokenizer->At;
 
-	while(true)
-	{
-		if(!IsIdentifierCharacter(*Cursor)) break;
-		++Cursor;
-	}
+	for(; IsIdentifierCharacter(*Cursor); ++Cursor);
 
 	AdvanceAndCopy(Tokenizer, Token, Cursor - Tokenizer->At, Token_Identifier);
 
@@ -571,8 +567,7 @@ GetToken(struct tokenizer *Tokenizer)
 	if(Token.Type != Token_Unknown) return(Token);
 
 	char C = Tokenizer->At[0];
-	++Tokenizer->At;
-	Token.TextLength = 1;
+	AdvanceAndCopy(Tokenizer, &Token, 1, Token_Unknown);
 
 	switch(C)
 	{
@@ -991,8 +986,8 @@ Lex(struct buffer *FileContents)
 				       Token.Line,
 				       Token.Column,
 				       TokenName(Token.Type),
-				       Token.TextLength, Token.Text,
-				       Token.TextLength + 4, Token.Text - 2);
+				       CastSizeIntTo32Bits(Token.TextLength), Token.Text,
+				       CastSizeIntTo32Bits(Token.TextLength + 4), Token.Text - 2);
 			} break;
 			default:
 			{
@@ -1000,7 +995,8 @@ Lex(struct buffer *FileContents)
 				       Token.Line,
 				       Token.Column,
 				       TokenName(Token.Type),
-				       Token.TextLength, Token.Text);
+				       CastSizeIntTo32Bits(Token.TextLength),
+				       Token.Text);
 			} break;
 		}
 	}
