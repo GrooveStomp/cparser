@@ -172,7 +172,7 @@ struct tokenizer
 void
 AdvanceTokenizer(struct tokenizer *Tokenizer)
 {
-	if(Tokenizer->At[0] == '\n')
+	if(IsEndOfLine(Tokenizer->At[0]))
 	{
 		++Tokenizer->Line;
 		Tokenizer->Column = 0;
@@ -1050,7 +1050,8 @@ Usage()
 	exit(EXIT_SUCCESS);
 }
 
-int main(int ArgCount, char **Args)
+int
+main(int ArgCount, char **Args)
 {
 	for(int Index = 0; Index < ArgCount; ++Index)
 	{
