@@ -1,3 +1,11 @@
+/*
+  TODO:
+  - Troubleshoot segmentation fault in parser. See corresponding TODO.
+  - Integer lexing is not correct? Double check C reference and
+    integer-constants.txt test file.
+  - Unicode support? C unicode libraries: icu, utf8proc, *microutf8*, *nunicode*
+    Both microutf8 and nunicode look quite good.g
+ */
 #include <stdio.h>
 #include <alloca.h>
 #include <stdlib.h> /* EXIT_SUCCESS, EXIT_FAILURE */
@@ -641,6 +649,7 @@ ParseExpression(struct tokenizer *Tokenizer)
 	}
 
 	Tokenizer->At = ReadCursor;
+        /* TODO(AARON): This is a recursive call right here. Blows the stack. */
 	if(ParseExpression(Tokenizer) &&
 	   Token_Comma == GetToken(Tokenizer).Type &&
 	   ParseAssignmentExpression(Tokenizer))
