@@ -1,8 +1,12 @@
-Adds Symbol and Preprocessor command tokenization to the lexer.
+--------------------------------------------------------------------------------
+Overview
+--------------------------------------------------------------------------------
+I am ostensibly building a C compiler.  This project started out as a simple
+lexer, but I've moved beyond that and am now dabbling in parsing.
 
-Program that lexes C keywords and comments.
-This is prep work for my C compiler that I'm working on in my spare time.
-
+--------------------------------------------------------------------------------
+Setup, Requirements, Etc.
+--------------------------------------------------------------------------------
 Requirements:
 
 - gcc (for build command in env/shell)
@@ -13,14 +17,14 @@ Setup:
 > cd /path/to/project/root
 > source env/shell
 
-Building:
+Build:
 
 > build
 
-Running:
+Run:
 
-> run main.c
+> run --help
 
-Debugging:
+Debug
 
-> debug
+> debug --help

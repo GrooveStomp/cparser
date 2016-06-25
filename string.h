@@ -5,17 +5,25 @@ typedef int bool;
 #endif
 
 bool
-StringEqual(char *LeftString, char *RightString, int MaxNumToMatch)
+IsStringEqual(char *LeftString, char *RightString, int MaxNumToMatch)
 {
 	int NumMatched = 0;
 
-	for(;
-	    *LeftString == *RightString && NumMatched < MaxNumToMatch;
-	    LeftString++, RightString++, MaxNumToMatch++)
+	while(NumMatched < MaxNumToMatch)
 	{
-		if(*LeftString == '\0') return(true);
+		if(*LeftString == *RightString)
+		{
+			LeftString++;
+			RightString++;
+			NumMatched++;
+		}
+		else
+		{
+			return(false);
+		}
 	}
-	return(false);
+
+	return(true);
 }
 
 int

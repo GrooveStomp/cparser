@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <alloca.h>
 #include <stdlib.h> /* EXIT_SUCCESS, EXIT_FAILURE */
+#include <string.h> /* memcpy */
 
 typedef int bool;
 #define false 0
@@ -192,8 +193,27 @@ AdvanceTokenizer(struct tokenizer *Tokenizer)
 	++Tokenizer->At;
 }
 
+void
+CopyTokenizer(struct tokenizer *Source, struct tokenizer *Dest)
+{
+	Dest->Beginning = Source->Beginning;
+	Dest->At = Source->At;
+	Dest->Line = Source->Line;
+	Dest->Column = Source->Column;
+}
+
+void
+AdvanceTokenizerToChar(struct tokenizer *Tokenizer, char Char)
+{
+	while(!IsEndOfStream(Tokenizer->At[0]))
+	{
+		if(Tokenizer->At[0] == Char) break;
+		AdvanceTokenizer(Tokenizer);
+	}
+}
+
 bool
-AdvanceAndCopy(struct tokenizer *Tokenizer, struct token *Token, int Length, enum token_type Type)
+CopyToTokenAndAdvance(struct tokenizer *Tokenizer, struct token *Token, int Length, enum token_type Type)
 {
 	Token->Text = Tokenizer->At;
 	Token->TextLength = Length;
@@ -232,7 +252,7 @@ GetCharacter(struct tokenizer *Tokenizer, struct token *Token)
 	/* Longest char literal is: '\''. */
 	if(Cursor - Tokenizer->At > 4) return(false);
 
-	AdvanceAndCopy(Tokenizer, Token, Cursor - Tokenizer->At, Token_Character);
+	CopyToTokenAndAdvance(Tokenizer, Token, Cursor - Tokenizer->At, Token_Character);
 
 	return(true);
 }
@@ -251,7 +271,7 @@ GetString(struct tokenizer *Tokenizer, struct token *Token)
 	}
 	++Cursor; /* Swallow the last double quote. */
 
-	AdvanceAndCopy(Tokenizer, Token, Cursor - Tokenizer->At, Token_String);
+	CopyToTokenAndAdvance(Tokenizer, Token, Cursor - Tokenizer->At, Token_String);
 
 	return(true);
 }
@@ -367,7 +387,7 @@ GetPrecisionNumber(struct tokenizer *Tokenizer, struct token *Token)
 	if((HasIntegerPart || HasFractionalPart) &&
 	   (HasDecimalPoint || HasExponentPart))
 	{
-		AdvanceAndCopy(Tokenizer, Token, Cursor - Tokenizer->At, Token_PrecisionNumber);
+		CopyToTokenAndAdvance(Tokenizer, Token, Cursor - Tokenizer->At, Token_PrecisionNumber);
 		return(true);
 	}
 
@@ -394,7 +414,7 @@ GetInteger(struct tokenizer *Tokenizer, struct token *Token)
 	if ((IsOctalString(Cursor, Length) || IsHexadecimalString(Cursor, Length)) ||
 	    (1 == Length && '0' == *Cursor))
 	{
-		AdvanceAndCopy(Tokenizer, Token, Length, Token_Integer);
+		CopyToTokenAndAdvance(Tokenizer, Token, Length, Token_Integer);
 		return(true);
 	}
 
@@ -414,7 +434,7 @@ GetInteger(struct tokenizer *Tokenizer, struct token *Token)
 
 	if(IsDecimal(*LastChar) || IsIntegerSuffix(*LastChar))
 	{
-		AdvanceAndCopy(Tokenizer, Token, Length, Token_Integer);
+		CopyToTokenAndAdvance(Tokenizer, Token, Length, Token_Integer);
 		return(true);
 	}
 
@@ -430,7 +450,7 @@ GetIdentifier(struct tokenizer *Tokenizer, struct token *Token)
 
 	for(; IsIdentifierCharacter(*Cursor); ++Cursor);
 
-	AdvanceAndCopy(Tokenizer, Token, Cursor - Tokenizer->At, Token_Identifier);
+	CopyToTokenAndAdvance(Tokenizer, Token, Cursor - Tokenizer->At, Token_Identifier);
 
 	return(true);
 }
@@ -457,7 +477,7 @@ GetComment(struct tokenizer *Tokenizer, struct token *Token)
 
 	Cursor += 2; /* Swallow last two characters: asterisk, slash */
 
-	AdvanceAndCopy(Tokenizer, Token, Cursor - Tokenizer->At, Token_Comment);
+	CopyToTokenAndAdvance(Tokenizer, Token, Cursor - Tokenizer->At, Token_Comment);
 
 	return(true);
 }
@@ -475,9 +495,9 @@ GetKeyword(struct tokenizer *Tokenizer, struct token *Token)
 
 	for(int i = 0; i < ARRAY_SIZE(Keywords); ++i)
 	{
-		if(StringEqual(Tokenizer->At, Keywords[i], StringLength(Keywords[i])))
+		if(IsStringEqual(Tokenizer->At, Keywords[i], StringLength(Keywords[i])))
 		{
-			AdvanceAndCopy(Tokenizer, Token, StringLength(Keywords[i]), Token_Keyword);
+			CopyToTokenAndAdvance(Tokenizer, Token, StringLength(Keywords[i]), Token_Keyword);
 
 			return(true);
 		}
@@ -509,7 +529,7 @@ GetPreprocessorCommand(struct tokenizer *Tokenizer, struct token *Token)
 		++Cursor;
 	}
 
-	AdvanceAndCopy(Tokenizer, Token, Cursor - Tokenizer->At, Token_PreprocessorCommand);
+	CopyToTokenAndAdvance(Tokenizer, Token, Cursor - Tokenizer->At, Token_PreprocessorCommand);
 
 	return(true);
 }
@@ -518,9 +538,9 @@ bool
 GetSymbol(struct tokenizer *Tokenizer, struct token *Token, char *Symbol, enum token_type Type)
 {
 	int Length = StringLength(Symbol);
-	if(!StringEqual(Tokenizer->At, Symbol, Length)) return(false);
+	if(!IsStringEqual(Tokenizer->At, Symbol, Length)) return(false);
 
-	AdvanceAndCopy(Tokenizer, Token, Length, Type);
+	CopyToTokenAndAdvance(Tokenizer, Token, Length, Type);
 
 	return(true);
 }
@@ -575,7 +595,7 @@ GetToken(struct tokenizer *Tokenizer)
 	if(Token.Type != Token_Unknown) return(Token);
 
 	char C = Tokenizer->At[0];
-	AdvanceAndCopy(Tokenizer, &Token, 1, Token_Unknown);
+	CopyToTokenAndAdvance(Tokenizer, &Token, 1, Token_Unknown);
 
 	switch(C)
 	{
@@ -616,7 +636,7 @@ GetToken(struct tokenizer *Tokenizer)
 bool
 ParseConstant(struct tokenizer *Tokenizer)
 {
-	char *ReadCursor = Tokenizer->At;
+	struct tokenizer PrevState = *Tokenizer;
 	struct token Token = GetToken(Tokenizer);
 
 	switch(Token.Type)
@@ -630,7 +650,7 @@ ParseConstant(struct tokenizer *Tokenizer)
 		} break;
 		default:
 		{
-			Tokenizer->At = ReadCursor;
+			*Tokenizer = PrevState;
 			return(false);
 		}
 	}
@@ -638,33 +658,47 @@ ParseConstant(struct tokenizer *Tokenizer)
 
 bool ParseAssignmentExpression(struct tokenizer *Tokenizer);
 
+
+/* https://en.wikipedia.org/wiki/Left_recursion */
+bool
+ParseExpressionI(struct tokenizer *Tokenizer)
+{
+	struct tokenizer PrevState = *Tokenizer;
+
+	if(ParseAssignmentExpression(Tokenizer) &&
+	   ParseExpressionI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = PrevState;
+	return(false);
+}
+
+/* https://en.wikipedia.org/wiki/Left_recursion */
+/*
+  expression:
+          assignment-expression
+	  expression , assignment-expression
+*/
 bool
 ParseExpression(struct tokenizer *Tokenizer)
 {
-	char *ReadCursor = Tokenizer->At;
-
-	if(ParseAssignmentExpression(Tokenizer))
+	struct tokenizer PrevState = *Tokenizer;
+	if(ParseAssignmentExpression(Tokenizer) &&
+	   ParseExpressionI(Tokenizer))
 	{
 		return(true);
 	}
 
-	Tokenizer->At = ReadCursor;
-        /* TODO(AARON): This is a recursive call right here. Blows the stack. */
-	if(ParseExpression(Tokenizer) &&
-	   Token_Comma == GetToken(Tokenizer).Type &&
-	   ParseAssignmentExpression(Tokenizer))
-	{
-		return(true);
-	}
-
-	Tokenizer->At = ReadCursor;
+	*Tokenizer = PrevState;
 	return(false);
 }
 
 bool
 ParsePrimaryExpression(struct tokenizer *Tokenizer)
 {
-	char *ReadCursor = Tokenizer->At;
+	struct tokenizer PrevState = *Tokenizer;
 	struct token Token = GetToken(Tokenizer);
 
 	switch(Token.Type)
@@ -685,13 +719,13 @@ ParsePrimaryExpression(struct tokenizer *Tokenizer)
 
 	/* We haven't had a match yet, so we need to reset Tokenizer->At in
 	   order to see what we've got. */
-	Tokenizer->At = ReadCursor;
+	*Tokenizer = PrevState;
 	if(ParseConstant(Tokenizer))
 	{
 		return(true);
 	}
 
-	Tokenizer->At = ReadCursor;
+	*Tokenizer = PrevState;
 	if(Token_OpenParen == GetToken(Tokenizer).Type &&
 	   ParseExpression(Tokenizer) &&
 	   Token_CloseParen == GetToken(Tokenizer).Type)
@@ -699,23 +733,20 @@ ParsePrimaryExpression(struct tokenizer *Tokenizer)
 		return true;
 	}
 
-	/* There were no matches. Parsing for PrimaryExpression failed.
-	   Reset the Tokenizer and return false. */
-	Tokenizer->At = ReadCursor;
+	*Tokenizer = PrevState;
 	return(false);
 }
 
 bool
 ParseArgumentExpressionList(struct tokenizer *Tokenizer)
 {
-	char *ReadCursor = Tokenizer->At;
-
+	struct tokenizer PrevState = *Tokenizer;
 	if(ParseAssignmentExpression(Tokenizer))
 	{
 		return(true);
 	}
 
-	Tokenizer->At = ReadCursor;
+	*Tokenizer = PrevState;
 	if(ParseArgumentExpressionList(Tokenizer) &&
 	   Token_Comma == GetToken(Tokenizer).Type &&
 	   ParseAssignmentExpression(Tokenizer))
@@ -723,85 +754,102 @@ ParseArgumentExpressionList(struct tokenizer *Tokenizer)
 		return(true);
 	}
 
-
-	Tokenizer->At = ReadCursor;
+	*Tokenizer = PrevState;
 	return(false);
 }
 
 bool
+ParsePostfixExpressionI(struct tokenizer *Tokenizer)
+{
+	struct tokenizer PrevState = *Tokenizer;
+
+	if(Token_OpenBracket == GetToken(Tokenizer).Type &&
+	   ParseExpression(Tokenizer) &&
+	   Token_CloseBracket == GetToken(Tokenizer).Type &&
+	   ParsePostfixExpressionI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = PrevState;
+	if(Token_OpenParen == GetToken(Tokenizer).Type &&
+	   ParseArgumentExpressionList(Tokenizer) &&
+	   Token_CloseParen == GetToken(Tokenizer).Type &&
+	   ParsePostfixExpressionI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = PrevState;
+	if(Token_OpenParen == GetToken(Tokenizer).Type &&
+	   Token_CloseParen == GetToken(Tokenizer).Type &&
+	   ParsePostfixExpressionI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = PrevState;
+	if(Token_Dot == GetToken(Tokenizer).Type &&
+	   Token_Identifier == GetToken(Tokenizer).Type &&
+	   ParsePostfixExpressionI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = PrevState;
+	if(Token_Arrow == GetToken(Tokenizer).Type &&
+	   Token_Identifier == GetToken(Tokenizer).Type &&
+	   ParsePostfixExpressionI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = PrevState;
+	if(Token_PlusPlus == GetToken(Tokenizer).Type &&
+	   ParsePostfixExpressionI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = PrevState;
+	if(Token_MinusMinus == GetToken(Tokenizer).Type &&
+	   ParsePostfixExpressionI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = PrevState;
+	return(false);
+}
+
+/*
+  postfix-expression:
+          primary-expression
+	  postfix-expression [ expression ]
+	  postfix-expression . identifier
+	  postfix-expression -> identifier
+	  postfix-expression ++
+	  postfix-expression --
+*/
+bool
 ParsePostfixExpression(struct tokenizer *Tokenizer)
 {
-	char *ReadCursor = Tokenizer->At;
+	struct tokenizer PrevState = *Tokenizer;
 
-	if(ParsePrimaryExpression(Tokenizer))
+	if(ParsePrimaryExpression(Tokenizer) &&
+	   ParsePostfixExpressionI(Tokenizer))
 	{
 		return(true);
 	}
 
-	Tokenizer->At = ReadCursor;
-	if(ParsePostfixExpression(Tokenizer) &&
-	   Token_OpenBracket == GetToken(Tokenizer).Type &&
-	   ParseExpression(Tokenizer) &&
-	   Token_CloseBracket == GetToken(Tokenizer).Type)
-	{
-		return(true);
-	}
-
-	Tokenizer->At = ReadCursor;
-	if(ParsePostfixExpression(Tokenizer) &&
-	   Token_OpenParen == GetToken(Tokenizer).Type &&
-	   ParseArgumentExpressionList(Tokenizer) &&
-	   Token_CloseParen == GetToken(Tokenizer).Type)
-	{
-		return(true);
-	}
-
-	Tokenizer->At = ReadCursor;
-	if(ParsePostfixExpression(Tokenizer) &&
-	   Token_OpenParen == GetToken(Tokenizer).Type &&
-	   Token_CloseParen == GetToken(Tokenizer).Type)
-	{
-		return(true);
-	}
-
-	Tokenizer->At = ReadCursor;
-	if(ParsePostfixExpression(Tokenizer) &&
-	   Token_Dot == GetToken(Tokenizer).Type &&
-	   Token_Identifier == GetToken(Tokenizer).Type)
-	{
-		return(true);
-	}
-
-	Tokenizer->At = ReadCursor;
-	if(ParsePostfixExpression(Tokenizer) &&
-	   Token_Arrow == GetToken(Tokenizer).Type &&
-	   Token_Identifier == GetToken(Tokenizer).Type)
-	{
-		return(true);
-	}
-
-	Tokenizer->At = ReadCursor;
-	if(ParsePostfixExpression(Tokenizer) &&
-	   Token_PlusPlus == GetToken(Tokenizer).Type)
-	{
-		return(true);
-	}
-
-	Tokenizer->At = ReadCursor;
-	if(ParsePostfixExpression(Tokenizer) &&
-	   Token_MinusMinus == GetToken(Tokenizer).Type)
-	{
-		return(true);
-	}
-
-	Tokenizer->At = ReadCursor;
+	*Tokenizer = PrevState;
 	return(false);
 }
 
 bool
 ParseUnaryOperator(struct tokenizer *Tokenizer)
 {
-	char *ReadCursor = Tokenizer->At;
+	struct tokenizer PrevState = *Tokenizer;
 	struct token Token = GetToken(Tokenizer);
 	switch(Token.Type)
 	{
@@ -816,7 +864,7 @@ ParseUnaryOperator(struct tokenizer *Tokenizer)
 		}
 		default:
 		{
-			Tokenizer->At = ReadCursor;
+			*Tokenizer = PrevState;
 			return(false);
 		}
 	}
@@ -834,14 +882,14 @@ ParseTypeName(struct tokenizer *Tokenizer)
 bool
 ParseCastExpression(struct tokenizer *Tokenizer)
 {
-	char *ReadCursor = Tokenizer->At;
+	struct tokenizer PrevState = *Tokenizer;
 
 	if(ParseUnaryExpression)
 	{
 		return(true);
 	}
 
-	Tokenizer->At = ReadCursor;
+	*Tokenizer = PrevState;
 	if(Token_OpenParen == GetToken(Tokenizer).Type &&
 	   ParseTypeName(Tokenizer) &&
 	   Token_CloseParen == GetToken(Tokenizer).Type)
@@ -849,7 +897,7 @@ ParseCastExpression(struct tokenizer *Tokenizer)
 		return(true);
 	}
 
-	Tokenizer->At = ReadCursor;
+	*Tokenizer = PrevState;
 	return(false);
 }
 
@@ -863,48 +911,48 @@ ParseConditionalExpression(struct tokenizer *Tokenizer)
 bool
 ParseUnaryExpression(struct tokenizer *Tokenizer)
 {
+	struct tokenizer PrevState = *Tokenizer;
 	struct token Token;
-	char *ReadCursor = Tokenizer->At;
 
 	if(ParsePostfixExpression(Tokenizer))
 	{
 		return(true);
 	}
 
-	Tokenizer->At = ReadCursor;
+	*Tokenizer = PrevState;
 	if(Token_PlusPlus == GetToken(Tokenizer).Type &&
 	   ParseUnaryExpression(Tokenizer))
 	{
 		return(true);
 	}
 
-	Tokenizer->At = ReadCursor;
+	*Tokenizer = PrevState;
 	if(Token_MinusMinus == GetToken(Tokenizer).Type &&
 	   ParseUnaryExpression(Tokenizer))
 	{
 		return(true);
 	}
 
-	Tokenizer->At = ReadCursor;
+	*Tokenizer = PrevState;
 	if(ParseUnaryOperator(Tokenizer) &&
 	   ParseCastExpression(Tokenizer))
 	{
 		return(true);
 	}
 
-	Tokenizer->At = ReadCursor;
+	*Tokenizer = PrevState;
 	Token = GetToken(Tokenizer);
 	if(Token_Keyword == Token.Type)
 	{
-		if(StringEqual("sizeof", Token.Text, StringLength("sizeof")))
+		if(IsStringEqual("sizeof", Token.Text, StringLength("sizeof")))
 		{
-			char *CurrentCursor = Tokenizer->At;
+			struct tokenizer Previous = *Tokenizer;
 			if(ParseUnaryExpression(Tokenizer))
 			{
 				return(true);
 			}
 
-			Tokenizer->At = CurrentCursor;
+			*Tokenizer = Previous;
 			if(Token_OpenParen == GetToken(Tokenizer).Type &&
 			   ParseTypeName(Tokenizer) &&
 			   Token_CloseParen == GetToken(Tokenizer).Type)
@@ -914,14 +962,14 @@ ParseUnaryExpression(struct tokenizer *Tokenizer)
 		}
 	}
 
-	Tokenizer->At = ReadCursor;
+	*Tokenizer = PrevState;
 	return(false);
 }
 
 bool
 ParseAssignmentOperator(struct tokenizer *Tokenizer)
 {
-	char *ReadCursor = Tokenizer->At;
+	struct tokenizer PrevState = *Tokenizer;
 	struct token Token = GetToken(Tokenizer);
 
 	switch(Token.Type)
@@ -943,7 +991,7 @@ ParseAssignmentOperator(struct tokenizer *Tokenizer)
 
 		default:
 		{
-			Tokenizer->At = ReadCursor;
+			*Tokenizer = PrevState;
 			return(false);
 		}
 	}
@@ -952,14 +1000,14 @@ ParseAssignmentOperator(struct tokenizer *Tokenizer)
 bool
 ParseAssignmentExpression(struct tokenizer *Tokenizer)
 {
-	char *ReadCursor = Tokenizer->At;
+	struct tokenizer PrevState = *Tokenizer;
 
 	if(ParseConditionalExpression(Tokenizer))
 	{
 		return(true);
 	}
 
-	Tokenizer->At = ReadCursor;
+	*Tokenizer = PrevState;
 	if(ParseUnaryExpression(Tokenizer) &&
 		ParseAssignmentOperator(Tokenizer) &&
 		ParseAssignmentExpression(Tokenizer))
@@ -967,7 +1015,482 @@ ParseAssignmentExpression(struct tokenizer *Tokenizer)
 		return(true);
 	}
 
-	Tokenizer->At = ReadCursor;
+	*Tokenizer = PrevState;
+	return(false);
+}
+
+/* TODO(AARON): HERE!
+
+/*
+  struct-declaration:
+          specifier-qualifier-list struct-declarator-list ;
+*/
+bool
+ParseStructDeclaration(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(ParseSpecifierQualifierList(Tokenizer) &&
+	   ParseStructDeclaratorList(Tokenizer) &&
+	   Token_SemiColon == GetToken(Tokenizer).Type)
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+/*
+  init-declarator:
+          declarator
+	  declarator = initializer
+*/
+bool
+ParseInitDeclarator(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(ParseDeclarator(Tokenizer) &&
+	   Token_EqualSign == GetToken(Tokenizer).Type &&
+	   ParseInitialize(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+bool
+ParseInitDeclatorListI(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(Token_Comma == GetToken(Tokenizer).Type &&
+	   ParseInitDeclarator(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+/*
+  init-declarator-list:
+          init-declarator
+	  init-declarator-list , init-declarator
+*/
+bool
+ParseInitDeclaratorList(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(ParseInitDeclarator(Tokenizer) &&
+	   ParseInitDeclaratorListI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+bool
+ParseStructDeclarationListI(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(ParseStructDeclaration(Tokenizer) &&
+	   ParseStructDeclarationListI(Tokenizer))
+	{
+		return(false);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+/*
+  struct-declaration-list:
+          struct-declaration
+	  struct-declaration-list struct-declaration
+*/
+bool
+ParseStructDeclarationList(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(ParseStructDeclaration(Tokenizer) &&
+	   ParseStructDeclarationListI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+/*
+  One of: struct union
+*/
+bool
+ParseStructOrUnion(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+	struct token Token = GetToken(Tokenizer);
+
+	if(Token_Keyword == Token.Type &&
+	   (IsStringEqual(Token.Text, "struct", Token.TextLength) ||
+	    IsStringEqual(Token.Text, "union", Token.TextLength)))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+/*
+  struct-or-union-specifier:
+          struct-or-union identifier(opt) { struct-declaratio-list }
+	  struct-or-union identifier
+*/
+bool
+ParseStructOrUnionSpecifier(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(ParseStructOrUnion(Tokenizer))
+	{
+		struct tokenizer Previous = *Tokenizer;
+		if(Token_Identifier != GetToken(Tokenizer).Type)
+		{
+			*Tokenizer = Previous;
+		}
+
+		if(Token_OpenBrace == GetToken(Tokenizer).Type &&
+		   ParseStructDeclarationList(Tokenizer) &&
+		   Token_CloseBrace == GetToken(Tokenizer).Type)
+		{
+			return(true);
+		}
+	}
+
+	*Tokenizer = Start;
+	if(ParseStructOrUnion(Tokenizer) &&
+	   Token_Identifier == GetToken(Tokenizer).Type)
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+/*
+  One of: const union
+*/
+bool
+ParseTypeQualifier(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+	struct token Token = GetToken(Tokenizer);
+
+	if(Token.Type != Token_Keyword)
+	{
+		*Tokenizer = Start;
+		return(false);
+	}
+
+	if(IsStringEqual(Token.Text, "const", Token.TextLength) ||
+	   IsStringEqual(Token.Text, "union", Token.TextLength))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+/*
+  One of: void char short int long float double signed unsigned
+          struct-or-union-specifier enum-specifier typedef-name
+*/
+bool
+ParseTypeSpecifier(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+	char *Keywords[] = { "void", "char", "short", "int", "long", "float",
+			     "double", "signed", "unsigned" };
+
+	if(ParseStructOrUnionSpecifier(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	if(ParseEnumSpecifier(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	if(ParseTypedefName(Tokenizer))
+	{
+		return(true);
+	}
+
+	struct token Token = GetToken(Tokenizer);
+	if(Token.Type != Token_Keyword)
+	{
+		*Tokenizer = Start;
+		return(false);
+	}
+
+	for(int Index = 0; Index < ARRAY_SIZE(Keywords); Index++)
+	{
+		if(IsStringEqual(Token.Text, Keywords[Index], Token.TextLength))
+		{
+			return(true);
+		}
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+/*
+  One of: auto register static extern typedef
+*/
+bool
+ParseStorageClassSpecifier(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+	struct token Token = GetToken(Tokenizer);
+
+	if(!Token.Type == Token_Keyword)
+	{
+		*Tokenizer = Start;
+		return(false);
+	}
+
+	char *Keywords[] = { "auto", "register", "static", "extern", "typedef" };
+	for(int Index = 0; Index < ARRAY_SIZE(Keywords); Index++)
+	{
+		if(IsStringEqual(Token.Text, Keywords[Index], Token.TextLength))
+		{
+			return(true);
+		}
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+/*
+  declaration-specifiers:
+          storage-class-specifier declaration-specifiers(opt)
+	  type-specifier declaration-specifiers(opt)
+	  type-qualifier declaration-specifiers(opt)
+*/
+bool
+ParseDeclarationSpecifiers(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+	struct tokenizer Previous = *Tokenizer;
+
+	if(ParseStorageClassSpecifier(Tokenizer))
+	{
+		Previous = *Tokenizer;
+		if(!ParseDeclarationSpecifiers(Tokenizer))
+		{
+			*Tokenizer = Previous;
+		}
+		return(true);
+	}
+	*Tokenizer = Start;
+
+	if(ParseTypeSpecifier(Tokenizer))
+	{
+		Previous = *Tokenizer;
+		if(!ParseDeclarationSpecifiers(Tokenizer))
+		{
+			*Tokenizer = Previous;
+		}
+		return(true);
+	}
+	*Tokenizer = Start;
+
+	if(ParseTypeQualifier(Tokenizer))
+	{
+		Previous = *Tokenizer;
+		if(!ParseDeclarationSpecifiers(Tokenizer))
+		{
+			*Tokenizer = Previous;
+		}
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+bool
+ParseDeclarationListI(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(ParseDeclaration(Tokenizer) &&
+	   ParseDeclarationListI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+/*
+  declaration-list:
+          declaration
+	  declaration-list declaration
+*/
+bool
+ParseDeclarationList(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(ParseDeclaration(Tokenizer) &&
+	   ParseDeclarationListI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+/*
+  declaration:
+          declaration-specifiers init-declarator-list(opt) ;
+*/
+bool
+ParseDeclaration(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+	if(!ParseDeclarationSpecifiers(Tokenizer))
+	{
+		*Tokenizer = Start;
+		return(false);
+	}
+
+	struct tokenizer Previous = *Tokenizer;
+	if(!ParseInitDeclaratorList(Tokenizer))
+	{
+		*Tokenizer = Previous;
+	}
+
+	struct token Token = GetToken(Tokenizer);
+	if(!Token.Type == Token_SemiColon)
+	{
+		*Tokenizer = Previous;
+		return(false);
+	}
+
+	return(true);
+}
+
+/*
+  function-definition:
+          declaration-specifiers(opt) declarator declaration-list(opt) compound-statement
+*/
+bool
+ParseFunctionDefinition(struct tokenizer *Tokenizer)
+{
+	struct tokenizer StartState = *Tokenizer;
+	struct tokenizer Previous = *Tokenizer;
+
+	if(!ParseDeclarationSpecifiers(Tokenizer))
+	{
+		*Tokenizer = Previous;
+	}
+	Previous = *Tokenizer;
+
+	if(!ParseDeclarator(Tokenizer))
+	{
+		*Tokenizer = StartState;
+		return(false);
+	}
+	Previous = *Tokenizer;
+
+	if(!ParseDeclarationList(Tokenizer))
+	{
+		*Tokenizer = Previous;
+	}
+
+	if(!ParseCompoundStatement(Tokenizer))
+	{
+		*Tokenizer = StartState;
+		return(false);
+	}
+
+	return(true);
+}
+
+/*
+  external-declaration:
+          function-definition
+	  declaration
+*/
+bool
+ParseExternalDeclaration(struct tokenizer *Tokenizer)
+{
+	struct tokenizer PrevState = *Tokenizer;
+
+	if(ParseFunctionDefinition(Tokenizer) ||
+	   ParseDeclaration(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = PrevState;
+	return(false);
+}
+
+bool
+ParseTranslationUnitI(struct tokenizer *Tokenizer)
+{
+	struct tokenizer PrevState = *Tokenizer;
+
+	if(ParseExternalDeclaration(Tokenizer) &&
+	   ParseTranslationUnitI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = PrevState;
+	return(false);
+}
+
+/*
+  translation-unit:
+          external-declaration
+	  translation-unit external-declaration
+*/
+bool
+ParseTranslationUnit(struct tokenizer *Tokenizer)
+{
+	struct tokenizer PrevState = *Tokenizer;
+
+	if(ParseExternalDeclaration(Tokenizer) &&
+	   ParseTranslationUnitI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = PrevState;
 	return(false);
 }
 
@@ -992,7 +1515,7 @@ Lex(struct buffer *FileContents)
 			case Token_Unknown:
 			{
 				printf("[%d,%d] Token Name: %20s, Token Text: %.*s (%.*s)\n",
-				       Token.Line,
+				       Token.Line + 1,
 				       Token.Column,
 				       TokenName(Token.Type),
 				       CastSizeIntTo32Bits(Token.TextLength), Token.Text,
@@ -1001,7 +1524,7 @@ Lex(struct buffer *FileContents)
 			default:
 			{
 				printf("[%d,%d] Token Name: %20s, Token Text: %.*s\n",
-				       Token.Line,
+				       Token.Line + 1,
 				       Token.Column,
 				       TokenName(Token.Type),
 				       CastSizeIntTo32Bits(Token.TextLength),
@@ -1014,14 +1537,14 @@ Lex(struct buffer *FileContents)
 void
 Parse(struct buffer *FileContents)
 {
-	struct tokenizer Tokenizer;
+	struct tokenizer Tokenizer, PrevState;
 	Tokenizer.Beginning = FileContents->Data;
 	Tokenizer.At = FileContents->Data;
 
 	bool Parsing = true;
 	while(Parsing)
 	{
-		char *Cursor = Tokenizer.At;
+		PrevState = Tokenizer;
 		struct token Token = GetToken(&Tokenizer);
 		switch(Token.Type)
 		{
@@ -1031,16 +1554,16 @@ Parse(struct buffer *FileContents)
 			case Token_PreprocessorCommand: { } break;
 			default:
 			{
-				/*
-				  TODO: Call top-most parse entrypoint.
-				  This is currently ParseExpression, but as I translate more, this will
-				  change.
-				*/
-				ParseExpression(&Tokenizer);
+				Tokenizer = PrevState;
+				ParseTranslationUnit(&Tokenizer);
 			} break;
 		}
 	}
 }
+
+/******************************************************************************
+ * Main entrypoint and related functions.
+ ******************************************************************************/
 
 void
 AbortWithMessage(const char *msg)
@@ -1064,16 +1587,16 @@ main(int ArgCount, char **Args)
 {
 	for(int Index = 0; Index < ArgCount; ++Index)
 	{
-		if(StringEqual(Args[Index], "-h", StringLength("-h")) ||
-		   StringEqual(Args[Index], "--help", StringLength("--help")))
+		if(IsStringEqual(Args[Index], "-h", StringLength("-h")) ||
+		   IsStringEqual(Args[Index], "--help", StringLength("--help")))
 		{
 			Usage();
 		}
 	}
 	if(ArgCount != 3) Usage();
 
-	if(!StringEqual(Args[1], "parse", StringLength("parse")) &&
-	   !StringEqual(Args[1], "lex", StringLength("lex")))
+	if(!IsStringEqual(Args[1], "parse", StringLength("parse")) &&
+	   !IsStringEqual(Args[1], "lex", StringLength("lex")))
 	{
 		Usage();
 	}
@@ -1089,7 +1612,7 @@ main(int ArgCount, char **Args)
 		AbortWithMessage("Couldn't copy entire file to buffer");
 	}
 
-	if(StringEqual(Args[1], "parse", StringLength("parse")))
+	if(IsStringEqual(Args[1], "parse", StringLength("parse")))
 	{
 		Parse(&FileContents);
 	}

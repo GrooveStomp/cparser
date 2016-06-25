@@ -5,6 +5,12 @@ typedef int bool;
 #endif
 
 bool
+IsEndOfStream(char C)
+{
+	return(C == '\0');
+}
+
+bool
 IsEndOfLine(char C)
 {
 	return((C == '\n') ||
