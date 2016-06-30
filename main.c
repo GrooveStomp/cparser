@@ -5,7 +5,7 @@
     integer-constants.txt test file.
   - Unicode support? C unicode libraries: icu, utf8proc, *microutf8*, *nunicode*
     Both microutf8 and nunicode look quite good.g
- */
+*/
 #include <stdio.h>
 #include <alloca.h>
 #include <stdlib.h> /* EXIT_SUCCESS, EXIT_FAILURE */
@@ -81,6 +81,7 @@ enum token_type
 	Token_AmpersandEquals,
 	Token_CaratEquals,
 	Token_PipeEquals,
+	Token_Ellipsis,		/* ... */
 
 	Token_Character,
 	Token_String,
@@ -147,6 +148,7 @@ TokenName(enum token_type Type)
 		case Token_AmpersandEquals: { return "AmpersandEquals"; } break;
 		case Token_CaratEquals: { return "CaratEquals"; } break;
 		case Token_PipeEquals: { return "PipeEquals"; } break;
+		case Token_Ellipsis: { return "Ellipsis"; } break;
 
 		case Token_Character: { return "Character"; } break;
 		case Token_String: { return "String"; } break;
@@ -331,7 +333,7 @@ GetPrecisionNumber(struct tokenizer *Tokenizer, struct token *Token)
 	  may be missing.
 	  The type is determined by the suffix; F or f makes it float, L or l
 	  makes it long double; otherwise it is double.
-	 */
+	*/
 
 	char *Cursor = Tokenizer->At;
 
@@ -576,7 +578,8 @@ GetToken(struct tokenizer *Tokenizer)
 		GetSymbol(Tokenizer, &Token, ">>=", Token_DoubleGreaterThanEquals) ||
 		GetSymbol(Tokenizer, &Token, "&=", Token_AmpersandEquals) ||
 		GetSymbol(Tokenizer, &Token, "^=", Token_CaratEquals) ||
-		GetSymbol(Tokenizer, &Token, "|=", Token_PipeEquals);
+		GetSymbol(Tokenizer, &Token, "|=", Token_PipeEquals) ||
+		GetSymbol(Tokenizer, &Token, "...", Token_Ellipsis);
 
 	}
 	if(Token.Type != Token_Unknown) return(Token);
@@ -654,45 +657,6 @@ ParseConstant(struct tokenizer *Tokenizer)
 			return(false);
 		}
 	}
-}
-
-bool ParseAssignmentExpression(struct tokenizer *Tokenizer);
-
-
-/* https://en.wikipedia.org/wiki/Left_recursion */
-bool
-ParseExpressionI(struct tokenizer *Tokenizer)
-{
-	struct tokenizer PrevState = *Tokenizer;
-
-	if(ParseAssignmentExpression(Tokenizer) &&
-	   ParseExpressionI(Tokenizer))
-	{
-		return(true);
-	}
-
-	*Tokenizer = PrevState;
-	return(false);
-}
-
-/* https://en.wikipedia.org/wiki/Left_recursion */
-/*
-  expression:
-          assignment-expression
-	  expression , assignment-expression
-*/
-bool
-ParseExpression(struct tokenizer *Tokenizer)
-{
-	struct tokenizer PrevState = *Tokenizer;
-	if(ParseAssignmentExpression(Tokenizer) &&
-	   ParseExpressionI(Tokenizer))
-	{
-		return(true);
-	}
-
-	*Tokenizer = PrevState;
-	return(false);
 }
 
 bool
@@ -825,11 +789,11 @@ ParsePostfixExpressionI(struct tokenizer *Tokenizer)
 /*
   postfix-expression:
           primary-expression
-	  postfix-expression [ expression ]
-	  postfix-expression . identifier
-	  postfix-expression -> identifier
-	  postfix-expression ++
-	  postfix-expression --
+          postfix-expression [ expression ]
+          postfix-expression . identifier
+          postfix-expression -> identifier
+          postfix-expression ++
+          postfix-expression --
 */
 bool
 ParsePostfixExpression(struct tokenizer *Tokenizer)
@@ -902,13 +866,6 @@ ParseCastExpression(struct tokenizer *Tokenizer)
 }
 
 bool
-ParseConditionalExpression(struct tokenizer *Tokenizer)
-{
-	/* TODO: Implement ParseConditionalExpression */
-	return(false);
-}
-
-bool
 ParseUnaryExpression(struct tokenizer *Tokenizer)
 {
 	struct tokenizer PrevState = *Tokenizer;
@@ -966,10 +923,104 @@ ParseUnaryExpression(struct tokenizer *Tokenizer)
 	return(false);
 }
 
+/*
+  logical-AND-expression:
+          inclusive-OR-expression
+          logical-AND-expression && inclusive-OR-expression
+*/
+
+/* TODO(AARON): HERE! */
+
+bool
+ParseLogicalOrExpressionI(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(Token_LogicalOr == GetToken(Tokenizer).Type &&
+	   ParseLogicalAndExpression(Tokenizer) &&
+	   ParseLogicalOrExpressionI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(true);
+}
+
+/*
+  logical-OR-expression:
+          logical-AND-expression
+          logical-OR-expression || logical-AND-expression
+*/
+bool
+ParseLogicalOrExpression(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(ParseLogicalAndExpression(Tokenizer) &&
+	   ParseLogicalOrExpressionI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+/*
+  constant-expression:
+          conditional-expression
+*/
+bool
+ParseConstantExpression(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+	if(ParseConditionalExpression(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+/*
+  conditional-expression:
+          logical-OR-expression
+          logical-OR-expression ? expression : conditional-expression
+*/
+bool
+ParseConditionalExpression(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(ParseLogicalOrExpression(Tokenizer) &&
+	   Token_QuestionMark == GetToken(Tokenizer).Type &&
+	   ParseExpression(Tokenizer) &&
+	   Token_Colon == GetToken(Tokenizer).Type &&
+	   ParseConditionalExpression(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	if(ParseLogicalOrExpression(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+/*
+  assignment-operator:
+  one of: = *= /= %= += -= <<= >>= &= ^= |=
+*/
 bool
 ParseAssignmentOperator(struct tokenizer *Tokenizer)
 {
-	struct tokenizer PrevState = *Tokenizer;
+	struct tokenizer Start = *Tokenizer;
 	struct token Token = GetToken(Tokenizer);
 
 	switch(Token.Type)
@@ -991,39 +1042,1191 @@ ParseAssignmentOperator(struct tokenizer *Tokenizer)
 
 		default:
 		{
-			*Tokenizer = PrevState;
+			*Tokenizer = Start;
 			return(false);
 		}
 	}
 }
 
+/*
+  assignment-expression:
+          conditional-expression
+          unary-expression assignment-operator assignment-expression
+*/
 bool
 ParseAssignmentExpression(struct tokenizer *Tokenizer)
 {
-	struct tokenizer PrevState = *Tokenizer;
+	struct tokenizer Start = *Tokenizer;
 
 	if(ParseConditionalExpression(Tokenizer))
 	{
 		return(true);
 	}
 
-	*Tokenizer = PrevState;
+	*Tokenizer = Start;
 	if(ParseUnaryExpression(Tokenizer) &&
-		ParseAssignmentOperator(Tokenizer) &&
-		ParseAssignmentExpression(Tokenizer))
+	   ParseAssignmentOperator(Tokenizer) &&
+	   ParseAssignmentExpression(Tokenizer))
 	{
 		return(true);
 	}
 
-	*Tokenizer = PrevState;
+	*Tokenizer = Start;
 	return(false);
 }
 
-/* TODO(AARON): HERE!
+bool
+ParseExpressionI(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(Token_Comma == GetToken(Tokenizer).Type &&
+	   ParseAssignmentExpression(Tokenizer) &&
+	   ParseExpressionI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(true);
+}
+
+/*
+  expression:
+          assignment-expression
+          expression , assignment-expression
+*/
+bool
+ParseExpression(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(ParseAssignmentExpression(Tokenizer) &&
+	   ParseExpressionI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+/*
+  jump-statement:
+          goto identifier ;
+          continue ;
+          break ;
+          return expression(opt) ;
+*/
+bool
+ParseJumpStatement(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+	struct token Token = GetToken(Tokenizer);
+	struct tokenizer AtToken = *Tokenizer;
+
+	if(Token_Keyword == Token.Type &&
+	   IsStringEqual("goto", Token.Text, Token.TextLength) &&
+	   ParseIdentifier(Tokenizer) &&
+	   Token_SemiColon == GetToken(Tokenizer).Type)
+	{
+		return(true);
+	}
+
+	*Tokenizer = AtToken;
+	if(Token_Keyword == Token.Type &&
+	   IsStringEqual("continue", Token.Text, Token.TextLength) &&
+	   Token_SemiColon == GetToken(Tokenizer).Type)
+	{
+		return(true);
+	}
+
+	*Tokenizer = AtToken;
+	if(Token_Keyword == Token.Type &&
+	   IsStringEqual("break", Token.Text, Token.TextLength) &&
+	   Token_SemiColon == GetToken(Tokenizer).Type)
+	{
+		return(true);
+	}
+
+	*Tokenizer = AtToken;
+	if(Token_Keyword == Token.Type &&
+	   IsStringEqual("return", Token.Text, Token.TextLength))
+	{
+		struct tokenizer Previous = *Tokenizer;
+		if(!ParseExpression(Tokenizer))
+			*Tokenizer = Previous;
+
+		if(Token_SemiColon == GetToken(Tokenizer).Type)
+		{
+			return(true);
+		}
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+/*
+  iteration-statement:
+          while ( expression ) statement
+          do statement while ( expression) ;
+          for ( expression(opt) ; expression(opt) ; expression(opt) ) statement
+*/
+bool
+ParseIterationStatement(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+	struct token Token = GetToken(Tokenizer);
+	struct tokenizer AtToken = *Tokenizer;
+
+	if(Token_Keyword == Token.Type &&
+	   IsStringEqual("while", Token.Text, Token.TextLength) &&
+	   Token_OpenParen == GetToken(Tokenizer).Type &&
+	   ParseExpression(Tokenizer) &&
+	   Token_CloseParen == GetToken(Tokenizer).Type &&
+	   ParseStatement(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = AtToken;
+	if(Token_Keyword == Token.Type &&
+	   IsStringEqual("do", Token.Text, Token.TextLength) &&
+	   ParseStatement(Tokenizer))
+	{
+		struct token Token = GetToken(Tokenizer);
+		if(Token_Keyword == Token.Type &&
+		   IsStringEqual("while", Token.Text, Token.TextLength) &&
+		   Token_OpenParen == GetToken(Tokenizer) &&
+		   ParseEXpression(Tokenizer) &&
+		   Token_CloseParen == GetToken(Tokenizer) &&
+		   Token_SemiColon == GetToken(Tokenizer))
+		{
+			return(true);
+		}
+	}
+
+	*Tokenizer = AtToken;
+	if(Token_Keyword == Token.Type &&
+	   IsStringEqual("for", Token.Text, Token.TextLength) &&
+	   Token_OpenParen == GetToken(Tokenizer))
+	{
+		for(int I = 0; I < 3; I++)
+		{
+			struct tokenizer Previous = *Tokenizer;
+
+			if(!ParseExpression(Tokenizer))
+				*Tokenizer = Previous;
+
+			if(Token_SemiColon != GetToken(Tokenizer).Type)
+			{
+				*Tokenizer = Start;
+				return(false);
+			}
+
+		}
+
+		if(Token_CloseParen == GetToken(Tokenizer).Type &&
+		   ParseStatement(Tokenizer))
+		{
+			return(true);
+		}
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+/*
+  selection-statement:
+          if ( expression ) statement
+          if ( expression ) statement else statement
+          switch ( expression ) statement
+*/
+bool
+ParseSelectionStatement(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+	struct token Token = GetToken(Tokenizer);
+	struct tokenizer AtToken = *Tokenizer;
+
+	if(Token_Keyword == Token.Type &&
+	   IsStringEqual("if", Token.Text, Token.TextLength) &&
+	   Token_OpenParen == GetToken(Tokenizer).Type &&
+	   ParseExpression(Tokenizer) &&
+	   Token_CloseParen == GetToken(Tokenizer).Type &&
+	   ParseStatement(Tokenizer))
+	{
+		struct tokenizer AtElse = *Tokenizer;
+		struct token Token = GetToken(Tokenizer);
+
+		if(Token_Keyword == Token.Type &&
+		   IsStringEqual("else", Token.Text, Token.TextLength) &&
+		   ParseStatement(Tokenizer))
+		{
+			return(true);
+		}
+
+		*Tokenizer = AtElse;
+		return(true);
+	}
+
+	*Tokenizer = AtToken;
+	if(Token_Keyword == Token.Type &&
+	   IsStringEqual("switch", Token.Text, Token.TextLength) &&
+	   Token_OpenParen == GetToken(Tokenizer).Type &&
+	   ParseExpression(Tokenizer) &&
+	   Token_CloseParen == GetToken(Tokenizer).Type &&
+	   ParseStatement(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+bool
+ParseStatementListI(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(ParseStatement(Tokenizer) &&
+	   ParseStatementListI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(true);
+}
+
+/*
+  statement-list:
+          statement
+          statement-list statement
+*/
+bool
+ParseStatementList(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(ParseStatement(Tokenizer) &&
+	   ParseStatementListI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+/*
+  compound-statement:
+          { declaration-list(opt) statement-list(opt) }
+*/
+bool
+ParseCompoundStatement(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(Token_OpenBrace == GetToken(Tokenizer).Type)
+	{
+		struct tokenizer Previous = *Tokenizer;
+		if(!ParseDeclarationList(Tokenizer))
+		{
+			*Tokenizer = Previous;
+		}
+
+		Previous = *Tokenizer;
+		if(!ParseStatementList(Tokenizer))
+		{
+			*Tokenizer = Previous;
+		}
+
+		if(Token_CloseBrace == GetToken(Tokenizer).Type)
+		{
+			return(true);
+		}
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+/*
+  expression-statement:
+          expression(opt) ;
+*/
+bool
+ParseExpressionStatement(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(ParseExpression(Tokenizer) &&
+	   Token_SemiColon == GetToken(Tokenizer).Type)
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	if(Token_SemiColon == GetToken(Tokenizer).Type)
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+/*
+  labeled-statement:
+          identifier : statement
+          case constant-expression : statement
+          default : statement
+*/
+bool
+ParseLabeledStatement(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+	struct token Token = GetToken(Tokenizer);
+	struct tokenizer AtToken = *Tokenizer;
+
+	if(Token_Keyword == Token.Type &&
+	   IsStringEqual("identifier", Token.Text, Token.TextLength) &&
+	   Token_Colon == GetToken(Tokenizer).Type &&
+	   ParseStatement(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = AtToken;
+	if(Token_Keyword == Token.Type &&
+	   IsStringEqual("case", Token.Text, Token.TextLength) &&
+	   ParseConstantExpression(Tokenizer) &&
+	   Token_Colon == GetToken(Tokenizer).Type &&
+	   ParseStatement(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = AtToken;
+	if(Token_Keyword == Token.Type &&
+	   IsStringEqual("default", Token.Text, Token.TextLength) &&
+	   Token_Colon == GetToken(Tokenizer).Type &&
+	   ParseStatement(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+/*
+  statement:
+  labeled-statement
+  expression-statement
+  compound-statement
+  selection-statement
+  iteration-statement
+  jump-statement
+*/
+bool
+ParseStatement(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(ParseLabeledStatement(Tokenizer)) return(true);
+
+	*Tokenizer = Start;
+	if(ParseExpressionStatement(Tokenizer)) return(true);
+
+	*Tokenizer = Start;
+	if(ParseCompoundStatement(Tokenizer)) return(true);
+
+	*Tokenizer = Start;
+	if(ParseSelectionStatement(Tokenizer)) return(true);
+
+	*Tokenizer = Start;
+	if(ParseIterationStatement(Tokenizer)) return(true);
+
+	*Tokenizer = Start;
+	if(ParseJumpStatement(Tokenizer)) return(true);
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+/*
+  typedef-name:
+  identifier
+*/
+bool
+ParseTypedefName(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(ParseIdentifier(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+bool
+ParseDirectAbstractDeclaratorI(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(Token_OpenBracket == GetToken(Tokenizer).Type)
+	{
+		struct tokenizer AtOpenBracket = *Tokenizer;
+		if(ParseConstantExpression(Tokenizer) &&
+		   Token_CloseBracket == GetToken(Tokenizer).Type)
+		{
+			struct tokenizer Previous = *Tokenizer;
+			if(ParseDirectAbstractDeclaratorI(Tokenizer))
+				return(true);
+
+			*Tokenizer = Previous;
+			return(true);
+		}
+
+		*Tokenizer = AtOpenBracket;
+		if(Token_CloseBracket = GetToken(Tokenizer).Type)
+		{
+			struct tokenizer Previous = *Tokenizer;
+			if(ParseDirectAbstractDeclaratorI(Tokenizer))
+				return(true);
+
+			*Tokenizer = Previous;
+			return(true);
+		}
+	}
+
+	if(Token_OpenParen == GetToken(Tokenizer).Type)
+	{
+		struct tokenizer AtOpenParen = *Tokenizer;
+		if(ParseParameterTypeList(Tokenizer) &&
+		   Token_CloseParen == GetToken(Tokenizer).Type)
+		{
+			struct tokenizer Previous = *Tokenizer;
+			if(ParseDirectAbstractDeclaratorI(Tokenizer))
+				return(true);
+
+			*Tokenizer = Previous;
+			return(true);
+		}
+
+		*Tokenizer = AtOpenParen;
+		if(Token_CloseParen = GetToken(Tokenizer).Type)
+		{
+			struct tokenizer Previous = *Tokenizer;
+			if(ParseDirectAbstractDeclaratorI(Tokenizer))
+				return(true);
+
+			*Tokenizer = Previous;
+			return(true);
+		}
+	}
+
+	*Tokenizer = Start;
+	return(true);
+}
+
+/*
+  direct-abstract-declarator:
+  ( abstract-declarator )
+  direct-abstract-declarator(opt) [ constant-expression(opt) ]
+  direct-abstract-declarator(opt) ( parameter-type-list(opt) )
+*/
+bool
+ParseDirectAbstractDeclarator(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(Token_OpenParen == GetToken(Tokenizer).Type &&
+	   ParseAbstractDeclarator(Tokenizer) &&
+	   Token_CloseParen == GetToken(Tokenizer).Type &&
+	   ParseDirectAbstractDeclaratorI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+/*
+  abstract-declarator:
+  pointer
+  pointer(opt) direct-abstract-declarator
+*/
+bool
+ParseAbstractDeclarator(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(ParsePointer(Tokenizer) &&
+	   ParseDirectAbstractDeclarator(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	if(ParseDirectAbstractDeclarator(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	if(ParsePointer(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+/*
+  type-name:
+  specifier-qualifier-list abstract-declarator(opt)
+*/
+bool
+ParseTypeName(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(ParseSpecifierQualifierList(Tokenizer))
+	{
+		struct tokenizer Previous = *Tokenizer;
+
+		if(ParseAbstractDeclarator(Tokenizer))
+		{
+			return(true);
+		}
+
+		*Tokenizer = Previous;
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+bool
+ParseInitializerListI(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(Token_Comma == GetToken(Tokenizer) &&
+	   ParseInitializer(Tokenizer) &&
+	   ParseInitializerListI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(true);
+}
+
+/*
+  initializer-list:
+  initializer
+  initializer-list , initializer
+*/
+bool
+ParseInitializerList(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(ParseInitializer(Tokenizer) &&
+	   ParseInitializerListI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+/*
+  initializer:
+  assignment-expression
+  { initializer-list }
+  { initializer-list , }
+*/
+bool
+ParseInitializer(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(ParseAssignmentExpression(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	if(Token_OpenBrace == GetToken(Tokenizer).Type &&
+	   ParseInitializerList(Tokenizer) &&
+	   Token_CloseBrace == GetToken(Tokenizer).Type)
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	if(Token_OpenBrace == GetToken(Tokenizer).Type &&
+	   ParseInitializerList(Tokenizer) &&
+	   Token_Comma == GetToken(Tokenizer).Type &&
+	   Token_CloseBrace == GetToken(Tokenizer).Type)
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+bool
+ParseIdentifierListI(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(Token_Comma == GetToken(Tokenizer).Type &&
+	   ParseIdentifier(Tokenizer) &&
+	   PArseIdentifierListI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(true);
+}
+
+/*
+  identifier-list:
+  identifier
+  identifier-list , identifier
+*/
+bool
+ParseIdentifierList(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(ParseIdentifier(Tokenizer) &&
+	   ParseIdentifierListI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+/*
+  parameter-declaration:
+  declaration-specifiers declarator
+  declaration-specifiers abstract-declarator(opt)
+*/
+bool
+ParseParameterDeclaration(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(ParseDeclarationSpecifiers(Tokenizer) &&
+	   ParseDeclarator(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	if(ParseDeclarationSpecifiers(Tokenizer))
+	{
+		struct tokenizer Previous = *Tokenizer;
+		if(ParseAbstractDeclarator(Tokenizer))
+		{
+			return(true);
+		}
+		*Tokenizer = Previous;
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+bool
+ParseParameterListI(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(Token_Comma == GetToken(Tokenizer).Type &&
+	   ParseParameterDeclaration(Tokenizer) &&
+	   ParseParameterListI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(true);
+}
+
+/*
+  parameter-list:
+  parameter-declaration
+  parameter-list , parameter-declaration
+*/
+bool
+ParseParameterList(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(ParseParameterDeclaration(Tokenizer) &&
+	   ParseParameterListI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+/*
+  parameter-type-list:
+  parameter-list
+  parameter-list , ...
+*/
+bool
+ParseParameterTypeList(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(ParseParameterList(Tokenizer))
+	{
+		struct tokenizer Previous = *Tokenizer;
+		if(Token_Comma == GetToken(Tokenizer).Type &&
+		   Token_Ellipsis == GetToken(Tokenizer).Type)
+		{
+			return(true);
+		}
+
+		*Tokenizer = Previous;
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+bool
+ParseTypeQualifierListI(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(ParseTypeQualifier(Tokenizer) &&
+	   ParseTypeQualifierListI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(true);
+}
+
+/*
+  type-qualifier-list:
+  type-qualifier
+  type-qualifier-list type-qualifier
+*/
+bool
+ParseTypeQualifierList(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(ParseTypeQualifier(Tokenizer) &&
+	   ParseTypeQualifierListI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+/*
+  pointer:
+  * type-qualifier-list(opt)
+  * type-qualifier-list(opt) pointer
+  */
+bool
+ParsePointer(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(Token_Asterisk == GetToken(Tokenizer).Type)
+	{
+		struct tokenizer AtAsterisk = *Tokenizer;
+		if(ParseTypeQualifierList(Tokenizer) &&
+		   ParsePointer(Tokenizer))
+		{
+			return(true);
+		}
+
+		*Tokenizer = AtAsterisk;
+		if(ParsePointer(Tokenizer))
+		{
+			return(true);
+		}
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+bool
+ParseDirectDeclaratorI(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(Token_OpenBracket == GetToken(Tokenizer).Type)
+	{
+		struct tokenizer Previous = *Tokenizer;
+		if(ParseConstantExpression(Tokenizer) &&
+		   Token_CloseBracket == GetToken(Tokenizer).Type &&
+		   ParseDirectDeclaratorI(Tokenizer))
+		{
+			return(true);
+		}
+
+		*Tokenizer = Previous;
+		if(Token_CloseBracket == GetToken(Tokenizer).Type &&
+		   ParseDirectDeclaratorI(Tokenizer))
+		{
+			return(true);
+		}
+	}
+
+	*Tokenizer = Start;
+	if(Token_OpenParen == GetToken(Tokenizer).Type &&
+	   ParseParameterTypeList(Tokenizer) &&
+	   Token_CloseParen == GetToken(Tokenizer).Type &&
+	   ParseDirectDeclaratorI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	if(Token_OpenParen == GetToken(Tokenizer).Type)
+	{
+		struct tokenizer Previous = *Tokenizer;
+		if(ParseIdentifierList(Tokenizer) &&
+		   Token_CloseParen == GetToken(Tokenizer).Type &&
+		   ParseDirectDeclaratorI(Tokenizer))
+		{
+			return(true);
+		}
+
+		*Tokenizer = Previous;
+		if(Token_CloseParen == GetToken(Tokenizer).Type &&
+		   ParseDirectDeclaratorI(Tokenizer))
+		{
+			return(true);
+		}
+	}
+
+	*Tokenizer = Start;
+	return(true);
+}
+
+/*
+  direct-declarator:
+  identifier
+  ( declarator )
+  direct-declarator [ constant-expression(opt) ]
+  direct-declarator ( parameter-type-list )
+  direct-declarator ( identifier-list(opt) )
+*/
+bool
+ParseDirectDeclarator(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(ParseIdentifier(Tokenizer) &&
+	   ParseDirectDeclaratorI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	if(Token_OpenParen == GetToken(Tokenizer).Type &&
+	   ParseDeclarator(Tokenizer) &&
+	   Token_CloseParen == GetToken(Tokenizer).Type &&
+	   ParseDirectDeclaratorI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+/*
+  declarator:
+  pointer(opt) direct-declarator
+*/
+bool
+ParseDeclarator(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(ParsePointer(Tokenizer) &&
+	   ParseDirectDeclarator(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	if(ParseDirectDeclarator(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+/*
+  enumerator:
+  identifier
+  identifier = constant-expression
+*/
+bool
+ParseEnumerator(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(ParseIdentifier(Tokenizer))
+	{
+		struct Previous = *Tokenizer;
+
+		if(Token_EqualSign == GetToken(Tokenizer).Type &&
+		   ParseConstantExpression(Tokenizer))
+		{
+			return(true);
+		}
+
+		*Tokenizer = Previous;
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+
+bool
+ParseEnumeratorListI(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(Token_Comma == GetToken(Tokenizer).Type &&
+	   ParseEnumerator(Tokenizer) &&
+	   ParseEnumeratorListI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(true);
+}
+
+/*
+  enumerator-list:
+  enumerator
+  enumerator-list , enumerator
+*/
+bool
+ParseEnumeratorList(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(ParseEnumerator(Tokenizer) &&
+	   ParseEnumeratorListI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+/*
+  enum-specifier:
+  enum identifier(opt) { enumerator-list }
+  enum identifier
+*/
+bool
+ParseEnumSpecifier(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	struct token Token = GetToken(Tokenizer);
+	if((Token_Keyword == Token.Type) &&
+	   IsStringEqual("enum", Token.Text, Token.TextLength))
+	{
+		struct tokenizer AtEnum = *Tokenizer;
+		if(ParseIdentifier(Tokenizer))
+		{
+			struct tokenizer AtIdentifier = *Tokenizer;
+			if(Token_OpenBrace == GetToken(Tokenizer).Type &&
+			   ParseEnumeratorList(Tokenizer) &&
+			   Token_CloseBrace == GetToken(Tokenizer).Type)
+			{
+				return(true);
+			}
+
+			*Tokenizer = AtIdentifier;
+			return(true);
+		}
+
+		*Tokenizer = AtEnum;
+		if(Token_OpenBrace == GetToken(Tokenizer).Type &&
+		   ParseEnumeratorList(Tokenizer) &&
+		   Token_CloseBrace == GetToken(Tokenizer).Type)
+		{
+			return(true);
+		}
+
+		*Tokenizer = AtEnum;
+		return(false);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+/*
+  struct-declarator:
+  declarator
+  declarator(opt) : constant-expression
+*/
+bool
+ParseStructDeclarator(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(ParseDeclarator(tokenizer))
+	{
+		struct tokenizer Previous * Tokenizer;
+
+		if(Token_Colon == GetToken(Tokenizer).Type &&
+		   ParseConstantExpression(Tokenizer))
+		{
+			return(true);
+		}
+
+		*Tokenizer = Previous;
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	if(Token_Colon == GetToken(Tokenizer).Type &&
+	   ParseConstantEXpression(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+bool
+ParseStructDeclaratorListI(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(Token_Comma == GetToken(Tokenizer).Type &&
+	   ParseStructDeclarator(Tokenizer) &&
+	   ParseStructDeclaratorListI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(true);
+}
+
+/*
+  struct-declarator-list:
+  struct-declarator
+  struct-declarator-list , struct-declarator
+*/
+bool
+ParseStructDeclaratorList(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(ParseStructDeclarator(Tokenizer) &&
+	   ParseStructDeclaratorListI(Tokenizer))
+	{
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+/*
+  specifier-qualifier-list:
+  type-specifier specifier-qualifier-list(opt)
+  type-qualifier specifier-qualifier-list(opt)
+*/
+bool
+ParseSpecifierQualifierList(struct tokenizer *Tokenizer)
+{
+	struct tokenizer Start = *Tokenizer;
+
+	if(ParseTypeSpecifier(Tokenizer))
+	{
+		struct tokenizer Previous = *Tokenizer;
+		if(ParseSpecifierQualifierList(Tokenizer))
+		{
+			return(true);
+		}
+		*Tokenizer = Previous;
+
+		return(true);
+	}
+
+	if(ParseTypeQualifier(Tokenizer))
+	{
+		struct tokenizer Previous = *Tokenizer;
+		if(ParseSpecifierQualifierList(Tokenizer))
+		{
+			return(true);
+		}
+		*Tokenizer = Previous;
+
+		return(true);
+	}
+
+	*Tokenizer = Start;
+	return(false);
+}
+
+/*
+  TODO(AARON): Make sure optional matches are correctly handled below!
+  I may have done it incorrectly... ie., should return true in outer if(...)
+*/
 
 /*
   struct-declaration:
-          specifier-qualifier-list struct-declarator-list ;
+  specifier-qualifier-list struct-declarator-list ;
 */
 bool
 ParseStructDeclaration(struct tokenizer *Tokenizer)
@@ -1043,8 +2246,8 @@ ParseStructDeclaration(struct tokenizer *Tokenizer)
 
 /*
   init-declarator:
-          declarator
-	  declarator = initializer
+  declarator
+  declarator = initializer
 */
 bool
 ParseInitDeclarator(struct tokenizer *Tokenizer)
@@ -1074,13 +2277,13 @@ ParseInitDeclatorListI(struct tokenizer *Tokenizer)
 	}
 
 	*Tokenizer = Start;
-	return(false);
+	return(true);
 }
 
 /*
   init-declarator-list:
-          init-declarator
-	  init-declarator-list , init-declarator
+  init-declarator
+  init-declarator-list , init-declarator
 */
 bool
 ParseInitDeclaratorList(struct tokenizer *Tokenizer)
@@ -1109,13 +2312,13 @@ ParseStructDeclarationListI(struct tokenizer *Tokenizer)
 	}
 
 	*Tokenizer = Start;
-	return(false);
+	return(true);
 }
 
 /*
   struct-declaration-list:
-          struct-declaration
-	  struct-declaration-list struct-declaration
+  struct-declaration
+  struct-declaration-list struct-declaration
 */
 bool
 ParseStructDeclarationList(struct tokenizer *Tokenizer)
@@ -1154,8 +2357,8 @@ ParseStructOrUnion(struct tokenizer *Tokenizer)
 
 /*
   struct-or-union-specifier:
-          struct-or-union identifier(opt) { struct-declaratio-list }
-	  struct-or-union identifier
+  struct-or-union identifier(opt) { struct-declaratio-list }
+  struct-or-union identifier
 */
 bool
 ParseStructOrUnionSpecifier(struct tokenizer *Tokenizer)
@@ -1216,7 +2419,7 @@ ParseTypeQualifier(struct tokenizer *Tokenizer)
 
 /*
   One of: void char short int long float double signed unsigned
-          struct-or-union-specifier enum-specifier typedef-name
+  struct-or-union-specifier enum-specifier typedef-name
 */
 bool
 ParseTypeSpecifier(struct tokenizer *Tokenizer)
@@ -1291,9 +2494,9 @@ ParseStorageClassSpecifier(struct tokenizer *Tokenizer)
 
 /*
   declaration-specifiers:
-          storage-class-specifier declaration-specifiers(opt)
-	  type-specifier declaration-specifiers(opt)
-	  type-qualifier declaration-specifiers(opt)
+  storage-class-specifier declaration-specifiers(opt)
+  type-specifier declaration-specifiers(opt)
+  type-qualifier declaration-specifiers(opt)
 */
 bool
 ParseDeclarationSpecifiers(struct tokenizer *Tokenizer)
@@ -1349,13 +2552,13 @@ ParseDeclarationListI(struct tokenizer *Tokenizer)
 	}
 
 	*Tokenizer = Start;
-	return(false);
+	return(true);
 }
 
 /*
   declaration-list:
-          declaration
-	  declaration-list declaration
+  declaration
+  declaration-list declaration
 */
 bool
 ParseDeclarationList(struct tokenizer *Tokenizer)
@@ -1374,7 +2577,7 @@ ParseDeclarationList(struct tokenizer *Tokenizer)
 
 /*
   declaration:
-          declaration-specifiers init-declarator-list(opt) ;
+  declaration-specifiers init-declarator-list(opt) ;
 */
 bool
 ParseDeclaration(struct tokenizer *Tokenizer)
@@ -1404,7 +2607,7 @@ ParseDeclaration(struct tokenizer *Tokenizer)
 
 /*
   function-definition:
-          declaration-specifiers(opt) declarator declaration-list(opt) compound-statement
+  declaration-specifiers(opt) declarator declaration-list(opt) compound-statement
 */
 bool
 ParseFunctionDefinition(struct tokenizer *Tokenizer)
@@ -1441,8 +2644,8 @@ ParseFunctionDefinition(struct tokenizer *Tokenizer)
 
 /*
   external-declaration:
-          function-definition
-	  declaration
+  function-definition
+  declaration
 */
 bool
 ParseExternalDeclaration(struct tokenizer *Tokenizer)
@@ -1471,13 +2674,13 @@ ParseTranslationUnitI(struct tokenizer *Tokenizer)
 	}
 
 	*Tokenizer = PrevState;
-	return(false);
+	return(true);
 }
 
 /*
   translation-unit:
-          external-declaration
-	  translation-unit external-declaration
+  external-declaration
+  translation-unit external-declaration
 */
 bool
 ParseTranslationUnit(struct tokenizer *Tokenizer)
