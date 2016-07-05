@@ -29,16 +29,17 @@ function run() {
 
 function debug() {
     if [ "-h" == $1 ] || [ "--help" == $1 ]; then
-        echo "Usage: debug [sub-command]"
+        echo "Usage: debug sub-command file"
         echo
         echo "sub-command: One of: parse, lex"
+        echo "file: a C source file"
         echo
         return
     fi
 
     local debugger=`which kdbg`
     if [[ -f env/build/run ]] && [[ ! -z "$debugger" ]]; then
-        $($debugger env/build/run -a "$1 main.c")
+        $($debugger env/build/run -a "$1 $2")
     fi
 }
 
