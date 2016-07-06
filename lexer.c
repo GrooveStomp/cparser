@@ -546,6 +546,9 @@ GetToken(struct tokenizer *Tokenizer)
 
         {
                 GetSymbol(Tokenizer, &Token, "==", Token_LogicalEqual) ||
+                        GetSymbol(Tokenizer, &Token, "<<=", Token_DoubleLessThanEquals) ||
+                        GetSymbol(Tokenizer, &Token, ">>=", Token_DoubleGreaterThanEquals) ||
+                        GetSymbol(Tokenizer, &Token, "...", Token_Ellipsis) ||
                         GetSymbol(Tokenizer, &Token, "!=", Token_NotEqual) ||
                         GetSymbol(Tokenizer, &Token, ">=", Token_GreaterThanEqual) ||
                         GetSymbol(Tokenizer, &Token, "<=", Token_LessThanEqual) ||
@@ -562,12 +565,9 @@ GetToken(struct tokenizer *Tokenizer)
                         GetSymbol(Tokenizer, &Token, "%=", Token_ModuloEquals) ||
                         GetSymbol(Tokenizer, &Token, "+=", Token_PlusEquals) ||
                         GetSymbol(Tokenizer, &Token, "-=", Token_MinusEquals) ||
-                        GetSymbol(Tokenizer, &Token, "<<=", Token_DoubleLessThanEquals) ||
-                        GetSymbol(Tokenizer, &Token, ">>=", Token_DoubleGreaterThanEquals) ||
                         GetSymbol(Tokenizer, &Token, "&=", Token_AmpersandEquals) ||
                         GetSymbol(Tokenizer, &Token, "^=", Token_CaratEquals) ||
-                        GetSymbol(Tokenizer, &Token, "|=", Token_PipeEquals) ||
-                        GetSymbol(Tokenizer, &Token, "...", Token_Ellipsis);
+                        GetSymbol(Tokenizer, &Token, "|=", Token_PipeEquals);
 
         }
         if(Token.Type != Token_Unknown) return(Token);

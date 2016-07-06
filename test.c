@@ -67,6 +67,41 @@ TestArgumentExpressionList()
 }
 
 void
+TestPrimaryExpression()
+{
+        parser_function Fn = ParsePrimaryExpression;
+        Test(Fn, "my_var");        /* identifier */
+        Test(Fn, "4.0");           /* constant */
+        Test(Fn, "\"String\"");    /* string */
+        Test(Fn, "(sizeof(int))"); /* ( expression ) */
+}
+
+void
+TestPostfixExpression()
+{
+        parser_function Fn = ParsePostfixExpression;
+        Test(Fn, "my_var");       /* primary-expression */
+        Test(Fn, "my_var[0]");    /* postfix-expression [ expression ] */
+        Test(Fn, "my_fn(1, 2)");  /* postfix-expression ( argument-expression-list(opt) ) */
+        Test(Fn, "my_struct.x");  /* postfix-expression . identifier */
+        Test(Fn, "my_struct->x"); /* postfix-expression -> identifier */
+        Test(Fn, "my_value++");   /* postfix-expression ++ */
+        Test(Fn, "my_value--");   /* postfix-expression -- */
+}
+
+void
+TestUnaryOperator()
+{
+        parser_function Fn = ParseUnaryOperator;
+        Test(Fn, "&");
+        Test(Fn, "*");
+        Test(Fn, "+");
+        Test(Fn, "-");
+        Test(Fn, "~");
+        Test(Fn, "!");
+}
+
+void
 TestUnaryExpression()
 {
         parser_function Fn = ParseUnaryExpression;
@@ -97,13 +132,113 @@ TestMultiplicativeExpression()
 }
 
 void
-TestPrimaryExpression()
+TestAdditiveExpression()
 {
-        parser_function Fn = ParsePrimaryExpression;
-        Test(Fn, "my_var");        /* identifier */
-        Test(Fn, "4.0");           /* constant */
-        Test(Fn, "\"String\"");    /* string */
-        Test(Fn, "(sizeof(int))"); /* ( expression ) */
+        parser_function Fn = ParseAdditiveExpression;
+        Test(Fn, "4 * 4");               /* multiplicative-expression */
+        Test(Fn, "(int)4.0 + (int)4.0"); /* additive-expression + multiplicative-expression */
+        Test(Fn, "(int)4.0 - (int)4.0"); /* additive-expression - multiplicative-expression */
+}
+
+void
+TestShiftExpression()
+{
+        parser_function Fn = ParseShiftExpression;
+        Test(Fn, "4 + 4");          /* additive-expression */
+        Test(Fn, "4 + 4 << 4 + 4"); /* shift-expression << additive-expression */
+        Test(Fn, "4 + 4 >> 4 + 4"); /* shift-expression >> additive-expression */
+}
+
+void
+TestRelationalExpression()
+{
+        parser_function Fn = ParseRelationalExpression;
+        Test(Fn, "my_value << 4");                        /* shift-expression */
+        Test(Fn, "(my_value << 4) < (your_value >> 2)");  /* relational-expression < shift-expression */
+        Test(Fn, "(my_value >> 4) > (your_value << 2)");  /* relational-expression > shift-expression */
+        Test(Fn, "(my_value >> 4) <= (your_value >> 2)"); /* relational-expression <= shift-expression */
+        Test(Fn, "(my_value << 4) >= (your_value >> 2)"); /* relational-expression >= shift-expression */
+}
+
+void
+TestEqualityExpression()
+{
+        parser_function Fn = ParseEqualityExpression;
+        Test(Fn, "1 < 2");              /* relational-expression */
+        Test(Fn, "(1 < 2) == (2 > 1)"); /* equality-expression == relational-expression */
+        Test(Fn, "(1 < 2) != 3");       /* equality-expression != relational-expression */
+}
+
+void
+TestAndExpression()
+{
+        parser_function Fn = ParseAndExpression;
+        Test(Fn, "1 != 3");      /* equality-expression */
+        Test(Fn, "1 != 3 & 24"); /* AND-expression & equality-expression */
+}
+
+void
+TestExclusiveOrExpression()
+{
+        parser_function Fn = ParseExclusiveOrExpression;
+        Test(Fn, "1 != 3 & 24");        /* AND-expression */
+        Test(Fn, "(2 != 3 & 24) ^ 31"); /* exclusive-OR-expression ^ AND-expression */
+}
+
+void
+TestInclusiveOrExpression()
+{
+        parser_function Fn = ParseInclusiveOrExpression;
+        Test(Fn, "(2 != 3 & 24) ^ 31"); /* exclusive-OR-expression */
+        Test(Fn, "2 | 3");              /* inclusive-OR-expression | exclusive-OR-expression */
+}
+
+void
+TestLogicalAndExpression()
+{
+        parser_function Fn = ParseLogicalAndExpression;
+        Test(Fn, "2 | 3");              /* inclusive-OR-expression */
+        Test(Fn, "(2 | 3) && (2 | 3)"); /* logical-AND-expression && inclusive-OR-expression */
+}
+
+void
+TestLogicalOrExpression()
+{
+        parser_function Fn = ParseLogicalOrExpression;
+        Test(Fn, "2 && 3");           /* logical-AND-expression */
+        Test(Fn, "2 && 3 || 2 && 3"); /* logical-OR-expression || logical-AND-expression */
+}
+
+void
+TestConstantExpression()
+{
+        parser_function Fn = ParseConstantExpression;
+        Test(Fn, "2 || 3 ? 4 : 5");   /* conditional-expression */
+}
+
+void
+TestConditionalExpression()
+{
+        parser_function Fn = ParseConditionalExpression;
+        Test(Fn, "2 && 3 || 2 && 3"); /* logical-OR-expression */
+        Test(Fn, "2 || 3 ? 4 : 5");   /* logical-OR-expression ? expression : conditional-expression */
+}
+
+void
+TestAssignmentOperator()
+{
+        parser_function Fn = ParseAssignmentOperator;
+        Test(Fn, "=");
+        Test(Fn, "*=");
+        Test(Fn, "/=");
+        Test(Fn, "%=");
+        Test(Fn, "+=");
+        Test(Fn, "-=");
+        Test(Fn, "<<=");
+        Test(Fn, ">>=");
+        Test(Fn, "&=");
+        Test(Fn, "^=");
+        Test(Fn, "|=");
 }
 
 /*----------------------------------------------------------------------------
@@ -133,9 +268,23 @@ main(int ArgCount, char **Args)
         TestConstant();
         TestArgumentExpressionList();
         TestUnaryExpression();
+        TestPrimaryExpression();
+        TestPostfixExpression();
+        TestUnaryOperator();
         TestCastExpression();
         TestMultiplicativeExpression();
-        TestPrimaryExpression();
+        TestAdditiveExpression();
+        TestShiftExpression();
+        TestRelationalExpression();
+        TestEqualityExpression();
+        TestAndExpression();
+        TestExclusiveOrExpression();
+        TestInclusiveOrExpression();
+        TestLogicalAndExpression();
+        TestLogicalOrExpression();
+        TestConstantExpression();
+        TestConditionalExpression();
+        TestAssignmentOperator();
 
         printf("All tests passed successfully\n");
         return(EXIT_SUCCESS);

@@ -576,7 +576,7 @@ ParseEqualityExpression(struct tokenizer *Tokenizer)
         struct tokenizer Start = *Tokenizer;
 
         if(ParseRelationalExpression(Tokenizer) &&
-           ParseRelationalExpressionI(Tokenizer))
+           ParseEqualityExpressionI(Tokenizer))
         {
                 return(true);
         }
@@ -692,8 +692,6 @@ ParseInclusiveOrExpression(struct tokenizer *Tokenizer)
         *Tokenizer = Start;
         return(false);
 }
-
-/* NOTE(AARON): Verified encoding of parser rules below here. */
 
 bool
 ParseLogicalAndExpressionI(struct tokenizer *Tokenizer)
