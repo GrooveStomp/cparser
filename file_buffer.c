@@ -2,6 +2,7 @@
 #define _FILE_BUFFER_C
 
 #include <stdio.h>
+#include "bool.c"
 
 struct buffer {
         char *Data;
@@ -18,7 +19,7 @@ BufferSet(struct buffer *Buffer, char *Data, size_t Length, size_t Capacity)
 	return(Buffer);
 }
 
-int /* Returns 0 on failure, !0 on success. */
+bool
 CopyFileIntoBuffer(char *FileName, struct buffer *Mem)
 {
 	FILE *File = fopen(FileName, "r");
@@ -28,7 +29,7 @@ CopyFileIntoBuffer(char *FileName, struct buffer *Mem)
 		size_t FileSize = ftell(File);
 		if(FileSize + 1 > Mem->Capacity)
 		{
-			return(0);
+			return(false);
 		}
 
 		fseek(File, 0, SEEK_SET);
@@ -39,7 +40,7 @@ CopyFileIntoBuffer(char *FileName, struct buffer *Mem)
 		fclose(File);
 	}
 
-	return(!0);
+	return(true);
 }
 
 size_t /* Returns size of file in bytes plus one for trailing '\0'. */

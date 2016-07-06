@@ -28,3 +28,12 @@ Run:
 Debug
 
 > debug --help
+
+--------------------------------------------------------------------------------
+To Do
+--------------------------------------------------------------------------------
+- Integer lexing is not correct? Double check C reference and
+  integer-constants.txt test file.
+
+- Unicode support? C unicode libraries: icu, utf8proc, *microutf8*, *nunicode*
+  Both microutf8 and nunicode look quite good.g

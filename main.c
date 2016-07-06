@@ -1,6 +1,10 @@
 #include <stdlib.h> /* EXIT_SUCCESS, EXIT_FAILURE */
 #include <stdio.h>
 #include <alloca.h>
+
+#include "string.c"
+#include "file_buffer.c"
+#include "lexer.c"
 #include "parser.c"
 
 void

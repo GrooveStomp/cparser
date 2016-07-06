@@ -1,8 +1,7 @@
-#ifndef false
-#define false 0
-#define true !false
-typedef int bool;
-#endif
+#ifndef _STRING_C
+#define _STRING_C
+
+#include "bool.c"
 
 bool
 IsStringEqual(char *LeftString, char *RightString, int MaxNumToMatch)
@@ -33,3 +32,5 @@ StringLength(char *String)
 	while(*P != '\0') P++;
 	return(P - String);
 }
+
+#endif /* _STRING_C */
