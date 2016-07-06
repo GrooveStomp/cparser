@@ -241,6 +241,67 @@ TestAssignmentOperator()
         Test(Fn, "|=");
 }
 
+void
+TestAssignmentExpression()
+{
+        parser_function Fn = ParseAssignmentExpression;
+        Test(Fn, "2 || 3 ? 4 : 5");            /* conditional-expression */
+        Test(Fn, "++Foo |= ++Foo"); /* unary-expression assignment-operator assignment-expression */
+}
+
+void
+TestExpression()
+{
+        parser_function Fn = ParseExpression;
+        Test(Fn, "++Foo |= (2 || 3 ? 4 : 5)"); /* assignment-expression */
+        Test(Fn, "++Foo, Foo++");              /* expression, assignment-expression */
+        Test(Fn, "i=0");
+}
+
+void
+TestIdentifier()
+{
+        parser_function Fn = ParseIdentifier;
+        Test(Fn, "_foo");
+        Test(Fn, "foo123_");
+
+        {
+                char *String = "!foo";
+                struct tokenizer Tokenizer = InitTokenizer((String));
+                bool Result = Fn(&Tokenizer);
+                AssertFn("Result should be false", Result != true, __LINE__, __func__);
+                AssertFn("Tokenizer doesn't advance", Tokenizer.At == String, __LINE__, __func__);
+        }
+
+        {
+                char *String = "123_foo";
+                struct tokenizer Tokenizer = InitTokenizer((String));
+                bool Result = Fn(&Tokenizer);
+                AssertFn("Result should be false", Result != true, __LINE__, __func__);
+                AssertFn("Tokenizer doesn't advance", Tokenizer.At == String, __LINE__, __func__);
+        }
+}
+
+void
+TestJumpStatement()
+{
+        parser_function Fn = ParseJumpStatement;
+        Test(Fn, "goto foo;"); /* goto identifier ; */
+        Test(Fn, "continue;"); /* continue ; */
+        Test(Fn, "break;");    /* break ; */
+        Test(Fn, "return;");   /* return expression(opt) ; */
+}
+
+void
+TestIterationStatement()
+{
+        parser_function Fn = ParseIterationStatement;
+        Test(Fn, "while(true) {}");                     /* while ( expression ) statement */
+        Test(Fn, "do { foo = 2; } while(++Foo |= 3);"); /* do statement while ( expression ) ; */
+        /* NOTE(AARON): This version of C doesn't support just-in-time declarations. */
+        Test(Fn, "for(i=0; i<Foo; i++) { ; }");         /* for ( expression(opt) ; expression(opt) ; expression(opt) ) statement */
+}
+
 /*----------------------------------------------------------------------------
   Main Entrypoint
   ----------------------------------------------------------------------------*/
@@ -285,6 +346,11 @@ main(int ArgCount, char **Args)
         TestConstantExpression();
         TestConditionalExpression();
         TestAssignmentOperator();
+        TestAssignmentExpression();
+        TestExpression();
+        TestIdentifier();
+        TestJumpStatement();
+        TestIterationStatement();
 
         printf("All tests passed successfully\n");
         return(EXIT_SUCCESS);

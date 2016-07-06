@@ -853,15 +853,15 @@ ParseAssignmentExpression(struct tokenizer *Tokenizer)
 {
         struct tokenizer Start = *Tokenizer;
 
-        if(ParseConditionalExpression(Tokenizer))
+        if(ParseUnaryExpression(Tokenizer) &&
+           ParseAssignmentOperator(Tokenizer) &&
+           ParseAssignmentExpression(Tokenizer))
         {
                 return(true);
         }
 
         *Tokenizer = Start;
-        if(ParseUnaryExpression(Tokenizer) &&
-           ParseAssignmentOperator(Tokenizer) &&
-           ParseAssignmentExpression(Tokenizer))
+        if(ParseConditionalExpression(Tokenizer))
         {
                 return(true);
         }

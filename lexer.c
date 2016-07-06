@@ -433,7 +433,11 @@ GetInteger(struct tokenizer *Tokenizer, struct token *Token)
 bool
 GetIdentifier(struct tokenizer *Tokenizer, struct token *Token)
 {
-        if(!IsAlphabetical(Tokenizer->At[0])) return(false);
+        if(!IsAlphabetical(Tokenizer->At[0]) &&
+           '_' != Tokenizer->At[0])
+        {
+                return(false);
+        }
 
         char *Cursor = Tokenizer->At;
 
