@@ -5,41 +5,43 @@ export PROJECT_ROOT=$(pwd)
 export PATH=$PROJECT_ROOT/env:$PATH
 
 function build() {
+    local cfile="$1"
+    if [[ "-h" == $1 || "--help" == $1 || "$cfile" == "" ]]; then
+        echo "Usage: build file"
+        echo
+        echo "file: C file to build containing 'main' function"
+        echo
+        return
+    fi
+
     if [ ! -f env/build ]; then
         mkdir -p env/build
     fi
 
-    gcc -std=c99 -pedantic-errors -fextended-identifiers -g -x c -o env/build/run main.c
+    local executable=$(basename "$cfile")
+    executable="${executable%.*}"
+    echo "$executable" > env/executable-name
+
+    gcc -std=c99 -pedantic-errors -fextended-identifiers -g -x c -o "env/build/$executable" "$cfile"
 }
 
 function run() {
-    if [ "-h" == $1 ] || [ "--help" == $1 ]; then
-        echo "Usage: run [sub-command] file"
-        echo
-        echo "sub-command: One of: parse, lex"
-        echo "file: Should be a C file. Assumed to be in local directory."
-        echo
-        return
-    fi
-
-    if [ -f env/build/run ]; then
-        env/build/run "$@"
+    local executable=$(cat env/executable-name)
+    if [ -f "env/build/$executable" ]; then
+        "env/build/$executable" "$@"
     fi
 }
 
 function debug() {
-    if [ "-h" == $1 ] || [ "--help" == $1 ]; then
-        echo "Usage: debug sub-command file"
-        echo
-        echo "sub-command: One of: parse, lex"
-        echo "file: a C source file"
-        echo
-        return
-    fi
+    local executable=$(cat env/executable-name)
 
     local debugger=`which kdbg`
-    if [[ -f env/build/run ]] && [[ ! -z "$debugger" ]]; then
-        $($debugger env/build/run -a "$1 $2")
+    if [[ -f "env/build/$executable" ]] && [[ ! -z "$debugger" ]]; then
+        if [[ "" == "$@" ]]; then
+            $($debugger "env/build/$executable")
+        else
+            $($debugger "env/build/$executable" -a "$1 $2")
+        fi
     fi
 }
 
