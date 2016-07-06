@@ -315,7 +315,7 @@ ParseCastExpression(struct tokenizer *Tokenizer)
 {
         struct tokenizer Start = *Tokenizer;
 
-        if(ParseUnaryExpression)
+        if(ParseUnaryExpression(Tokenizer))
         {
                 return(true);
         }
@@ -323,7 +323,8 @@ ParseCastExpression(struct tokenizer *Tokenizer)
         *Tokenizer = Start;
         if(Token_OpenParen == GetToken(Tokenizer).Type &&
            ParseTypeName(Tokenizer) &&
-           Token_CloseParen == GetToken(Tokenizer).Type)
+           Token_CloseParen == GetToken(Tokenizer).Type &&
+           ParseCastExpression(Tokenizer))
         {
                 return(true);
         }
