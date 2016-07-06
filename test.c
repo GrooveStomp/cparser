@@ -302,6 +302,65 @@ TestIterationStatement()
         Test(Fn, "for(i=0; i<Foo; i++) { ; }");         /* for ( expression(opt) ; expression(opt) ; expression(opt) ) statement */
 }
 
+void
+TestSelectionStatement()
+{
+        parser_function Fn = ParseSelectionStatement;
+        Test(Fn, "if(true) return;");                 /* if ( expression ) statement */
+        Test(Fn, "if(1 = 3) goto end; else return;"); /* if ( expression ) statement else statement */
+        Test(Fn, "switch(Foo) { break; }");           /* switch ( expression ) statement */
+}
+
+void
+TestStatementList()
+{
+        parser_function Fn = ParseStatementList;
+        Test(Fn, "i = 1;");        /* statement */
+        Test(Fn, "i = 1; i = 1;"); /* statement-list statement */
+}
+
+void
+TestCompoundStatement()
+{
+        parser_function Fn = ParseCompoundStatement;
+        Test(Fn, "{ int i; i = 2; i = 3; }"); /* { declaration-list(opt) statement-list(opt) } */
+        Test(Fn, "{ }");
+        Test(Fn, "{ int i; }");
+        Test(Fn, "{ i = 3; }");
+}
+
+void
+TestExpressionStatement()
+{
+        parser_function Fn = ParseExpressionStatement;
+        Test(Fn, ";"); /* expression(opt) */
+        Test(Fn, "++Foo |= (2 || 3 ? 4 : 5) ;");
+        Test(Fn, "++Foo, Foo++;");
+        Test(Fn, "i=0;");
+}
+
+void
+TestLabeledStatement()
+{
+        parser_function Fn = ParseLabeledStatement;
+        Test(Fn, "label: i = 0;");                    /* identifier : statement */
+        Test(Fn, "case Foo: break;");                 /* case constant-expression : statement */
+        Test(Fn, "default: { exit(EXIT_SUCCESS); }"); /* default : statement */
+}
+
+void
+TestStatement()
+{
+        /* TODO(AARON): Gotta get sample strings for these. */
+        parser_function Fn = ParseStatement;
+        Test(Fn, ""); /* labeled-statement */
+        Test(Fn, ""); /* expression-statement */
+        Test(Fn, ""); /* compound-statement */
+        Test(Fn, ""); /* selection-statement */
+        Test(Fn, ""); /* iteration-statement */
+        Test(Fn, ""); /* jump-statement */
+}
+
 /*----------------------------------------------------------------------------
   Main Entrypoint
   ----------------------------------------------------------------------------*/
@@ -351,6 +410,12 @@ main(int ArgCount, char **Args)
         TestIdentifier();
         TestJumpStatement();
         TestIterationStatement();
+        TestSelectionStatement();
+        TestStatementList();
+        TestCompoundStatement();
+        TestExpressionStatement();
+        TestLabeledStatement();
+        TestStatement();
 
         printf("All tests passed successfully\n");
         return(EXIT_SUCCESS);
