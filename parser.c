@@ -2160,7 +2160,7 @@ ParseStructDeclarationListI(struct tokenizer *Tokenizer)
         if(ParseStructDeclaration(Tokenizer) &&
            ParseStructDeclarationListI(Tokenizer))
         {
-                return(false);
+                return(true);
         }
 
         *Tokenizer = Start;
