@@ -23,13 +23,6 @@ bool ParseTypeQualifier(struct tokenizer *Tokneizer);
 bool ParseTypeSpecifier(struct tokenizer *Tokenizer);
 bool ParseDeclaration(struct tokenizer *Tokenizer);
 
-void ParseError(char *Name, struct tokenizer *Tokenizer)
-{
-#if 0
-        printf("%s Failure (%i,%i)\n", Name, Tokenizer->Line, Tokenizer->Column);
-#endif
-}
-
 /*
   constant:
           integer-constant
@@ -2344,6 +2337,7 @@ ParseStorageClassSpecifier(struct tokenizer *Tokenizer)
         return(false);
 }
 
+
 /*
   declaration-specifiers:
           storage-class-specifier declaration-specifiers(opt)
@@ -2393,7 +2387,6 @@ ParseDeclarationSpecifiers(struct tokenizer *Tokenizer)
                 return(true);
         }
 
-        ParseError("ParseDeclarationSpecifiers", Tokenizer);
         *Tokenizer = Start;
         return(false);
 }
@@ -2429,7 +2422,6 @@ ParseDeclarationList(struct tokenizer *Tokenizer)
                 return(true);
         }
 
-        ParseError("ParseDeclarationList", Tokenizer);
         *Tokenizer = Start;
         return(false);
 }
@@ -2520,7 +2512,6 @@ ParseExternalDeclaration(struct tokenizer *Tokenizer)
         *Tokenizer = Start;
         if(ParseDeclaration(Tokenizer)) return(true);
 
-        ParseError("ParseExternalDeclaration", Tokenizer);
         *Tokenizer = Start;
         return(false);
 }
@@ -2556,7 +2547,6 @@ ParseTranslationUnit(struct tokenizer *Tokenizer)
                 return(true);
         }
 
-        ParseError("ParseTranslationUnit", Tokenizer);
         *Tokenizer = Start;
         return(false);
 }
