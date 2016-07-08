@@ -33,4 +33,15 @@ StringLength(char *String)
 	return(P - String);
 }
 
+bool
+StringCopyWithNull(char *Source, char *Dest)
+{
+        int i = 0;
+        for(; Source[i] != '\0'; i++)
+        {
+                Dest[i] = Source[i];
+        }
+        Dest[i] = '\0';
+}
+
 #endif /* _STRING_C */

@@ -23,6 +23,74 @@ bool ParseTypeQualifier(struct tokenizer *Tokneizer);
 bool ParseTypeSpecifier(struct tokenizer *Tokenizer);
 bool ParseDeclaration(struct tokenizer *Tokenizer);
 
+struct typedef_names
+{
+        char *Name;
+        int *NameIndex;
+        int Capacity; /* Total allocated space for Name */
+        int NumNames; /* Number of Name */
+};
+struct typedef_names TypedefNames;
+
+void
+TypedefClear()
+{
+        free((void *)TypedefNames.Name);
+        free((void *)TypedefNames.NameIndex);
+        TypedefNames.Capacity = 0;
+        TypedefNames.NumNames = 0;
+}
+
+void
+TypedefInit()
+{
+        char *Memory = (char *)malloc(1024);
+        TypedefNames.Name = Memory;
+        TypedefNames.Capacity = 1024;
+        TypedefNames.NameIndex = malloc(1024 / 2 * sizeof(int));
+        TypedefNames.NumNames = 0;
+}
+
+bool
+TypedefIsName(struct token Token)
+{
+        for(int i = 0; i < TypedefNames.NumNames; i++)
+        {
+                if(IsStringEqual(Token.Text, &TypedefNames.Name[TypedefNames.NameIndex[i]], Token.TextLength))
+                {
+                        return(true);
+                }
+        }
+        return(false);
+}
+
+bool
+TypedefAddName(char *Name)
+{
+        if(TypedefNames.NumNames == 0)
+        {
+                StringCopyWithNull(Name, TypedefNames.Name);
+                TypedefNames.NumNames++;
+                return(true);
+        }
+
+        int CurrentNameIndex = TypedefNames.NameIndex[TypedefNames.NumNames - 1];
+        /* NameLength doesn't account for trailing NULL */
+        int NameLength = StringLength(&TypedefNames.Name[CurrentNameIndex]);
+        int UsedSpace = &TypedefNames.Name[CurrentNameIndex] - TypedefNames.Name + NameLength + 1;
+        int RemainingCapacity = TypedefNames.Capacity - UsedSpace;
+
+        int NewNameLength = StringLength(Name);
+        if(NewNameLength + 1 > RemainingCapacity)
+        {
+                return(false);
+        }
+
+        StringCopyWithNull(Name, &TypedefNames.Name[CurrentNameIndex] + NameLength + 1);
+        TypedefNames.NumNames++;
+        return(true);
+}
+
 /*
   constant:
           integer-constant
@@ -1278,8 +1346,10 @@ bool
 ParseTypedefName(struct tokenizer *Tokenizer)
 {
         struct tokenizer Start = *Tokenizer;
+        struct token Token = GetToken(Tokenizer);
+        *Tokenizer = Start;
 
-        if(ParseIdentifier(Tokenizer))
+        if(ParseIdentifier(Tokenizer) && TypedefIsName(Token))
         {
                 return(true);
         }
@@ -2356,12 +2426,6 @@ ParseDeclarationSpecifiers(struct tokenizer *Tokenizer)
         }
 
         *Tokenizer = Start;
-        if(ParseStorageClassSpecifier(Tokenizer))
-        {
-                return(true);
-        }
-
-        *Tokenizer = Start;
         if(ParseTypeSpecifier(Tokenizer) &&
            ParseDeclarationSpecifiers(Tokenizer))
         {
@@ -2369,14 +2433,20 @@ ParseDeclarationSpecifiers(struct tokenizer *Tokenizer)
         }
 
         *Tokenizer = Start;
-        if(ParseTypeSpecifier(Tokenizer))
+        if(ParseTypeQualifier(Tokenizer) &&
+           ParseDeclarationSpecifiers(Tokenizer))
         {
                 return(true);
         }
 
         *Tokenizer = Start;
-        if(ParseTypeQualifier(Tokenizer) &&
-           ParseDeclarationSpecifiers(Tokenizer))
+        if(ParseStorageClassSpecifier(Tokenizer))
+        {
+                return(true);
+        }
+
+        *Tokenizer = Start;
+        if(ParseTypeSpecifier(Tokenizer))
         {
                 return(true);
         }
@@ -2557,6 +2627,8 @@ Parse(struct buffer *FileContents)
         struct tokenizer Tokenizer;
         Tokenizer.Beginning = Tokenizer.At = FileContents->Data;
         Tokenizer.Line = Tokenizer.Column = 1;
+
+        TypedefInit(TypedefNames);
 
         bool Parsing = true;
         while(Parsing)

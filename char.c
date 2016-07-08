@@ -1,8 +1,7 @@
-#ifndef false
-#define false 0
-#define true !false
-typedef int bool;
-#endif
+#ifndef _CHAR_C
+#define _CHAR_C
+
+#include "bool.c"
 
 bool
 IsEndOfStream(char C)
@@ -73,3 +72,5 @@ IsIdentifierCharacter(char C)
 	bool Result = (IsAlphabetical(C) || IsDecimal(C) || C == '_');
 	return(Result);
 }
+
+#endif /* _CHAR_C */

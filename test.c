@@ -63,6 +63,8 @@ TestConstant()
         Accept(Fn, "'c'"); /* character-constant */
         Accept(Fn, "2.0"); /* floating-constant */
         /* TODO(AARON): enumeration-constant */
+        Reject(Fn, "foo");
+        Reject(Fn, "sizeof(int)");
 }
 
 void
@@ -94,6 +96,7 @@ TestPostfixExpression()
         Accept(Fn, "my_struct->x"); /* postfix-expression -> identifier */
         Accept(Fn, "my_value++");   /* postfix-expression ++ */
         Accept(Fn, "my_value--");   /* postfix-expression -- */
+        Reject(Fn, "--my_value");
 }
 
 void
@@ -357,7 +360,11 @@ void
 TestTypedefName()
 {
         parser_function Fn = ParseTypedefName;
-        Accept(Fn, "foo"); /* identifier */
+        Reject(Fn, "my_type");
+        TypedefInit();
+        TypedefAddName("my_type");
+        Accept(Fn, "my_type"); /* identifier */
+        TypedefClear();
 }
 
 void
@@ -369,8 +376,8 @@ TestDirectAbstractDeclarator()
         Accept(Fn, "(int i[])");                 /* direct-abstract-declarator(opt) [ constant-expression(opt) ] */
         Accept(Fn, "([2])");                     /* direct-abstract-declarator(opt) [ constant-expression(opt) ] */
         Accept(Fn, "([])");                      /* direct-abstract-declarator(opt) [ constant-expression(opt) ] */
-        Accept(Fn, "(foo())");                   /* direct-abstract-declarator(opt) ( parameter-type-list(opt) ) */
-        Accept(Fn, "(foo(int arg1, int arg2))"); /* direct-abstract-declarator(opt) ( parameter-type-list(opt) ) */
+/*        Accept(Fn, "(foo())");                   /* direct-abstract-declarator(opt) ( parameter-type-list(opt) ) */
+/*        Accept(Fn, "(foo(int arg1, int arg2))"); /* direct-abstract-declarator(opt) ( parameter-type-list(opt) ) */
         Accept(Fn, "((int arg1, int arg2))");    /* direct-abstract-declarator(opt) ( parameter-type-list(opt) ) */
         Accept(Fn, "(())");                      /* direct-abstract-declarator(opt) ( parameter-type-list(opt) ) */
 }
@@ -390,8 +397,15 @@ void
 TestTypeName()
 {
         parser_function Fn = ParseTypeName;
-        Accept(Fn, "const void i"); /* specifier-qualifier-list abstract-declarator(opt) */
+        Accept(Fn, "volatile int"); /* specifier-qualifier-list abstract-declarator(opt) */
         Accept(Fn, "const void");   /* specifier-qualifier-list abstract-declarator(opt) */
+        Accept(Fn, "short");
+        Reject(Fn, "my_type");
+        TypedefInit();
+        TypedefAddName("my_type");
+        Accept(Fn, "my_type");
+        Accept(Fn, "const my_type");
+        TypedefClear();
 }
 
 void
@@ -606,7 +620,7 @@ TestTypeSpecifier()
         Accept(Fn, "unsigned");
         Accept(Fn, "struct foo");                       /* struct-or-union-specifier */
         Accept(Fn, "enum MyEnum { foo = 2, bar = 3 }"); /* enum-specifier */
-        Accept(Fn, "foo");                              /* typedef-name */
+        Reject(Fn, "foo");                              /* typedef-name */
 }
 
 void
@@ -624,45 +638,66 @@ void
 TestDeclarationSpecifiers()
 {
         parser_function Fn = ParseDeclarationSpecifiers;
-        Accept(Fn, "static static");       /* storage-class-specifier declaration-specifers(opt) */
-        Accept(Fn, "static");              /* storage-class-specifier declaration-specifers(opt) */
-        Accept(Fn, "void void");           /* type-specifier declaration-specifiers(opt) */
-        Accept(Fn, "void");                /* type-specifier declaration-specifiers(opt) */
-        Accept(Fn, "void static");         /* type-specifier declaration-specifiers(opt) */
-        Accept(Fn, "static void");         /* type-specifier declaration-specifiers(opt) */
-        Accept(Fn, "const");               /* type-qualifier declaration-specifiers(opt) */
-        Accept(Fn, "const volatile void"); /* type-qualifier declaration-specifiers(opt) */
-        Accept(Fn, "const volatile");      /* type-qualifier declaration-specifiers(opt) */
+        Accept(Fn, "static static");        /* storage-class-specifier declaration-specifers(opt) */
+        Accept(Fn, "static");               /* storage-class-specifier declaration-specifers(opt) */
+        Accept(Fn, "void void");            /* type-specifier declaration-specifiers(opt) */
+        Accept(Fn, "int float");            /* type-specifier declaration-specifiers(opt) */
+        Accept(Fn, "char static volatile"); /* type-specifier declaration-specifiers(opt) */
+        Accept(Fn, "static void");          /* type-specifier declaration-specifiers(opt) */
+        Accept(Fn, "const");                /* type-qualifier declaration-specifiers(opt) */
+        Accept(Fn, "const volatile void");  /* type-qualifier declaration-specifiers(opt) */
+        Accept(Fn, "const volatile");       /* type-qualifier declaration-specifiers(opt) */
 }
 
 void
 TestDeclarationList()
 {
         parser_function Fn = ParseDeclarationList;
-/*        Accept(Fn, "const volatile foo = 2;");               /* declaration */
-/*        Accept(Fn, "const volatile foo = 2; static int i;"); /* declaration-list declaration */
+        Accept(Fn, "const volatile foo;");                /* declaration */
+        Accept(Fn, "volatile short foo; const int bar;"); /* declaration-list declaration */
 }
 
 void
 TestDeclaration()
 {
         parser_function Fn = ParseDeclaration;
-        Accept(Fn, "const volatile int foo = 2, bar = 3;"); /* declaration-specifier init-declarator-list(opt) ; */
-        Accept(Fn, "const volatile;");                  /* declaration-specifier init-declarator-list(opt) ; */
+        Accept(Fn, "const volatile;");     /* declaration-specifiers init-declarator-list(opt) ; */
+        Accept(Fn, "const volatile foo;"); /* declaration-specifiers init-declarator-list(opt) ; */
+        Accept(Fn, "volatile short foo = 2;");
+        Accept(Fn, "const volatile foo = 2, bar = 3;");
+}
+
+void
+TestFunctionDefinition()
+{
+        parser_function Fn = ParseFunctionDefinition;
+        /* declaration-specifiers(opt) declarator declaration-list(opt) compound-statement */
+        Accept(Fn, "int main(){}");
+        Accept(Fn, "main(int a, int b) { }"); /* declarator declaration-list compound-statement */
+        Accept(Fn, "main() { }");             /* declarator declaration-list compound-statement */
+        Accept(Fn, "main { }");               /* declarator compound-statement */
+
+}
+
+void
+TestExternalDeclaration()
+{
+        parser_function Fn = ParseExternalDeclaration;
+        Accept(Fn, "main() {}");                   /* function-definition */
+        Accept(Fn, "const volatile int foo = 2;"); /* declaration */
+}
+
+void
+TestTranslationUnit()
+{
+        parser_function Fn = ParseTranslationUnit;
+        Accept(Fn, "int global = 1; int main(){}");
+        Accept(Fn, "int main(int argc, char **argv) { int i = 2; return(i); }");
 }
 
 /*----------------------------------------------------------------------------
   Main Entrypoint
   ----------------------------------------------------------------------------*/
-
-void
-Usage()
-{
-        printf("Executable tests\n\n");
-        printf("Usage: run\n");
-        printf("  Specify '-h' or '--help' for this help text.\n");
-        exit(EXIT_SUCCESS);
-}
 
 int
 main(int ArgCount, char **Args)
@@ -672,7 +707,10 @@ main(int ArgCount, char **Args)
                 if(IsStringEqual(Args[Index], "-h", StringLength("-h")) ||
                    IsStringEqual(Args[Index], "--help", StringLength("--help")))
                 {
-                        Usage();
+                        printf("Executable tests\n\n");
+                        printf("Usage: run\n");
+                        printf("  Specify '-h' or '--help' for this help text.\n");
+                        exit(EXIT_SUCCESS);
                 }
         }
 
@@ -738,6 +776,9 @@ main(int ArgCount, char **Args)
         TestDeclarationSpecifiers();
         TestDeclarationList();
         TestDeclaration();
+        TestFunctionDefinition();
+        TestExternalDeclaration();
+        TestTranslationUnit();
 
         printf("All tests successful\n");
         return(EXIT_SUCCESS);
