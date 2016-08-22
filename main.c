@@ -2,22 +2,14 @@
 #include <stdio.h>
 #include <alloca.h>
 
-#include "string.c"
-#include "file_buffer.c"
+#include "gs.h"
 #include "lexer.c"
 #include "parser.c"
 
 void
-AbortWithMessage(const char *msg)
+Usage(char *Name)
 {
-        fprintf(stderr, "%s\n", msg);
-        exit(EXIT_FAILURE);
-}
-
-void
-Usage()
-{
-        printf("Usage: run operation file\n");
+        printf("Usage: %s operation file\n", Name);
         printf("  operation: One of: [parse, lex].\n");
         printf("  file: Must be a file in this directory.\n");
         printf("  Specify '-h' or '--help' for this help text.\n");
@@ -25,43 +17,28 @@ Usage()
 }
 
 int
-main(int ArgCount, char **Args)
+main(int ArgCount, char **Arguments)
 {
-        for(int Index = 0; Index < ArgCount; ++Index)
-        {
-                if(IsStringEqual(Args[Index], "-h", StringLength("-h")) ||
-                   IsStringEqual(Args[Index], "--help", StringLength("--help")))
-                {
-                        Usage();
-                }
-        }
-        if(ArgCount != 3) Usage();
+        gs_args Args;
+        GSArgsInit(&Args, ArgCount, Arguments);
+        if(GSArgsHelpWanted(&Args)           ||
+           ArgCount != 3                     ||
+           (!GSArgsIsPresent(&Args, "parse") &&
+            !GSArgsIsPresent(&Args, "lex")))
+                Usage(GSArgsProgramName(&Args));
 
-        if(!IsStringEqual(Args[1], "parse", StringLength("parse")) &&
-           !IsStringEqual(Args[1], "lex", StringLength("lex")))
-        {
-                Usage();
-        }
+        gs_buffer Buffer;
+        char *Filename = GSArgsAtIndex(&Args, 2);
+        size_t AllocSize = GSFileSize(Filename);
+        GSBufferInit(&Buffer, alloca(AllocSize), AllocSize);
 
-        size_t AllocSize = FileSize(Args[2]);
-        struct buffer FileContents;
+        if(!GSFileCopyToBuffer(Filename, &Buffer))
+                GSAbortWithMessage("Couldn't copy entire file to buffer\n");
 
-        /* Allocate space on the stack. */
-        BufferSet(&FileContents, (char *)alloca(AllocSize), 0, AllocSize);
-
-        if(!CopyFileIntoBuffer(Args[2], &FileContents))
-        {
-                AbortWithMessage("Couldn't copy entire file to buffer");
-        }
-
-        if(IsStringEqual(Args[1], "parse", StringLength("parse")))
-        {
-                Parse(&FileContents);
-        }
+        if(GSArgsIsPresent(&Args, "parse"))
+                Parse(&Buffer);
         else
-        {
-                Lex(&FileContents);
-        }
+                Lex(&Buffer);
 
         return(EXIT_SUCCESS);
 }

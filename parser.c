@@ -56,7 +56,7 @@ TypedefIsName(struct token Token)
 {
         for(int i = 0; i < TypedefNames.NumNames; i++)
         {
-                if(IsStringEqual(Token.Text, &TypedefNames.Name[TypedefNames.NameIndex[i]], Token.TextLength))
+                if(GSStringIsEqual(Token.Text, &TypedefNames.Name[TypedefNames.NameIndex[i]], Token.TextLength))
                 {
                         return(true);
                 }
@@ -69,24 +69,24 @@ TypedefAddName(char *Name)
 {
         if(TypedefNames.NumNames == 0)
         {
-                StringCopyWithNull(Name, TypedefNames.Name);
+                GSStringCopy(Name, TypedefNames.Name, GSStringLength(Name));
                 TypedefNames.NumNames++;
                 return(true);
         }
 
         int CurrentNameIndex = TypedefNames.NameIndex[TypedefNames.NumNames - 1];
         /* NameLength doesn't account for trailing NULL */
-        int NameLength = StringLength(&TypedefNames.Name[CurrentNameIndex]);
+        int NameLength = GSStringLength(&TypedefNames.Name[CurrentNameIndex]);
         int UsedSpace = &TypedefNames.Name[CurrentNameIndex] - TypedefNames.Name + NameLength + 1;
         int RemainingCapacity = TypedefNames.Capacity - UsedSpace;
 
-        int NewNameLength = StringLength(Name);
+        int NewNameLength = GSStringLength(Name);
         if(NewNameLength + 1 > RemainingCapacity)
         {
                 return(false);
         }
 
-        StringCopyWithNull(Name, &TypedefNames.Name[CurrentNameIndex] + NameLength + 1);
+        GSStringCopy(Name, &TypedefNames.Name[CurrentNameIndex] + NameLength + 1, GSStringLength(Name));
         TypedefNames.NumNames++;
         return(true);
 }
@@ -345,7 +345,7 @@ ParseUnaryExpression(struct tokenizer *Tokenizer)
         *Tokenizer = Start;
         Token = GetToken(Tokenizer);
         if(Token_Keyword == Token.Type &&
-           IsStringEqual("sizeof", Token.Text, StringLength("sizeof")))
+           GSStringIsEqual("sizeof", Token.Text, GSStringLength("sizeof")))
         {
                 struct tokenizer Previous = *Tokenizer;
                 if(ParseUnaryExpression(Tokenizer))
@@ -996,7 +996,7 @@ ParseJumpStatement(struct tokenizer *Tokenizer)
         struct tokenizer AtToken = *Tokenizer;
 
         if(Token_Keyword == Token.Type &&
-           IsStringEqual("goto", Token.Text, Token.TextLength) &&
+           GSStringIsEqual("goto", Token.Text, Token.TextLength) &&
            ParseIdentifier(Tokenizer) &&
            Token_SemiColon == GetToken(Tokenizer).Type)
         {
@@ -1005,7 +1005,7 @@ ParseJumpStatement(struct tokenizer *Tokenizer)
 
         *Tokenizer = AtToken;
         if(Token_Keyword == Token.Type &&
-           IsStringEqual("continue", Token.Text, Token.TextLength) &&
+           GSStringIsEqual("continue", Token.Text, Token.TextLength) &&
            Token_SemiColon == GetToken(Tokenizer).Type)
         {
                 return(true);
@@ -1013,7 +1013,7 @@ ParseJumpStatement(struct tokenizer *Tokenizer)
 
         *Tokenizer = AtToken;
         if(Token_Keyword == Token.Type &&
-           IsStringEqual("break", Token.Text, Token.TextLength) &&
+           GSStringIsEqual("break", Token.Text, Token.TextLength) &&
            Token_SemiColon == GetToken(Tokenizer).Type)
         {
                 return(true);
@@ -1021,7 +1021,7 @@ ParseJumpStatement(struct tokenizer *Tokenizer)
 
         *Tokenizer = AtToken;
         if(Token_Keyword == Token.Type &&
-           IsStringEqual("return", Token.Text, Token.TextLength))
+           GSStringIsEqual("return", Token.Text, Token.TextLength))
         {
                 struct tokenizer Previous = *Tokenizer;
                 if(!ParseExpression(Tokenizer))
@@ -1051,7 +1051,7 @@ ParseIterationStatement(struct tokenizer *Tokenizer)
         struct tokenizer AtToken = *Tokenizer;
 
         if(Token_Keyword == Token.Type &&
-           IsStringEqual("while", Token.Text, Token.TextLength) &&
+           GSStringIsEqual("while", Token.Text, Token.TextLength) &&
            Token_OpenParen == GetToken(Tokenizer).Type &&
            ParseExpression(Tokenizer) &&
            Token_CloseParen == GetToken(Tokenizer).Type &&
@@ -1062,12 +1062,12 @@ ParseIterationStatement(struct tokenizer *Tokenizer)
 
         *Tokenizer = AtToken;
         if(Token_Keyword == Token.Type &&
-           IsStringEqual("do", Token.Text, Token.TextLength) &&
+           GSStringIsEqual("do", Token.Text, Token.TextLength) &&
            ParseStatement(Tokenizer))
         {
                 struct token Token = GetToken(Tokenizer);
                 if(Token_Keyword == Token.Type &&
-                   IsStringEqual("while", Token.Text, Token.TextLength) &&
+                   GSStringIsEqual("while", Token.Text, Token.TextLength) &&
                    Token_OpenParen == GetToken(Tokenizer).Type &&
                    ParseExpression(Tokenizer) &&
                    Token_CloseParen == GetToken(Tokenizer).Type &&
@@ -1079,7 +1079,7 @@ ParseIterationStatement(struct tokenizer *Tokenizer)
 
         *Tokenizer = AtToken;
         if(Token_Keyword == Token.Type &&
-           IsStringEqual("for", Token.Text, Token.TextLength) &&
+           GSStringIsEqual("for", Token.Text, Token.TextLength) &&
            Token_OpenParen == GetToken(Tokenizer).Type)
         {
                 struct tokenizer Previous = *Tokenizer;
@@ -1131,7 +1131,7 @@ ParseSelectionStatement(struct tokenizer *Tokenizer)
         struct tokenizer AtToken = *Tokenizer;
 
         if(Token_Keyword == Token.Type &&
-           IsStringEqual("if", Token.Text, Token.TextLength) &&
+           GSStringIsEqual("if", Token.Text, Token.TextLength) &&
            Token_OpenParen == GetToken(Tokenizer).Type &&
            ParseExpression(Tokenizer) &&
            Token_CloseParen == GetToken(Tokenizer).Type &&
@@ -1141,7 +1141,7 @@ ParseSelectionStatement(struct tokenizer *Tokenizer)
                 struct token Token = GetToken(Tokenizer);
 
                 if(Token_Keyword == Token.Type &&
-                   IsStringEqual("else", Token.Text, Token.TextLength) &&
+                   GSStringIsEqual("else", Token.Text, Token.TextLength) &&
                    ParseStatement(Tokenizer))
                 {
                         return(true);
@@ -1153,7 +1153,7 @@ ParseSelectionStatement(struct tokenizer *Tokenizer)
 
         *Tokenizer = AtToken;
         if(Token_Keyword == Token.Type &&
-           IsStringEqual("switch", Token.Text, Token.TextLength) &&
+           GSStringIsEqual("switch", Token.Text, Token.TextLength) &&
            Token_OpenParen == GetToken(Tokenizer).Type &&
            ParseExpression(Tokenizer) &&
            Token_CloseParen == GetToken(Tokenizer).Type &&
@@ -1282,7 +1282,7 @@ ParseLabeledStatement(struct tokenizer *Tokenizer)
         struct tokenizer AtToken = *Tokenizer;
 
         if(Token_Keyword == Token.Type &&
-           IsStringEqual("case", Token.Text, Token.TextLength) &&
+           GSStringIsEqual("case", Token.Text, Token.TextLength) &&
            ParseConstantExpression(Tokenizer) &&
            Token_Colon == GetToken(Tokenizer).Type &&
            ParseStatement(Tokenizer))
@@ -1292,7 +1292,7 @@ ParseLabeledStatement(struct tokenizer *Tokenizer)
 
         *Tokenizer = AtToken;
         if(Token_Keyword == Token.Type &&
-           IsStringEqual("default", Token.Text, Token.TextLength) &&
+           GSStringIsEqual("default", Token.Text, Token.TextLength) &&
            Token_Colon == GetToken(Tokenizer).Type &&
            ParseStatement(Tokenizer))
         {
@@ -1992,7 +1992,7 @@ ParseEnumSpecifier(struct tokenizer *Tokenizer)
         struct tokenizer AtToken = *Tokenizer;
 
         if(!(Token_Keyword == Token.Type &&
-             IsStringEqual("enum", Token.Text, Token.TextLength)))
+             GSStringIsEqual("enum", Token.Text, Token.TextLength)))
         {
                 *Tokenizer = Start;
                 return(false);
@@ -2262,8 +2262,8 @@ ParseStructOrUnion(struct tokenizer *Tokenizer)
 
         if(Token_Keyword == Token.Type)
         {
-                if(IsStringEqual(Token.Text, "struct", Token.TextLength) ||
-                   IsStringEqual(Token.Text, "union", Token.TextLength))
+                if(GSStringIsEqual(Token.Text, "struct", Token.TextLength) ||
+                   GSStringIsEqual(Token.Text, "union", Token.TextLength))
                 {
                         return(true);
                 }
@@ -2324,8 +2324,8 @@ ParseTypeQualifier(struct tokenizer *Tokenizer)
 
         if(Token.Type == Token_Keyword)
         {
-                if(IsStringEqual(Token.Text, "const", Token.TextLength) ||
-                   IsStringEqual(Token.Text, "volatile", Token.TextLength))
+                if(GSStringIsEqual(Token.Text, "const", Token.TextLength) ||
+                   GSStringIsEqual(Token.Text, "volatile", Token.TextLength))
                 {
                         return(true);
                 }
@@ -2352,7 +2352,7 @@ ParseTypeSpecifier(struct tokenizer *Tokenizer)
         {
                 for(int Index = 0; Index < ArraySize(Keywords); Index++)
                 {
-                        if(IsStringEqual(Token.Text, Keywords[Index], Token.TextLength))
+                        if(GSStringIsEqual(Token.Text, Keywords[Index], Token.TextLength))
                         {
                                 return(true);
                         }
@@ -2396,7 +2396,7 @@ ParseStorageClassSpecifier(struct tokenizer *Tokenizer)
         {
                 for(int Index = 0; Index < ArraySize(Keywords); Index++)
                 {
-                        if(IsStringEqual(Token.Text, Keywords[Index], Token.TextLength))
+                        if(GSStringIsEqual(Token.Text, Keywords[Index], Token.TextLength))
                         {
                                 return(true);
                         }
@@ -2622,10 +2622,10 @@ ParseTranslationUnit(struct tokenizer *Tokenizer)
 }
 
 void
-Parse(struct buffer *FileContents)
+Parse(gs_buffer *FileContents)
 {
         struct tokenizer Tokenizer;
-        Tokenizer.Beginning = Tokenizer.At = FileContents->Data;
+        Tokenizer.Beginning = Tokenizer.At = FileContents->Start;
         Tokenizer.Line = Tokenizer.Column = 1;
 
         TypedefInit(TypedefNames);

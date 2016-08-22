@@ -2,45 +2,27 @@
 #include <stdio.h>
 #include <alloca.h>
 
-#include "string.c"
+#include "gs.h"
+#include "gstest.h"
 #include "lexer.c"
 #include "parser.c"
 
-typedef bool (*parser_function)(struct tokenizer *);
+typedef gs_bool (*parser_function)(struct tokenizer *);
 
-#define Assert(Description, Expression) AssertFn((Description), (Expression), __LINE__, __func__)
 #define Accept(Function, String) \
         { \
                 struct tokenizer Tokenizer = InitTokenizer((String)); \
-                bool Result = Function(&Tokenizer); \
-                AssertFn("Result should be true", Result == true, __LINE__, __func__); \
-                AssertFn("Tokenizer advances to end of string", Tokenizer.At == (String) + StringLength((String)), __LINE__, __func__); \
+                gs_bool Result = Function(&Tokenizer); \
+                GSTestAssert(Result == true, "Result should be true\n"); \
+                GSTestAssert(Tokenizer.At == (String) + GSStringLength((String)), "Tokenizer advances to end of string\n"); \
         }
 #define Reject(Function, String) \
         { \
                 struct tokenizer Tokenizer = InitTokenizer((String)); \
-                bool Result = Function(&Tokenizer); \
-                AssertFn("Result should be false", Result != true, __LINE__, __func__); \
-                AssertFn("Tokenizer doesn't advance", Tokenizer.At == (String), __LINE__, __func__); \
+                gs_bool Result = Function(&Tokenizer); \
+                GSTestAssert(Result != true, "Result should be false\n"); \
+                GSTestAssert(Tokenizer.At == (String), "Tokenizer doesn't advance\n"); \
         }
-
-void
-AssertFn(const char *Description, int Expression, int LineNumber, const char *FuncName)
-{
-        if(!Expression)
-        {
-                char *Suffix = "";
-                if(Description != NULL)
-                {
-                        size_t AllocSize = StringLength((char *)Description) + StringLength(": ");
-                        Suffix = (char *)alloca(AllocSize);
-                        snprintf(Suffix, AllocSize + 1, ": %s", Description);
-                }
-                fprintf(stderr, "Assertion failed in %s() at line #%d%s\n", FuncName, LineNumber, Suffix);
-
-                exit(EXIT_FAILURE);
-        }
-}
 
 struct tokenizer
 InitTokenizer(char *String)
@@ -700,18 +682,17 @@ TestTranslationUnit()
   ----------------------------------------------------------------------------*/
 
 int
-main(int ArgCount, char **Args)
+main(int ArgCount, char **Arguments)
 {
-        for(int Index = 0; Index < ArgCount; ++Index)
+        gs_args Args;
+        GSArgsInit(&Args, ArgCount, Arguments);
+
+        if(GSArgsHelpWanted(&Args))
         {
-                if(IsStringEqual(Args[Index], "-h", StringLength("-h")) ||
-                   IsStringEqual(Args[Index], "--help", StringLength("--help")))
-                {
-                        printf("Executable tests\n\n");
-                        printf("Usage: run\n");
-                        printf("  Specify '-h' or '--help' for this help text.\n");
-                        exit(EXIT_SUCCESS);
-                }
+                printf("Executable tests\n\n");
+                printf("Usage: run\n");
+                printf("  Specify '-h' or '--help' for this help text.\n");
+                exit(EXIT_SUCCESS);
         }
 
         TestConstant();
