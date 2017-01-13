@@ -5,6 +5,12 @@
 #include "bool.c"
 #include "lexer.c"
 
+/* NOTE(AARON): Debug include - tree.c */
+#include "tree.c"
+
+parse_tree_node *ParseTree;
+parse_tree_node *CurrentNode;
+
 bool ParseAssignmentExpression(struct tokenizer *Tokenizer);
 bool ParseExpression(struct tokenizer *Tokenizer);
 bool ParseTypeName(struct tokenizer *Tokenizer);
@@ -2577,6 +2583,10 @@ ParseExternalDeclaration(struct tokenizer *Tokenizer)
 {
         struct tokenizer Start = *Tokenizer;
 
+        ParseTreeSet(CurrentNode, NULL, "ParseExternalDeclaration", GSStringLength("ParseExternalDeclaration"));
+        ParseTreeAddChild(CurrentNode, NULL, "Empty", 5);
+        CurrentNode = CurrentNode->Children[0];
+
         if(ParseFunctionDefinition(Tokenizer)) return(true);
 
         *Tokenizer = Start;
@@ -2591,7 +2601,14 @@ ParseTranslationUnitI(struct tokenizer *Tokenizer)
 {
         struct tokenizer Start = *Tokenizer;
 
+        ParseTreeSet(CurrentNode, NULL, "ParseTranslationUnit", GSStringLength("ParseTranslationUnitI"));
+        ParseTreeAddChild(CurrentNode, NULL, "Empty", 5);
+        ParseTreeAddChild(CurrentNode, NULL, "Empty", 5);
+        CurrentNode = CurrentNode->Children[0];
+
         if(ParseExternalDeclaration(Tokenizer) &&
+           /* Update CurrentNode for debuggin purposes. */
+           CurrentNode = CurrentNode->Children[1] &&
            ParseTranslationUnitI(Tokenizer))
         {
                 return(true);
@@ -2611,7 +2628,14 @@ ParseTranslationUnit(struct tokenizer *Tokenizer)
 {
         struct tokenizer Start = *Tokenizer;
 
+        ParseTreeSet(CurrentNode, NULL, "ParseTranslationUnit", GSStringLength("ParseTranslationUnit"));
+        ParseTreeAddChild(CurrentNode, NULL, "Empty", 5);
+        ParseTreeAddChild(CurrentNode, NULL, "Empty", 5);
+        CurrentNode = CurrentNode->Children[0];
+
         if(ParseExternalDeclaration(Tokenizer) &&
+           /* Update CurrentNode for debuggin purposes. */
+           CurrentNode = CurrentNode->Children[1] &&
            ParseTranslationUnitI(Tokenizer))
         {
                 return(true);
@@ -2624,6 +2648,9 @@ ParseTranslationUnit(struct tokenizer *Tokenizer)
 void
 Parse(gs_buffer *FileContents)
 {
+        ParseTree = ParseTreeNew();
+        CurrentNode = ParseTree;
+
         struct tokenizer Tokenizer;
         Tokenizer.Beginning = Tokenizer.At = FileContents->Start;
         Tokenizer.Line = Tokenizer.Column = 1;
