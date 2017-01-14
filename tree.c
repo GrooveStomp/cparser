@@ -75,6 +75,58 @@ ParseTreeSet(parse_tree_node *Node, token *Token, char *Name, unsigned int NameL
 }
 
 void
+ParseTreeNewChildren(parse_tree_node *Self, unsigned int Count)
+{
+        for(int i=0; i<Count; i++)
+        {
+                ParseTreeNewChild(Self);
+        }
+}
+
+void
+ParseTreeNewChild(parse_tree_node *Self)
+{
+        /* NOTE(AARON): Self->NumChildren might not be zero. */
+        if(Self->Children == NULL)
+        {
+                Self->Children = (parse_tree_node **)malloc(sizeof(token));
+                if(Self->Children == NULL)
+                {
+                        int errval = errno;
+                        if(errval == ENOMEM)
+                        {
+                                GSAbortWithMessage("Couldn't allocate node in debug tree! Out of memory!\n");
+                        }
+                        else
+                        {
+                                GSAbortWithMessage("Couldn't allocate node in debug tree! I don't know why!\n");
+                        }
+                }
+                ParseTreeSet(Self->Children[0], NULL, "Empty", 5);
+                Self->NumChildren = 1;
+        }
+        else
+        {
+                Self->Children = realloc(Self->Children, sizeof(token) * Self->NumChildren + 1);
+                if(Self->Children == NULL)
+                {
+                        int errval = errno;
+                        if(errval == ENOMEM)
+                        {
+                                GSAbortWithMessage("Couldn't allocate node in debug tree! Out of memory!\n");
+                        }
+                        else
+                        {
+                                GSAbortWithMessage("Couldn't allocate node in debug tree! I don't know why!\n");
+                        }
+                }
+
+                ParseTreeSet(Self->Children[Self->NumChildren], NULL, "Empty", 5);
+                Self->NumChildren++;
+        }
+}
+
+void
 ParseTreeAddChild(parse_tree_node *Self, token *Node, char *Name, unsigned int NameLength)
 {
         /* NOTE(AARON): Self->NumChildren might not be zero. */
