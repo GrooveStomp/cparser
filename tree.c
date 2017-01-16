@@ -33,9 +33,10 @@ ParseTreeNew(void)
         return(Self);
 }
 
-void
-ParseTreeSet(parse_tree_node *Node, token *Token, char *Name, unsigned int NameLength)
+void /* Name must be a NULL-terminated string! */
+ParseTreeSet(parse_tree_node *Node, char *Name)
 {
+        unsigned int NameLength = GSStringLength(Name);
         if(Node->Name != NULL)
         {
                 free(Node->Name);
@@ -43,36 +44,9 @@ ParseTreeSet(parse_tree_node *Node, token *Token, char *Name, unsigned int NameL
         Node->Name = malloc(NameLength + 1);
         GSStringCopy(Name, Node->Name, NameLength);
         Node->NameLength = NameLength;
-
-        /* Early exit. No need to copy Token data. */
-        if(Token == NULL)
-        {
-                return;
-        }
-
-        if(Node->Token != NULL)
-        {
-                free(Node->Token);
-        }
-        Node->Token = (token *)malloc(sizeof(token));
-        if(Node->Token == NULL)
-        {
-                int errval = errno;
-                if(errval == ENOMEM)
-                {
-                        GSAbortWithMessage("Couldn't allocate node in debug tree! Out of memory!\n");
-                }
-                else
-                {
-                        GSAbortWithMessage("Couldn't allocate node in debug tree! I don't know why!\n");
-                }
-        }
-        Node->Token->Text = Token->Text;
-        Node->Token->TextLength = Token->TextLength;
-        Node->Token->Type = Token->Type;
-        Node->Token->Line = Token->Line;
-        Node->Token->Column = Token->Column;
 }
+
+void ParseTreeNewChild(parse_tree_node*);
 
 void
 ParseTreeNewChildren(parse_tree_node *Self, unsigned int Count)
@@ -102,7 +76,7 @@ ParseTreeNewChild(parse_tree_node *Self)
                                 GSAbortWithMessage("Couldn't allocate node in debug tree! I don't know why!\n");
                         }
                 }
-                ParseTreeSet(Self->Children[0], NULL, "Empty", 5);
+                ParseTreeSet(Self->Children[0], "Empty");
                 Self->NumChildren = 1;
         }
         else
@@ -121,7 +95,7 @@ ParseTreeNewChild(parse_tree_node *Self)
                         }
                 }
 
-                ParseTreeSet(Self->Children[Self->NumChildren], NULL, "Empty", 5);
+                ParseTreeSet(Self->Children[Self->NumChildren], "Empty");
                 Self->NumChildren++;
         }
 }
@@ -145,7 +119,7 @@ ParseTreeAddChild(parse_tree_node *Self, token *Node, char *Name, unsigned int N
                                 GSAbortWithMessage("Couldn't allocate node in debug tree! I don't know why!\n");
                         }
                 }
-                ParseTreeSet(Self->Children[0], Node, Name, NameLength);
+                ParseTreeSet(Self->Children[0], Name);
                 Self->NumChildren = 1;
         }
         else
@@ -164,7 +138,7 @@ ParseTreeAddChild(parse_tree_node *Self, token *Node, char *Name, unsigned int N
                         }
                 }
 
-                ParseTreeSet(Self->Children[Self->NumChildren], Node, Name, NameLength);
+                ParseTreeSet(Self->Children[Self->NumChildren], Name);
                 Self->NumChildren++;
         }
 }

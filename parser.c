@@ -8,6 +8,20 @@
 /* NOTE(AARON): Debug include - tree.c */
 #include "tree.c"
 
+#define PARSE_TREE_UPDATE(Name, NumChildren) \
+        char *NodeName = (Name); \
+        ParseTreeSet(ParseTree, (Name)); \
+        if(NumChildren > 0) \
+        { \
+                ParseTreeNewChildren(ParseTree, (NumChildren)); \
+        }
+
+#define PARSE_TREE_CLEAR_CHILDREN() \
+        for(int i=0; i<ParseTree->NumChildren; i++) \
+        { \
+                ParseTreeSet(ParseTree->Children[i], "Empty");  \
+        }
+
 bool ParseAssignmentExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
 bool ParseExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
 bool ParseTypeName(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
@@ -1053,6 +1067,8 @@ ParseIterationStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
         struct token Token = GetToken(Tokenizer);
         struct tokenizer AtToken = *Tokenizer;
 
+        PARSE_TREE_UPDATE("Iteration Statement", FOO);
+
         if(Token_Keyword == Token.Type &&
            GSStringIsEqual("while", Token.Text, Token.TextLength) &&
            Token_OpenParen == GetToken(Tokenizer).Type &&
@@ -1133,20 +1149,27 @@ ParseSelectionStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
         struct token Token = GetToken(Tokenizer);
         struct tokenizer AtToken = *Tokenizer;
 
+        PARSE_TREE_UPDATE("Selection Statement", 6);
+
         if(Token_Keyword == Token.Type &&
            GSStringIsEqual("if", Token.Text, Token.TextLength) &&
            Token_OpenParen == GetToken(Tokenizer).Type &&
-           ParseExpression(Tokenizer) &&
+           ParseExpression(Tokenizer, ParseTree->Children[2]) &&
            Token_CloseParen == GetToken(Tokenizer).Type &&
-           ParseStatement(Tokenizer))
+           ParseStatement(Tokenizer, ParseTree->Children[4]))
         {
                 struct tokenizer AtElse = *Tokenizer;
                 struct token Token = GetToken(Tokenizer);
 
+                ParseTreeSet(ParseTree->Children[0], "keyword: if");
+                ParseTreeSet(ParseTree->Children[1], "symbol: (");
+                ParseTreeSet(ParseTree->Children[3], "symbol: )");
+
                 if(Token_Keyword == Token.Type &&
                    GSStringIsEqual("else", Token.Text, Token.TextLength) &&
-                   ParseStatement(Tokenizer))
+                   ParseStatement(Tokenizer, ParseTree->Children[5]))
                 {
+                        ParseTreeSet(ParseTree->Children[4], "keyword: else");
                         return(true);
                 }
 
@@ -1154,14 +1177,19 @@ ParseSelectionStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
                 return(true);
         }
 
+        PARSE_TREE_CLEAR_CHILDREN();
+
         *Tokenizer = AtToken;
         if(Token_Keyword == Token.Type &&
            GSStringIsEqual("switch", Token.Text, Token.TextLength) &&
            Token_OpenParen == GetToken(Tokenizer).Type &&
-           ParseExpression(Tokenizer) &&
+           ParseExpression(Tokenizer, ParseTree->Children[2]) &&
            Token_CloseParen == GetToken(Tokenizer).Type &&
-           ParseStatement(Tokenizer))
+           ParseStatement(Tokenizer, ParseTree->Children[4]))
         {
+                ParseTreeSet(ParseTree->Children[0], "keyword: switch");
+                ParseTreeSet(ParseTree->Children[1], "symbol: (");
+                ParseTreeSet(ParseTree->Children[3], "symbol: )");
                 return(true);
         }
 
@@ -1174,8 +1202,10 @@ ParseStatementListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
 
-        if(ParseStatement(Tokenizer) &&
-           ParseStatementListI(Tokenizer))
+        PARSE_TREE_UPDATE("Statement List'", 2);
+
+        if(ParseStatement(Tokenizer, ParseTree->Children[0]) &&
+           ParseStatementListI(Tokenizer, ParseTree->Children[1]))
         {
                 return(true);
         }
@@ -1194,8 +1224,10 @@ ParseStatementList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
 
-        if(ParseStatement(Tokenizer) &&
-           ParseStatementListI(Tokenizer))
+        PARSE_TREE_UPDATE("Statement List", 2);
+
+        if(ParseStatement(Tokenizer, ParseTree->Children[0]) &&
+           ParseStatementListI(Tokenizer, ParseTree->Children[1]))
         {
                 return(true);
         }
@@ -1213,22 +1245,30 @@ ParseCompoundStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
 
+        PARSE_TREE_UPDATE("Compound Statement", 3);
+
         if(Token_OpenBrace == GetToken(Tokenizer).Type)
         {
+                ParseTreeSet(ParseTree->Children[0], "symbol: {");
+                int ChildIndex = 0;
+
                 struct tokenizer Previous = *Tokenizer;
-                if(!ParseDeclarationList(Tokenizer))
+                if(!ParseDeclarationList(Tokenizer, ParseTree->Children[ChildIndex++]))
                 {
+                        --ChildIndex;
                         *Tokenizer = Previous;
                 }
 
                 Previous = *Tokenizer;
-                if(!ParseStatementList(Tokenizer))
+                if(!ParseStatementList(Tokenizer, ParseTree->Children[ChildIndex++]))
                 {
+                        --ChildIndex;
                         *Tokenizer = Previous;
                 }
 
                 if(Token_CloseBrace == GetToken(Tokenizer).Type)
                 {
+                        ParseTreeSet(ParseTree->Children[ChildIndex], "symbol: }");
                         return(true);
                 }
         }
@@ -1246,15 +1286,21 @@ ParseExpressionStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree
 {
         struct tokenizer Start = *Tokenizer;
 
-        if(ParseExpression(Tokenizer) &&
+        PARSE_TREE_UPDATE("Expression Statement", 2);
+
+        if(ParseExpression(Tokenizer, ParseTree->Children[0]) &&
            Token_SemiColon == GetToken(Tokenizer).Type)
         {
+                ParseTreeSet(ParseTree->Children[1], "symbol: ;");
                 return(true);
         }
+
+        PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = Start;
         if(Token_SemiColon == GetToken(Tokenizer).Type)
         {
+                ParseTreeSet(ParseTree->Children[0], "symbol: ;");
                 return(true);
         }
 
@@ -1272,11 +1318,13 @@ bool
 ParseLabeledStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        PARSE_TREE_UPDATE("Labeled Statement", 4);
 
-        if(ParseIdentifier(Tokenizer) &&
+        if(ParseIdentifier(Tokenizer, ParseTree->Children[0]) &&
            Token_Colon == GetToken(Tokenizer).Type &&
-           ParseStatement(Tokenizer))
+           ParseStatement(Tokenizer, ParseTree->Children[2]))
         {
+                ParseTreeSet(ParseTree->Children[1], "symbol: :");
                 return(true);
         }
 
@@ -1286,19 +1334,25 @@ ParseLabeledStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 
         if(Token_Keyword == Token.Type &&
            GSStringIsEqual("case", Token.Text, Token.TextLength) &&
-           ParseConstantExpression(Tokenizer) &&
+           ParseConstantExpression(Tokenizer, ParseTree->Children[1]) &&
            Token_Colon == GetToken(Tokenizer).Type &&
-           ParseStatement(Tokenizer))
+           ParseStatement(Tokenizer, ParseTree->Children[3]))
         {
+                ParseTreeSet(ParseTree->Children[0], "keyword: case");
+                ParseTreeSet(ParseTree->Children[2], "symbol: :");
                 return(true);
         }
+
+        PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = AtToken;
         if(Token_Keyword == Token.Type &&
            GSStringIsEqual("default", Token.Text, Token.TextLength) &&
            Token_Colon == GetToken(Tokenizer).Type &&
-           ParseStatement(Tokenizer))
+           ParseStatement(Tokenizer, ParseTree->Children[2]))
         {
+                ParseTreeSet(ParseTree->Children[0], "keyword: default");
+                ParseTreeSet(ParseTree->Children[2], "symbol: :");
                 return(true);
         }
 
@@ -1320,22 +1374,25 @@ ParseStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
 
-        if(ParseLabeledStatement(Tokenizer)) return(true);
+        PARSE_TREE_UPDATE("Statement", 1);
+        parse_tree_node *Child = ParseTree->Children[0];
+
+        if(ParseLabeledStatement(Tokenizer, Child)) return(true);
 
         *Tokenizer = Start;
-        if(ParseExpressionStatement(Tokenizer)) return(true);
+        if(ParseExpressionStatement(Tokenizer, Child)) return(true);
 
         *Tokenizer = Start;
-        if(ParseCompoundStatement(Tokenizer)) return(true);
+        if(ParseCompoundStatement(Tokenizer, Child)) return(true);
 
         *Tokenizer = Start;
-        if(ParseSelectionStatement(Tokenizer)) return(true);
+        if(ParseSelectionStatement(Tokenizer, Child)) return(true);
 
         *Tokenizer = Start;
-        if(ParseIterationStatement(Tokenizer)) return(true);
+        if(ParseIterationStatement(Tokenizer, Child)) return(true);
 
         *Tokenizer = Start;
-        if(ParseJumpStatement(Tokenizer)) return(true);
+        if(ParseJumpStatement(Tokenizer, Child)) return(true);
 
         *Tokenizer = Start;
         return(false);
@@ -1352,8 +1409,11 @@ ParseTypedefName(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
         struct token Token = GetToken(Tokenizer);
         *Tokenizer = Start;
 
-        if(ParseIdentifier(Tokenizer) && TypedefIsName(Token))
+        PARSE_TREE_UPDATE("Typedef Name", 1);
+
+        if(ParseIdentifier(Tokenizer, ParseTree->Children[0]) && TypedefIsName(Token))
         {
+                ParseTreeSet(ParseTree, "Typedef Name");
                 return(true);
         }
 
@@ -1372,36 +1432,50 @@ ParseDirectAbstractDeclaratorI(struct tokenizer *Tokenizer, parse_tree_node *Par
 {
         struct tokenizer Start = *Tokenizer;
 
+        PARSE_TREE_UPDATE("Direct Abstract Declarator'", 4);
+
         if(Token_OpenBracket == GetToken(Tokenizer).Type &&
-           ParseConstantExpression(Tokenizer) &&
+           ParseConstantExpression(Tokenizer, ParseTree->Children[1]) &&
            Token_CloseBracket == GetToken(Tokenizer).Type &&
-           ParseDirectAbstractDeclaratorI(Tokenizer))
+           ParseDirectAbstractDeclaratorI(Tokenizer, ParseTree->Children[2]))
         {
+                ParseTreeSet(ParseTree->Children[0], "symbol: [");
+                ParseTreeSet(ParseTree->Children[2], "symbol: ]");
                 return(true);
         }
+
+        PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = Start;
         if(Token_OpenBracket == GetToken(Tokenizer).Type &&
            Token_CloseBracket == GetToken(Tokenizer).Type &&
-           ParseDirectAbstractDeclaratorI(Tokenizer))
+           ParseDirectAbstractDeclaratorI(Tokenizer, ParseTree->Children[2]))
         {
+                ParseTreeSet(ParseTree->Children[0], "symbol: [");
+                ParseTreeSet(ParseTree->Children[1], "symbol: ]");
                 return(true);
         }
 
         *Tokenizer = Start;
         if(Token_OpenParen == GetToken(Tokenizer).Type &&
-           ParseParameterTypeList(Tokenizer) &&
+           ParseParameterTypeList(Tokenizer, ParseTree->Children[1]) &&
            Token_CloseParen == GetToken(Tokenizer).Type &&
-           ParseDirectAbstractDeclaratorI(Tokenizer))
+           ParseDirectAbstractDeclaratorI(Tokenizer, ParseTree->Children[3]))
         {
+                ParseTreeSet(ParseTree->Children[0], "symbol: (");
+                ParseTreeSet(ParseTree->Children[2], "symbol: )");
                 return(true);
         }
+
+        PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = Start;
         if(Token_OpenParen == GetToken(Tokenizer).Type &&
            Token_CloseParen == GetToken(Tokenizer).Type &&
-           ParseDirectAbstractDeclaratorI(Tokenizer))
+           ParseDirectAbstractDeclaratorI(Tokenizer, ParseTree->Children[2]))
         {
+                ParseTreeSet(ParseTree->Children[0], "symbol: (");
+                ParseTreeSet(ParseTree->Children[1], "symbol: )");
                 return(true);
         }
 
@@ -1420,45 +1494,59 @@ ParseDirectAbstractDeclarator(struct tokenizer *Tokenizer, parse_tree_node *Pars
 {
         struct tokenizer Start = *Tokenizer;
 
+        PARSE_TREE_UPDATE("Direct Abstract Declarator", 4);
+
         if(Token_OpenParen == GetToken(Tokenizer).Type &&
-           ParseAbstractDeclarator(Tokenizer) &&
+           ParseAbstractDeclarator(Tokenizer, ParseTree->Children[1]) &&
            Token_CloseParen == GetToken(Tokenizer).Type &&
-           ParseDirectAbstractDeclaratorI(Tokenizer))
+           ParseDirectAbstractDeclaratorI(Tokenizer, ParseTree->Children[3]))
         {
+                ParseTreeSet(ParseTree->Children[0], "symbol: (");
+                ParseTreeSet(ParseTree->Children[2], "symbol: )");
                 return(true);
         }
 
         *Tokenizer = Start;
         if(Token_OpenBracket == GetToken(Tokenizer).Type &&
-           ParseConstantExpression(Tokenizer) &&
+           ParseConstantExpression(Tokenizer, ParseTree->Children[1]) &&
            Token_CloseBracket == GetToken(Tokenizer).Type &&
-           ParseDirectAbstractDeclaratorI(Tokenizer))
+           ParseDirectAbstractDeclaratorI(Tokenizer, ParseTree->Children[3]))
         {
+                ParseTreeSet(ParseTree->Children[0], "symbol: [");
+                ParseTreeSet(ParseTree->Children[2], "symbol: ]");
                 return(true);
         }
+
+        PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = Start;
         if(Token_OpenBracket == GetToken(Tokenizer).Type &&
            Token_CloseBracket == GetToken(Tokenizer).Type &&
-           ParseDirectAbstractDeclaratorI(Tokenizer))
+           ParseDirectAbstractDeclaratorI(Tokenizer, ParseTree->Children[2]))
         {
+                ParseTreeSet(ParseTree->Children[0], "symbol: [");
+                ParseTreeSet(ParseTree->Children[1], "symbol: ]");
                 return(true);
         }
 
         *Tokenizer = Start;
         if(Token_OpenParen == GetToken(Tokenizer).Type &&
-           ParseParameterTypeList(Tokenizer) &&
+           ParseParameterTypeList(Tokenizer, ParseTree->Children[1]) &&
            Token_CloseParen == GetToken(Tokenizer).Type &&
-           ParseDirectAbstractDeclaratorI(Tokenizer))
+           ParseDirectAbstractDeclaratorI(Tokenizer, ParseTree->Children[2]))
         {
+                ParseTreeSet(ParseTree->Children[0], "symbol: (");
+                ParseTreeSet(ParseTree->Children[2], "symbol: )");
                 return(true);
         }
 
         *Tokenizer = Start;
         if(Token_OpenParen == GetToken(Tokenizer).Type &&
            Token_CloseParen == GetToken(Tokenizer).Type &&
-           ParseDirectAbstractDeclaratorI(Tokenizer))
+           ParseDirectAbstractDeclaratorI(Tokenizer, ParseTree->Children[2]))
         {
+                ParseTreeSet(ParseTree->Children[0], "symbol: (");
+                ParseTreeSet(ParseTree->Children[1], "symbol: )");
                 return(true);
         }
 
@@ -1476,20 +1564,24 @@ ParseAbstractDeclarator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
 
-        if(ParsePointer(Tokenizer) &&
-           ParseDirectAbstractDeclarator(Tokenizer))
+        PARSE_TREE_UPDATE("Abstract Declarator", 2);
+
+        if(ParsePointer(Tokenizer, ParseTree->Children[0]) &&
+           ParseDirectAbstractDeclarator(Tokenizer, ParseTree->Children[1]))
+        {
+                return(true);
+        }
+
+        PARSE_TREE_CLEAR_CHILDREN();
+
+        *Tokenizer = Start;
+        if(ParseDirectAbstractDeclarator(Tokenizer, ParseTree->Children[0]))
         {
                 return(true);
         }
 
         *Tokenizer = Start;
-        if(ParseDirectAbstractDeclarator(Tokenizer))
-        {
-                return(true);
-        }
-
-        *Tokenizer = Start;
-        if(ParsePointer(Tokenizer))
+        if(ParsePointer(Tokenizer, ParseTree->Children[0]))
         {
                 return(true);
         }
@@ -1507,14 +1599,18 @@ ParseTypeName(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
 
-        if(ParseSpecifierQualifierList(Tokenizer) &&
-           ParseAbstractDeclarator(Tokenizer))
+        PARSE_TREE_UPDATE("Type Name", 2);
+
+        if(ParseSpecifierQualifierList(Tokenizer, ParseTree->Children[0]) &&
+           ParseAbstractDeclarator(Tokenizer, ParseTree->Children[1]))
         {
                 return(true);
         }
 
+        PARSE_TREE_CLEAR_CHILDREN();
+
         *Tokenizer = Start;
-        if(ParseSpecifierQualifierList(Tokenizer))
+        if(ParseSpecifierQualifierList(Tokenizer, ParseTree->Children[0]))
         {
                 return(true);
         }
@@ -1528,10 +1624,13 @@ ParseInitializerListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
 
+        PARSE_TREE_UPDATE("Initializer List'", 3);
+
         if(Token_Comma == GetToken(Tokenizer).Type &&
-           ParseInitializer(Tokenizer) &&
-           ParseInitializerListI(Tokenizer))
+           ParseInitializer(Tokenizer, ParseTree->Children[1]) &&
+           ParseInitializerListI(Tokenizer, ParseTree->Children[2]))
         {
+                ParseTreeSet(ParseTree->Children[0], "symbol: ,");
                 return(true);
         }
 
@@ -1549,8 +1648,10 @@ ParseInitializerList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
 
-        if(ParseInitializer(Tokenizer) &&
-           ParseInitializerListI(Tokenizer))
+        PARSE_TREE_UPDATE("Initializer List", 2);
+
+        if(ParseInitializer(Tokenizer, ParseTree->Children[0]) &&
+           ParseInitializerListI(Tokenizer, ParseTree->Children[1]))
         {
                 return(true);
         }
@@ -1570,25 +1671,32 @@ ParseInitializer(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
 
-        if(ParseAssignmentExpression(Tokenizer))
+        PARSE_TREE_UPDATE("Initializer", 4);
+
+        if(ParseAssignmentExpression(Tokenizer, ParseTree->Children[0]))
         {
                 return(true);
         }
 
         *Tokenizer = Start;
         if(Token_OpenBrace == GetToken(Tokenizer).Type &&
-           ParseInitializerList(Tokenizer) &&
+           ParseInitializerList(Tokenizer, ParseTree->Children[1]) &&
            Token_CloseBrace == GetToken(Tokenizer).Type)
         {
+                ParseTreeSet(ParseTree->Children[0], "symbol: {");
+                ParseTreeSet(ParseTree->Children[2], "symbol: }");
                 return(true);
         }
 
         *Tokenizer = Start;
         if(Token_OpenBrace == GetToken(Tokenizer).Type &&
-           ParseInitializerList(Tokenizer) &&
+           ParseInitializerList(Tokenizer, ParseTree->Children[1]) &&
            Token_Comma == GetToken(Tokenizer).Type &&
            Token_CloseBrace == GetToken(Tokenizer).Type)
         {
+                ParseTreeSet(ParseTree->Children[0], "symbol: {");
+                ParseTreeSet(ParseTree->Children[2], "symbol: ,");
+                ParseTreeSet(ParseTree->Children[3], "symbol: }");
                 return(true);
         }
 
@@ -1601,10 +1709,13 @@ ParseIdentifierListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
 
+        PARSE_TREE_UPDATE("Identifier List'", 3);
+
         if(Token_Comma == GetToken(Tokenizer).Type &&
-           ParseIdentifier(Tokenizer) &&
-           ParseIdentifierListI(Tokenizer))
+           ParseIdentifier(Tokenizer, ParseTree->Children[1]) &&
+           ParseIdentifierListI(Tokenizer, ParseTree->Children[2]))
         {
+                ParseTreeSet(ParseTree->Children[0], "symbol: ,");
                 return(true);
         }
 
@@ -1622,8 +1733,10 @@ ParseIdentifierList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
 
-        if(ParseIdentifier(Tokenizer) &&
-           ParseIdentifierListI(Tokenizer))
+        PARSE_TREE_UPDATE("Identifier List", 2);
+
+        if(ParseIdentifier(Tokenizer, ParseTree->Children[0]) &&
+           ParseIdentifierListI(Tokenizer, ParseTree->Children[1]))
         {
                 return(true);
         }
@@ -1642,21 +1755,25 @@ ParseParameterDeclaration(struct tokenizer *Tokenizer, parse_tree_node *ParseTre
 {
         struct tokenizer Start = *Tokenizer;
 
-        if(ParseDeclarationSpecifiers(Tokenizer) &&
-           ParseDeclarator(Tokenizer))
+        PARSE_TREE_UPDATE("Parameter Declaration", 2);
+
+        if(ParseDeclarationSpecifiers(Tokenizer, ParseTree->Children[0]) &&
+           ParseDeclarator(Tokenizer, ParseTree->Children[1]))
         {
                 return(true);
         }
 
         *Tokenizer = Start;
-        if(ParseDeclarationSpecifiers(Tokenizer) &&
-           ParseAbstractDeclarator(Tokenizer))
+        if(ParseDeclarationSpecifiers(Tokenizer, ParseTree->Children[0]) &&
+           ParseAbstractDeclarator(Tokenizer, ParseTree->Children[1]))
         {
                 return(true);
         }
 
+        PARSE_TREE_CLEAR_CHILDREN();
+
         *Tokenizer = Start;
-        if(ParseDeclarationSpecifiers(Tokenizer))
+        if(ParseDeclarationSpecifiers(Tokenizer, ParseTree->Children[0]))
         {
                 return(true);
         }
@@ -1670,10 +1787,13 @@ ParseParameterListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
 
+        PARSE_TREE_UPDATE("Parameter List'", 3);
+
         if(Token_Comma == GetToken(Tokenizer).Type &&
-           ParseParameterDeclaration(Tokenizer) &&
-           ParseParameterListI(Tokenizer))
+           ParseParameterDeclaration(Tokenizer, ParseTree->Children[1]) &&
+           ParseParameterListI(Tokenizer, ParseTree->Children[2]))
         {
+                ParseTreeSet(ParseTree->Children[0], "symbol: ,");
                 return(true);
         }
 
@@ -1691,8 +1811,10 @@ ParseParameterList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
 
-        if(ParseParameterDeclaration(Tokenizer) &&
-           ParseParameterListI(Tokenizer))
+        PARSE_TREE_UPDATE("Parameter List", 2);
+
+        if(ParseParameterDeclaration(Tokenizer, ParseTree->Children[0]) &&
+           ParseParameterListI(Tokenizer, ParseTree->Children[1]))
         {
                 return(true);
         }
@@ -1711,12 +1833,16 @@ ParseParameterTypeList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
 
-        if(ParseParameterList(Tokenizer))
+        PARSE_TREE_UPDATE("Parameter Type List", 3);
+
+        if(ParseParameterList(Tokenizer, ParseTree->Children[0]))
         {
                 struct tokenizer Previous = *Tokenizer;
                 if(Token_Comma == GetToken(Tokenizer).Type &&
                    Token_Ellipsis == GetToken(Tokenizer).Type)
                 {
+                        ParseTreeSet(ParseTree->Children[1], "symbol: ,");
+                        ParseTreeSet(ParseTree->Children[2], "symbol: ...");
                         return(true);
                 }
 
@@ -1733,8 +1859,10 @@ ParseTypeQualifierListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
 
-        if(ParseTypeQualifier(Tokenizer) &&
-           ParseTypeQualifierListI(Tokenizer))
+        PARSE_TREE_UPDATE("Type Qualifier List'", 2);
+
+        if(ParseTypeQualifier(Tokenizer, ParseTree->Children[0]) &&
+           ParseTypeQualifierListI(Tokenizer, ParseTree->Children[1]))
         {
                 return(true);
         }
@@ -1753,8 +1881,10 @@ ParseTypeQualifierList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
 
-        if(ParseTypeQualifier(Tokenizer) &&
-           ParseTypeQualifierListI(Tokenizer))
+        PARSE_TREE_UPDATE("Type Qualifier List", 2);
+
+        if(ParseTypeQualifier(Tokenizer, ParseTree->Children[0]) &&
+           ParseTypeQualifierListI(Tokenizer, ParseTree->Children[1]))
         {
                 return(true);
         }
@@ -1775,26 +1905,30 @@ ParsePointer(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
         struct token Token = GetToken(Tokenizer);
         struct tokenizer AtToken = *Tokenizer;
 
+        PARSE_TREE_UPDATE("Pointer", 2);
+
         if(Token_Asterisk != Token.Type)
         {
                 *Tokenizer = Start;
                 return(false);
         }
 
-        if(ParseTypeQualifierList(Tokenizer) &&
-           ParsePointer(Tokenizer))
+        if(ParseTypeQualifierList(Tokenizer, ParseTree->Children[0]) &&
+           ParsePointer(Tokenizer, ParseTree->Children[1]))
+        {
+                return(true);
+        }
+
+        PARSE_TREE_CLEAR_CHILDREN();
+
+        *Tokenizer = AtToken;
+        if(ParsePointer(Tokenizer, ParseTree->Children[0]))
         {
                 return(true);
         }
 
         *Tokenizer = AtToken;
-        if(ParsePointer(Tokenizer))
-        {
-                return(true);
-        }
-
-        *Tokenizer = AtToken;
-        if(ParseTypeQualifierList(Tokenizer))
+        if(ParseTypeQualifierList(Tokenizer, ParseTree->Children[0]))
         {
                 return(true);
         }
@@ -1816,45 +1950,61 @@ ParseDirectDeclaratorI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
 
+        PARSE_TREE_UPDATE("Direct Declarator'", 4);
+
         if(Token_OpenBracket == GetToken(Tokenizer).Type &&
-           ParseConstantExpression(Tokenizer) &&
+           ParseConstantExpression(Tokenizer, ParseTree->Children[1]) &&
            Token_CloseBracket == GetToken(Tokenizer).Type &&
-           ParseDirectDeclaratorI(Tokenizer))
+           ParseDirectDeclaratorI(Tokenizer, ParseTree->Children[3]))
         {
+                ParseTreeSet(ParseTree->Children[0], "symbol: [");
+                ParseTreeSet(ParseTree->Children[2], "symbol: ]");
                 return(true);
         }
+
+        PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = Start;
         if(Token_OpenBracket == GetToken(Tokenizer).Type &&
            Token_CloseBracket == GetToken(Tokenizer).Type &&
-           ParseDirectDeclaratorI(Tokenizer))
+           ParseDirectDeclaratorI(Tokenizer, ParseTree->Children[2]))
         {
+                ParseTreeSet(ParseTree->Children[0], "symbol: [");
+                ParseTreeSet(ParseTree->Children[1], "symbol: ]");
                 return(true);
         }
 
         *Tokenizer = Start;
         if(Token_OpenParen == GetToken(Tokenizer).Type &&
-           ParseParameterTypeList(Tokenizer) &&
+           ParseParameterTypeList(Tokenizer, ParseTree->Children[1]) &&
            Token_CloseParen == GetToken(Tokenizer).Type &&
-           ParseDirectDeclaratorI(Tokenizer))
+           ParseDirectDeclaratorI(Tokenizer, ParseTree->Children[3]))
         {
+                ParseTreeSet(ParseTree->Children[0], "symbol: (");
+                ParseTreeSet(ParseTree->Children[2], "symbol: )");
                 return(true);
         }
 
         *Tokenizer = Start;
         if(Token_OpenParen == GetToken(Tokenizer).Type &&
-           ParseIdentifierList(Tokenizer) &&
+           ParseIdentifierList(Tokenizer, ParseTree->Children[1]) &&
            Token_CloseParen == GetToken(Tokenizer).Type &&
-           ParseDirectDeclaratorI(Tokenizer))
+           ParseDirectDeclaratorI(Tokenizer, ParseTree->Children[3]))
         {
+                ParseTreeSet(ParseTree->Children[0], "symbol: (");
+                ParseTreeSet(ParseTree->Children[2], "symbol: )");
                 return(true);
         }
+
+        PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = Start;
         if(Token_OpenParen == GetToken(Tokenizer).Type &&
            Token_CloseParen == GetToken(Tokenizer).Type &&
-           ParseDirectDeclaratorI(Tokenizer))
+           ParseDirectDeclaratorI(Tokenizer, ParseTree->Children[2]))
         {
+                ParseTreeSet(ParseTree->Children[0], "symbol: (");
+                ParseTreeSet(ParseTree->Children[1], "symbol: )");
                 return(true);
         }
 
@@ -1875,18 +2025,22 @@ ParseDirectDeclarator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
 
-        if(ParseIdentifier(Tokenizer) &&
-           ParseDirectDeclaratorI(Tokenizer))
+        PARSE_TREE_UPDATE("Direct Declarator", 4);
+
+        if(ParseIdentifier(Tokenizer, ParseTree->Children[0]) &&
+           ParseDirectDeclaratorI(Tokenizer, ParseTree->Children[1]))
         {
                 return(true);
         }
 
         *Tokenizer = Start;
         if(Token_OpenParen == GetToken(Tokenizer).Type &&
-           ParseDeclarator(Tokenizer) &&
+           ParseDeclarator(Tokenizer, ParseTree->Children[1]) &&
            Token_CloseParen == GetToken(Tokenizer).Type &&
-           ParseDirectDeclaratorI(Tokenizer))
+           ParseDirectDeclaratorI(Tokenizer, ParseTree->Children[3]))
         {
+                ParseTreeSet(ParseTree->Children[0], "symbol: (");
+                ParseTreeSet(ParseTree->Children[2], "symbol: )");
                 return(true);
         }
 
@@ -1903,14 +2057,18 @@ ParseDeclarator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
 
-        if(ParsePointer(Tokenizer) &&
-           ParseDirectDeclarator(Tokenizer))
+        PARSE_TREE_UPDATE("Declarator", 2);
+
+        if(ParsePointer(Tokenizer, ParseTree->Children[0]) &&
+           ParseDirectDeclarator(Tokenizer, ParseTree->Children[1]))
         {
                 return(true);
         }
 
+        PARSE_TREE_CLEAR_CHILDREN();
+
         *Tokenizer = Start;
-        if(ParseDirectDeclarator(Tokenizer))
+        if(ParseDirectDeclarator(Tokenizer, ParseTree->Children[0]))
         {
                 return(true);
         }
@@ -1929,15 +2087,20 @@ ParseEnumerator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
 
-        if(ParseIdentifier(Tokenizer) &&
+        PARSE_TREE_UPDATE("Enumerator", 3);
+
+        if(ParseIdentifier(Tokenizer, ParseTree->Children[0]) &&
            Token_EqualSign == GetToken(Tokenizer).Type &&
-           ParseConstantExpression(Tokenizer))
+           ParseConstantExpression(Tokenizer, ParseTree->Children[2]))
         {
+                ParseTreeSet(ParseTree->Children[1], "symbol: =");
                 return(true);
         }
 
+        PARSE_TREE_CLEAR_CHILDREN();
+
         *Tokenizer = Start;
-        if(ParseIdentifier(Tokenizer))
+        if(ParseIdentifier(Tokenizer, ParseTree->Children[0]))
         {
                 return(true);
         }
@@ -1951,10 +2114,13 @@ ParseEnumeratorListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
 
+        PARSE_TREE_UPDATE("Enumerator List'", 3);
+
         if(Token_Comma == GetToken(Tokenizer).Type &&
-           ParseEnumerator(Tokenizer) &&
-           ParseEnumeratorListI(Tokenizer))
+           ParseEnumerator(Tokenizer, ParseTree->Children[1]) &&
+           ParseEnumeratorListI(Tokenizer, ParseTree->Children[2]))
         {
+                ParseTreeSet(ParseTree->Children[0], "symbol: ,");
                 return(true);
         }
 
@@ -1972,8 +2138,10 @@ ParseEnumeratorList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
 
-        if(ParseEnumerator(Tokenizer) &&
-           ParseEnumeratorListI(Tokenizer))
+        PARSE_TREE_UPDATE("Enumerator List", 2);
+
+        if(ParseEnumerator(Tokenizer, ParseTree->Children[0]) &&
+           ParseEnumeratorListI(Tokenizer, ParseTree->Children[1]))
         {
                 return(true);
         }
@@ -1994,6 +2162,8 @@ ParseEnumSpecifier(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
         struct token Token = GetToken(Tokenizer);
         struct tokenizer AtToken = *Tokenizer;
 
+        PARSE_TREE_UPDATE("Enum Specifier", 5);
+
         if(!(Token_Keyword == Token.Type &&
              GSStringIsEqual("enum", Token.Text, Token.TextLength)))
         {
@@ -2001,24 +2171,35 @@ ParseEnumSpecifier(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
                 return(false);
         }
 
-        if(ParseIdentifier(Tokenizer) &&
+        ParseTreeSet(ParseTree->Children[0], "keyword: enum");
+
+        if(ParseIdentifier(Tokenizer, ParseTree->Children[1]) &&
            Token_OpenBrace == GetToken(Tokenizer).Type &&
-           ParseEnumeratorList(Tokenizer) &&
+           ParseEnumeratorList(Tokenizer, ParseTree->Children[3]) &&
            Token_CloseBrace == GetToken(Tokenizer).Type)
         {
+                ParseTreeSet(ParseTree->Children[2], "symbol: {");
+                ParseTreeSet(ParseTree->Children[4], "symbol: }");
                 return(true);
         }
+
+
+        PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = AtToken;
         if(Token_OpenBrace == GetToken(Tokenizer).Type &&
-           ParseEnumeratorList(Tokenizer) &&
+           ParseEnumeratorList(Tokenizer, ParseTree->Children[2]) &&
            Token_CloseBrace == GetToken(Tokenizer).Type)
         {
+                ParseTreeSet(ParseTree->Children[1], "symbol: {");
+                ParseTreeSet(ParseTree->Children[3], "symbol: }");
                 return(true);
         }
 
+        PARSE_TREE_CLEAR_CHILDREN();
+
         *Tokenizer = AtToken;
-        if(ParseIdentifier(Tokenizer))
+        if(ParseIdentifier(Tokenizer, ParseTree->Children[0]))
         {
                 return(true);
         }
@@ -2037,22 +2218,30 @@ ParseStructDeclarator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
 
-        if(ParseDeclarator(Tokenizer) &&
+        PARSE_TREE_UPDATE("Struct Declarator", 3);
+
+        if(ParseDeclarator(Tokenizer, ParseTree->Children[0]) &&
            Token_Colon == GetToken(Tokenizer).Type &&
-           ParseConstantExpression(Tokenizer))
+           ParseConstantExpression(Tokenizer, ParseTree->Children[2]))
         {
+                ParseTreeSet(ParseTree->Children[1], "symbol: :");
                 return(true);
         }
+
+        PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = Start;
         if(Token_Colon == GetToken(Tokenizer).Type &&
-           ParseConstantExpression(Tokenizer))
+           ParseConstantExpression(Tokenizer, ParseTree->Children[1]))
         {
+                ParseTreeSet(ParseTree->Children[0], "symbol: :");
                 return(true);
         }
 
+        PARSE_TREE_CLEAR_CHILDREN();
+
         *Tokenizer = Start;
-        if(ParseDeclarator(Tokenizer))
+        if(ParseDeclarator(Tokenizer, ParseTree->Children[0]))
         {
                 return(true);
         }
@@ -2066,10 +2255,13 @@ ParseStructDeclaratorListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTr
 {
         struct tokenizer Start = *Tokenizer;
 
+        PARSE_TREE_UPDATE("Struct Declarator List'", 3);
+
         if(Token_Comma == GetToken(Tokenizer).Type &&
-           ParseStructDeclarator(Tokenizer) &&
-           ParseStructDeclaratorListI(Tokenizer))
+           ParseStructDeclarator(Tokenizer, ParseTree->Children[1]) &&
+           ParseStructDeclaratorListI(Tokenizer, ParseTree->Children[2]))
         {
+                ParseTreeSet(ParseTree->Children[0], "symbol: ,");
                 return(true);
         }
 
@@ -2087,8 +2279,10 @@ ParseStructDeclaratorList(struct tokenizer *Tokenizer, parse_tree_node *ParseTre
 {
         struct tokenizer Start = *Tokenizer;
 
-        if(ParseStructDeclarator(Tokenizer) &&
-           ParseStructDeclaratorListI(Tokenizer))
+        PARSE_TREE_UPDATE("Struct Declarator List", 2);
+
+        if(ParseStructDeclarator(Tokenizer, ParseTree->Children[0]) &&
+           ParseStructDeclaratorListI(Tokenizer, ParseTree->Children[1]))
         {
                 return(true);
         }
@@ -2107,27 +2301,33 @@ ParseSpecifierQualifierList(struct tokenizer *Tokenizer, parse_tree_node *ParseT
 {
         struct tokenizer Start = *Tokenizer;
 
-        if(ParseTypeSpecifier(Tokenizer) &&
-           ParseSpecifierQualifierList(Tokenizer))
+        PARSE_TREE_UPDATE("Specifier Qualifier List", 2);
+
+        if(ParseTypeSpecifier(Tokenizer, ParseTree->Children[0]) &&
+           ParseSpecifierQualifierList(Tokenizer, ParseTree->Children[1]))
+        {
+                return(true);
+        }
+
+        PARSE_TREE_CLEAR_CHILDREN();
+
+        *Tokenizer = Start;
+        if(ParseTypeSpecifier(Tokenizer, ParseTree->Children[0]))
         {
                 return(true);
         }
 
         *Tokenizer = Start;
-        if(ParseTypeSpecifier(Tokenizer))
+        if(ParseTypeQualifier(Tokenizer, ParseTree->Children[0]) &&
+           ParseSpecifierQualifierList(Tokenizer, ParseTree->Children[1]))
         {
                 return(true);
         }
 
-        *Tokenizer = Start;
-        if(ParseTypeQualifier(Tokenizer) &&
-           ParseSpecifierQualifierList(Tokenizer))
-        {
-                return(true);
-        }
+        PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = Start;
-        if(ParseTypeQualifier(Tokenizer))
+        if(ParseTypeQualifier(Tokenizer, ParseTree->Children[0]))
         {
                 return(true);
         }
@@ -2145,10 +2345,13 @@ ParseStructDeclaration(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
 
-        if(ParseSpecifierQualifierList(Tokenizer) &&
-           ParseStructDeclaratorList(Tokenizer) &&
+        PARSE_TREE_UPDATE("Struct Declaration", 3);
+
+        if(ParseSpecifierQualifierList(Tokenizer, ParseTree->Children[0]) &&
+           ParseStructDeclaratorList(Tokenizer, ParseTree->Children[1]) &&
            Token_SemiColon == GetToken(Tokenizer).Type)
         {
+                ParseTreeSet(ParseTree->Children[2], "Struct Declaration");
                 return(true);
         }
 
@@ -2166,15 +2369,20 @@ ParseInitDeclarator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
 
-        if(ParseDeclarator(Tokenizer) &&
+        PARSE_TREE_UPDATE("Init Declarator", 3);
+
+        if(ParseDeclarator(Tokenizer, ParseTree->Children[0]) &&
            Token_EqualSign == GetToken(Tokenizer).Type &&
-           ParseInitializer(Tokenizer))
+           ParseInitializer(Tokenizer, ParseTree->Children[2]))
         {
+                ParseTreeSet(ParseTree, "symbol: =");
                 return(true);
         }
 
+        PARSE_TREE_CLEAR_CHILDREN();
+
         *Tokenizer = Start;
-        if(ParseDeclarator(Tokenizer))
+        if(ParseDeclarator(Tokenizer, ParseTree->Children[0]))
         {
                 return(true);
         }
@@ -2188,9 +2396,12 @@ ParseInitDeclaratorListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree
 {
         struct tokenizer Start = *Tokenizer;
 
+        PARSE_TREE_UPDATE("Init Declarator List'", 2);
+
         if(Token_Comma == GetToken(Tokenizer).Type &&
-           ParseInitDeclarator(Tokenizer))
+           ParseInitDeclarator(Tokenizer, ParseTree->Children[1]))
         {
+                ParseTreeSet(ParseTree->Children[0], "symbol: ,");
                 return(true);
         }
 
@@ -2208,8 +2419,10 @@ ParseInitDeclaratorList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
 
-        if(ParseInitDeclarator(Tokenizer) &&
-           ParseInitDeclaratorListI(Tokenizer))
+        PARSE_TREE_UPDATE("Init Declaration List", 2);
+
+        if(ParseInitDeclarator(Tokenizer, ParseTree->Children[0]) &&
+           ParseInitDeclaratorListI(Tokenizer, ParseTree->Children[1]))
         {
                 return(true);
         }
@@ -2223,8 +2436,10 @@ ParseStructDeclarationListI(struct tokenizer *Tokenizer, parse_tree_node *ParseT
 {
         struct tokenizer Start = *Tokenizer;
 
-        if(ParseStructDeclaration(Tokenizer) &&
-           ParseStructDeclarationListI(Tokenizer))
+        PARSE_TREE_UPDATE("Struct Declaration List'", 2);
+
+        if(ParseStructDeclaration(Tokenizer, ParseTree->Children[0]) &&
+           ParseStructDeclarationListI(Tokenizer, ParseTree->Children[1]))
         {
                 return(true);
         }
@@ -2243,8 +2458,10 @@ ParseStructDeclarationList(struct tokenizer *Tokenizer, parse_tree_node *ParseTr
 {
         struct tokenizer Start = *Tokenizer;
 
-        if(ParseStructDeclaration(Tokenizer) &&
-           ParseStructDeclarationListI(Tokenizer))
+        PARSE_TREE_UPDATE("Struct Declaration List", 2);
+
+        if(ParseStructDeclaration(Tokenizer, ParseTree->Children[0]) &&
+           ParseStructDeclarationListI(Tokenizer, ParseTree->Children[1]))
         {
                 return(true);
         }
@@ -2268,6 +2485,7 @@ ParseStructOrUnion(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
                 if(GSStringIsEqual(Token.Text, "struct", Token.TextLength) ||
                    GSStringIsEqual(Token.Text, "union", Token.TextLength))
                 {
+                        ParseTreeSet(ParseTree, "Struct or Union");
                         return(true);
                 }
         }
@@ -2286,8 +2504,7 @@ ParseStructOrUnionSpecifier(struct tokenizer *Tokenizer, parse_tree_node *ParseT
 {
         struct tokenizer Start = *Tokenizer;
 
-        ParseTreeSet(ParseTree, NULL, "Struct or Union Specifier", GSStringLength("Struct or Union Specifier"));
-        ParseTreeNewChildren(ParseTree, 5);
+        PARSE_TREE_UPDATE("Struct or Union Specifier", 5);
 
         if(ParseStructOrUnion(Tokenizer, ParseTree->Children[0]) &&
            ParseIdentifier(Tokenizer, ParseTree->Children[1]) &&
@@ -2295,10 +2512,12 @@ ParseStructOrUnionSpecifier(struct tokenizer *Tokenizer, parse_tree_node *ParseT
            ParseStructDeclarationList(Tokenizer, ParseTree->Children[3]) &&
            Token_CloseBrace == GetToken(Tokenizer).Type)
         {
-                ParseTreeSet(ParseTree->Children[2], NULL, "(", 1);
-                ParseTreeSet(ParseTree->Children[4], NULL, ")", 1);
+                ParseTreeSet(ParseTree->Children[2], "symbol: (");
+                ParseTreeSet(ParseTree->Children[4], "symbol: )");
                 return(true);
         }
+
+        PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = Start;
         if(ParseStructOrUnion(Tokenizer, ParseTree->Children[0]) &&
@@ -2306,19 +2525,17 @@ ParseStructOrUnionSpecifier(struct tokenizer *Tokenizer, parse_tree_node *ParseT
            ParseStructDeclarationList(Tokenizer, ParseTree->Children[2]) &&
            Token_CloseBrace == GetToken(Tokenizer).Type)
         {
-                ParseTreeSet(ParseTree->Children[1], NULL, "(", 1);
-                ParseTreeSet(ParseTree->Children[3], NULL, ")", 1);
-                ParseTreeSet(ParseTree->Children[4], NULL, "Empty", 5);
+                ParseTreeSet(ParseTree->Children[1], "symbol: (");
+                ParseTreeSet(ParseTree->Children[3], "symbol: )");
                 return(true);
         }
+
+        PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = Start;
         if(ParseStructOrUnion(Tokenizer, ParseTree->Children[0]) &&
            ParseIdentifier(Tokenizer, ParseTree->Children[1]))
         {
-                ParseTreeSet(ParseTree->Children[2], NULL, "Empty", 5);
-                ParseTreeSet(ParseTree->Children[3], NULL, "Empty", 5);
-                ParseTreeSet(ParseTree->Children[4], NULL, "Empty", 5);
                 return(true);
         }
 
@@ -2341,7 +2558,7 @@ ParseTypeQualifier(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
                 if(GSStringIsEqual(Token.Text, "const", Token.TextLength) ||
                    GSStringIsEqual(Token.Text, "volatile", Token.TextLength))
                 {
-                        ParseTreeSet(ParseTree, Token, "Type Qualifier", GSStringLength("Type Qualifier"));
+                        ParseTreeSet(ParseTree, "Type Qualifier");
                         return(true);
                 }
         }
@@ -2369,14 +2586,13 @@ ParseTypeSpecifier(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
                 {
                         if(GSStringIsEqual(Token.Text, Keywords[Index], Token.TextLength))
                         {
-                                ParseTreeSet(ParseTree, &Token, "Type Specifier", GSStringLength("Type Specifier"));
+                                ParseTreeSet(ParseTree, "Type Specifier");
                                 return(true);
                         }
                 }
         }
 
-        ParseTreeSet(ParseTree, NULL, "Type Specifier", GSStringLength("Type Specifier"));
-        ParseTreeNewChild(ParseTree);
+        PARSE_TREE_UPDATE("Type Specifier", 1);
 
         *Tokenizer = Start;
         if(ParseStructOrUnionSpecifier(Tokenizer, ParseTree->Children[0]))
@@ -2417,7 +2633,7 @@ ParseStorageClassSpecifier(struct tokenizer *Tokenizer, parse_tree_node *ParseTr
                 {
                         if(GSStringIsEqual(Token.Text, Keywords[Index], Token.TextLength))
                         {
-                                ParseTreeSet(ParseTree, &Token, "Storage Class Specifier", GSStringLength("Storage Class Specifier"));
+                                ParseTreeSet(ParseTree, "Storage Class Specifier");
                                 return(true);
                         }
                 }
@@ -2439,8 +2655,7 @@ ParseDeclarationSpecifiers(struct tokenizer *Tokenizer, parse_tree_node *ParseTr
 {
         struct tokenizer Start = *Tokenizer;
 
-        ParseTreeSet(ParseTree, NULL, "Declaration Specifiers", GSStringLength("Declaration Specifiers"));
-        ParseTreeNewChildren(ParseTree, 2);
+        PARSE_TREE_UPDATE("Declaration Specifiers", 2);
 
         if(ParseStorageClassSpecifier(Tokenizer, ParseTree->Children[0]) &&
            ParseDeclarationSpecifiers(Tokenizer, ParseTree->Children[1]))
@@ -2468,7 +2683,7 @@ ParseDeclarationSpecifiers(struct tokenizer *Tokenizer, parse_tree_node *ParseTr
                 return(true);
         }
 
-        ParseTreeSet(ParseTree->Children[1], NULL, "Empty", 5);
+        PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = Start;
         if(ParseTypeSpecifier(Tokenizer, ParseTree->Children[0]))
@@ -2491,8 +2706,7 @@ ParseDeclarationListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
 
-        ParseTreeSet(ParseTree, NULL, "Declaration List'", GSStringLength("Declaration List'"));
-        ParseTreeNewChildren(ParseTree, 2);
+        PARSE_TREE_UPDATE("Declaration List'", 2);
 
         if(ParseDeclaration(Tokenizer, ParseTree->Children[0]) &&
            ParseDeclarationListI(Tokenizer, ParseTree->Children[1]))
@@ -2514,8 +2728,7 @@ ParseDeclarationList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
 
-        ParseTreeSet(ParseTree, NULL, "Declaration List", GSStringLength("Declaration List"));
-        ParseTreeNewChildren(ParseTree, 2);
+        PARSE_TREE_UPDATE("Declaration List", 2);
 
         if(ParseDeclaration(Tokenizer, ParseTree->Children[0]) &&
            ParseDeclarationListI(Tokenizer, ParseTree->Children[1]))
@@ -2536,14 +2749,13 @@ ParseDeclaration(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
 
-        ParseTreeSet(ParseTree, NULL, "Declaration", GSStringLength("Declaration"));
-        ParseTreeNewChildren(ParseTree, 3);
+        PARSE_TREE_UPDATE("Declaration", 3);
 
         if(ParseDeclarationSpecifiers(Tokenizer, ParseTree->Children[0]) &&
            ParseInitDeclaratorList(Tokenizer, ParseTree->Children[1]) &&
            Token_SemiColon == GetToken(Tokenizer).Type)
         {
-                ParseTreeSet(ParseTree->Children[2], NULL, "SemiColon", GSStringLength("SemiColon"));
+                ParseTreeSet(ParseTree->Children[2], "symbol: ;");
                 return(true);
         }
 
@@ -2551,7 +2763,7 @@ ParseDeclaration(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
         if(ParseDeclarationSpecifiers(Tokenizer, ParseTree->Children[0]) &&
            Token_SemiColon == GetToken(Tokenizer).Type)
         {
-                ParseTreeSet(ParseTree->Children[1], NULL, "SemiColon", GSStringLength("SemiColon"));
+                ParseTreeSet(ParseTree->Children[1], "symbol: ;");
                 return(true);
         }
 
@@ -2568,8 +2780,7 @@ ParseFunctionDefinition(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
 
-        ParseTreeSet(ParseTree, NULL, "Function Definition", GSStringLength("Function Definition"));
-        ParseTreeNewChildren(ParseTree, 4);
+        PARSE_TREE_UPDATE("Function Definition", 4);
 
         if(ParseDeclarationSpecifiers(Tokenizer, ParseTree->Children[0]) &&
            ParseDeclarator(Tokenizer, ParseTree->Children[1]) &&
@@ -2579,7 +2790,7 @@ ParseFunctionDefinition(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
                 return(true);
         }
 
-        ParseTreeSet(ParseTree->Children[3], NULL, "Empty", 5);
+        PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = Start;
         if(ParseDeclarationSpecifiers(Tokenizer, ParseTree->Children[0]) &&
@@ -2597,7 +2808,7 @@ ParseFunctionDefinition(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
                 return(true);
         }
 
-        ParseTreeSet(ParseTree->Children[2], NULL, "Empty", 5);
+        PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = Start;
         if(ParseDeclarator(Tokenizer, ParseTree->Children[0]) &&
@@ -2620,8 +2831,7 @@ ParseExternalDeclaration(struct tokenizer *Tokenizer, parse_tree_node *ParseTree
 {
         struct tokenizer Start = *Tokenizer;
 
-        ParseTreeSet(ParseTree, NULL, "External Declaration", GSStringLength("External Declaration"));
-        ParseTreeNewChild(ParseTree);
+        PARSE_TREE_UPDATE("External Declaration", 1);
 
         if(ParseFunctionDefinition(Tokenizer, ParseTree->Children[0])) return(true);
 
@@ -2637,8 +2847,7 @@ ParseTranslationUnitI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
 
-        ParseTreeSet(ParseTree, NULL, "Translation Unit'", GSStringLength("Translation Unit'"));
-        ParseTreeNewChildren(ParseTree, 2);
+        PARSE_TREE_UPDATE("Translation Unit'", 2);
 
         if(ParseExternalDeclaration(Tokenizer, ParseTree->Children[0]) &&
            ParseTranslationUnitI(Tokenizer, ParseTree->Children[1]))
@@ -2660,8 +2869,7 @@ ParseTranslationUnit(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
 
-        ParseTreeSet(ParseTree, NULL, "Translation Unit", GSStringLength("Translation Unit"));
-        ParseTreeNewChildren(ParseTree, 2)
+        PARSE_TREE_UPDATE("Translation Unit", 2);
 
         if(ParseExternalDeclaration(Tokenizer, ParseTree->Children[0]) &&
            ParseTranslationUnitI(Tokenizer, ParseTree->Children[1]))
