@@ -5,3 +5,5 @@ env/
 !env/shell
 !env/.emacs
 *~
+cparser
+test
