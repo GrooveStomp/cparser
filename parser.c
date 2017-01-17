@@ -10,7 +10,7 @@
 
 #define PARSE_TREE_UPDATE(Name, NumChildren) \
         char *NodeName = (Name); \
-        ParseTreeSet(ParseTree, (Name)); \
+        ParseTreeSetName(ParseTree, (Name)); \
         if(NumChildren > 0) \
         { \
                 ParseTreeNewChildren(ParseTree, (NumChildren)); \
@@ -19,7 +19,7 @@
 #define PARSE_TREE_CLEAR_CHILDREN() \
         for(int i=0; i<ParseTree->NumChildren; i++) \
         { \
-                ParseTreeSet(&ParseTree->Children[i], "Empty");  \
+                ParseTreeSetName(&ParseTree->Children[i], "Empty");  \
         }
 
 bool ParseAssignmentExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
@@ -128,7 +128,7 @@ ParseConstant(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
                 case Token_PrecisionNumber:
 /*      TODO:   case Token_Enumeration:*/
                 {
-                        ParseTreeSet(ParseTree, "Constant");
+                        ParseTreeSet(ParseTree, "Constant", Token);
                         return(true);
                 } break;
                 default:
@@ -143,14 +143,15 @@ bool
 ParseArgumentExpressionListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        struct token Token;
 
         PARSE_TREE_UPDATE("Argument Expression List'", 3);
 
-        if(Token_Comma == GetToken(Tokenizer).Type &&
+        if(Token_Comma == (Token = GetToken(Tokenizer)).Type &&
            ParseAssignmentExpression(Tokenizer, &ParseTree->Children[1]) &&
            ParseArgumentExpressionListI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: ,");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Token);
                 return(true);
         }
 
@@ -191,12 +192,13 @@ bool
 ParsePrimaryExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        struct token Tokens[2];
 
         PARSE_TREE_UPDATE("Primary Expression", 3);
 
-        if(Token_Identifier == GetToken(Tokenizer).Type)
+        if(Token_Identifier == (Tokens[0] = GetToken(Tokenizer)).Type)
         {
-                ParseTreeSet(&ParseTree->Children[0], "identifier");
+                ParseTreeSet(&ParseTree->Children[0], "Identifier", Tokens[0]);
                 return(true);
         }
 
@@ -204,19 +206,19 @@ ParsePrimaryExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
         if(ParseConstant(Tokenizer, &ParseTree->Children[0])) return(true);
 
         *Tokenizer = Start;
-        if(Token_String == GetToken(Tokenizer).Type)
+        if(Token_String == (Tokens[0] = GetToken(Tokenizer)).Type)
         {
-                ParseTreeSet(&ParseTree->Children[0], "string");
+                ParseTreeSet(&ParseTree->Children[0], "String", Tokens[0]);
                 return(true);
         }
 
         *Tokenizer = Start;
-        if(Token_OpenParen == GetToken(Tokenizer).Type &&
+        if(Token_OpenParen == (Tokens[0] = GetToken(Tokenizer)).Type &&
            ParseExpression(Tokenizer, &ParseTree->Children[1]) &&
-           Token_CloseParen == GetToken(Tokenizer).Type)
+           Token_CloseParen == (Tokens[1] = GetToken(Tokenizer)).Type)
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: (");
-                ParseTreeSet(&ParseTree->Children[2], "symbol: )");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[2], "Symbol", Tokens[1]);
                 return true;
         }
 
@@ -228,77 +230,78 @@ bool
 ParsePostfixExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        struct token Tokens[2];
 
         PARSE_TREE_UPDATE("Postfix Expression'", 4);
 
-        if(Token_OpenBracket == GetToken(Tokenizer).Type &&
+        if(Token_OpenBracket == (Tokens[0] = GetToken(Tokenizer)).Type &&
            ParseExpression(Tokenizer, &ParseTree->Children[1]) &&
-           Token_CloseBracket == GetToken(Tokenizer).Type &&
+           Token_CloseBracket == (Tokens[0] = GetToken(Tokenizer)).Type &&
            ParsePostfixExpressionI(Tokenizer, &ParseTree->Children[3]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: [");
-                ParseTreeSet(&ParseTree->Children[2], "symbol: ]");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[2], "Symbol", Tokens[1]);
                 return(true);
         }
 
         *Tokenizer = Start;
-        if(Token_OpenParen == GetToken(Tokenizer).Type &&
+        if(Token_OpenParen == (Tokens[0] = GetToken(Tokenizer)).Type &&
            ParseArgumentExpressionList(Tokenizer, &ParseTree->Children[1]) &&
-           Token_CloseParen == GetToken(Tokenizer).Type &&
+           Token_CloseParen == (Tokens[1] = GetToken(Tokenizer)).Type &&
            ParsePostfixExpressionI(Tokenizer, &ParseTree->Children[3]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: (");
-                ParseTreeSet(&ParseTree->Children[2], "symbol: )");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[2], "Symbol", Tokens[1]);
                 return(true);
         }
 
         PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = Start;
-        if(Token_OpenParen == GetToken(Tokenizer).Type &&
-           Token_CloseParen == GetToken(Tokenizer).Type &&
+        if(Token_OpenParen == (Tokens[0] = GetToken(Tokenizer)).Type &&
+           Token_CloseParen == (Tokens[1] = GetToken(Tokenizer)).Type &&
            ParsePostfixExpressionI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: (");
-                ParseTreeSet(&ParseTree->Children[1], "symbol: )");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[1], "Symbol", Tokens[1]);
                 return(true);
         }
 
         *Tokenizer = Start;
-        if(Token_Dot == GetToken(Tokenizer).Type &&
-           Token_Identifier == GetToken(Tokenizer).Type &&
+        if(Token_Dot == (Tokens[0] = GetToken(Tokenizer)).Type &&
+           Token_Identifier == (Tokens[1] = GetToken(Tokenizer)).Type &&
            ParsePostfixExpressionI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: .");
-                ParseTreeSet(&ParseTree->Children[1], "identifier");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[1], "Identifier", Tokens[1]);
                 return(true);
         }
 
         *Tokenizer = Start;
-        if(Token_Arrow == GetToken(Tokenizer).Type &&
-           Token_Identifier == GetToken(Tokenizer).Type &&
+        if(Token_Arrow == (Tokens[0] = GetToken(Tokenizer)).Type &&
+           Token_Identifier == (Tokens[1] = GetToken(Tokenizer)).Type &&
            ParsePostfixExpressionI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: ->");
-                ParseTreeSet(&ParseTree->Children[1], "identifier");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[1], "Identifier", Tokens[1]);
                 return(true);
         }
 
         PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = Start;
-        if(Token_PlusPlus == GetToken(Tokenizer).Type &&
+        if(Token_PlusPlus == (Tokens[0] = GetToken(Tokenizer)).Type &&
            ParsePostfixExpressionI(Tokenizer, &ParseTree->Children[1]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: ++");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Tokens[0]);
                 return(true);
         }
 
         *Tokenizer = Start;
-        if(Token_MinusMinus == GetToken(Tokenizer).Type &&
+        if(Token_MinusMinus == (Tokens[0] = GetToken(Tokenizer)).Type &&
            ParsePostfixExpressionI(Tokenizer, &ParseTree->Children[1]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: --");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Tokens[0]);
                 return(true);
         }
 
@@ -347,7 +350,7 @@ ParseUnaryOperator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
                 case Token_Tilde:
                 case Token_Bang:
                 {
-                        ParseTreeSet(ParseTree, "Unary Operator");
+                        ParseTreeSet(ParseTree, "Unary Operator", Token);
                         return(true);
                 }
                 default:
@@ -371,7 +374,7 @@ bool
 ParseUnaryExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
-        struct token Token;
+        struct token Tokens[2];
 
         PARSE_TREE_UPDATE("Unary Expression", 4);
 
@@ -383,20 +386,20 @@ ParseUnaryExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
         PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = Start;
-        if(Token_PlusPlus == GetToken(Tokenizer).Type &&
+        if(Token_PlusPlus == (Tokens[0] = GetToken(Tokenizer)).Type &&
            ParseUnaryExpression(Tokenizer, &ParseTree->Children[1]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: ++");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Tokens[0]);
                 return(true);
         }
 
         PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = Start;
-        if(Token_MinusMinus == GetToken(Tokenizer).Type &&
+        if(Token_MinusMinus == (Tokens[0] = GetToken(Tokenizer)).Type &&
            ParseUnaryExpression(Tokenizer, &ParseTree->Children[1]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: --");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Tokens[0]);
                 return(true);
         }
 
@@ -412,11 +415,11 @@ ParseUnaryExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
         PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = Start;
-        Token = GetToken(Tokenizer);
-        if(Token_Keyword == Token.Type &&
-           GSStringIsEqual("sizeof", Token.Text, GSStringLength("sizeof")))
+        Tokens[0] = GetToken(Tokenizer);
+        if(Token_Keyword == Tokens[0].Type &&
+           GSStringIsEqual("sizeof", Tokens[0].Text, GSStringLength("sizeof")))
         {
-                ParseTreeSet(&ParseTree->Children[0], "keyword: sizeof");
+                ParseTreeSet(&ParseTree->Children[0], "Keyword", Tokens[0]);
 
                 struct tokenizer Previous = *Tokenizer;
                 if(ParseUnaryExpression(Tokenizer, &ParseTree->Children[1]))
@@ -425,12 +428,12 @@ ParseUnaryExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
                 }
 
                 *Tokenizer = Previous;
-                if(Token_OpenParen == GetToken(Tokenizer).Type &&
+                if(Token_OpenParen == (Tokens[0] = GetToken(Tokenizer)).Type &&
                    ParseTypeName(Tokenizer, &ParseTree->Children[2]) &&
-                   Token_CloseParen == GetToken(Tokenizer).Type)
+                   Token_CloseParen == (Tokens[1] = GetToken(Tokenizer)).Type)
                 {
-                        ParseTreeSet(&ParseTree->Children[1], "symbol: (");
-                        ParseTreeSet(&ParseTree->Children[3], "symbol: )");
+                        ParseTreeSet(&ParseTree->Children[1], "Symbol", Tokens[0]);
+                        ParseTreeSet(&ParseTree->Children[3], "Symbol", Tokens[1]);
                         return(true);
                 }
         }
@@ -448,6 +451,7 @@ bool
 ParseCastExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        struct token Tokens[2];
 
         PARSE_TREE_UPDATE("Cast Expression", 4);
 
@@ -457,13 +461,13 @@ ParseCastExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
         }
 
         *Tokenizer = Start;
-        if(Token_OpenParen == GetToken(Tokenizer).Type &&
+        if(Token_OpenParen == (Tokens[0] = GetToken(Tokenizer)).Type &&
            ParseTypeName(Tokenizer, &ParseTree->Children[1]) &&
-           Token_CloseParen == GetToken(Tokenizer).Type &&
+           Token_CloseParen == (Tokens[1] = GetToken(Tokenizer)).Type &&
            ParseCastExpression(Tokenizer, &ParseTree->Children[3]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: (");
-                ParseTreeSet(&ParseTree->Children[2], "symbol: )");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[2], "Symbol", Tokens[1]);
                 return(true);
         }
 
@@ -475,32 +479,33 @@ bool
 ParseMultiplicativeExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        struct token Token;
 
         PARSE_TREE_UPDATE("Multiplicative Expression", 3);
 
-        if(Token_Asterisk == GetToken(Tokenizer).Type &&
+        if(Token_Asterisk == (Token = GetToken(Tokenizer)).Type &&
            ParseCastExpression(Tokenizer, &ParseTree->Children[1]) &&
            ParseMultiplicativeExpressionI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: *");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Token);
                 return(true);
         }
 
         *Tokenizer = Start;
-        if(Token_Slash == GetToken(Tokenizer).Type &&
+        if(Token_Slash == (Token = GetToken(Tokenizer)).Type &&
            ParseCastExpression(Tokenizer, &ParseTree->Children[1]) &&
            ParseMultiplicativeExpressionI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: /");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Token);
                 return(true);
         }
 
         *Tokenizer = Start;
-        if(Token_PercentSign == GetToken(Tokenizer).Type &&
+        if(Token_PercentSign == (Token = GetToken(Tokenizer)).Type &&
            ParseCastExpression(Tokenizer, &ParseTree->Children[1]) &&
            ParseMultiplicativeExpressionI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: %");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Token);
                 return(true);
         }
 
@@ -536,23 +541,24 @@ bool
 ParseAdditiveExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        struct token Token;
 
         PARSE_TREE_UPDATE("Additive Expression'", 3);
 
-        if(Token_Cross == GetToken(Tokenizer).Type &&
+        if(Token_Cross == (Token = GetToken(Tokenizer)).Type &&
            ParseMultiplicativeExpression(Tokenizer, &ParseTree->Children[1]) &&
            ParseAdditiveExpressionI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: +");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Token);
                 return(true);
         }
 
         *Tokenizer = Start;
-        if(Token_Dash == GetToken(Tokenizer).Type &&
+        if(Token_Dash == (Token = GetToken(Tokenizer)).Type &&
            ParseMultiplicativeExpression(Tokenizer, &ParseTree->Children[1]) &&
            ParseAdditiveExpressionI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: -");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Token);
                 return(true);
         }
 
@@ -587,23 +593,24 @@ bool
 ParseShiftExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        struct token Token;
 
         PARSE_TREE_UPDATE("Shift Expression'", 3);
 
-        if(Token_BitShiftLeft == GetToken(Tokenizer).Type &&
+        if(Token_BitShiftLeft == (Token = GetToken(Tokenizer)).Type &&
            ParseAdditiveExpression(Tokenizer, &ParseTree->Children[1]) &&
            ParseShiftExpressionI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: <<");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Token);
                 return(true);
         }
 
         *Tokenizer = Start;
-        if(Token_BitShiftRight == GetToken(Tokenizer).Type &&
+        if(Token_BitShiftRight == (Token = GetToken(Tokenizer)).Type &&
            ParseAdditiveExpression(Tokenizer, &ParseTree->Children[1]) &&
            ParseShiftExpressionI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: >>");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Token);
                 return(true);
         }
 
@@ -638,41 +645,42 @@ bool
 ParseRelationalExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        struct token Token;
 
         PARSE_TREE_UPDATE("Relational Expression'", 3);
 
-        if(Token_LessThan == GetToken(Tokenizer).Type &&
+        if(Token_LessThan == (Token = GetToken(Tokenizer)).Type &&
            ParseShiftExpression(Tokenizer, &ParseTree->Children[1]) &&
            ParseRelationalExpressionI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: <");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Token);
                 return(true);
         }
 
         *Tokenizer = Start;
-        if(Token_GreaterThan == GetToken(Tokenizer).Type &&
+        if(Token_GreaterThan == (Token = GetToken(Tokenizer)).Type &&
            ParseShiftExpression(Tokenizer, &ParseTree->Children[1]) &&
            ParseRelationalExpressionI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: >");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Token);
                 return(true);
         }
 
         *Tokenizer = Start;
-        if(Token_LessThanEqual == GetToken(Tokenizer).Type &&
+        if(Token_LessThanEqual == (Token = GetToken(Tokenizer)).Type &&
            ParseShiftExpression(Tokenizer, &ParseTree->Children[1]) &&
            ParseRelationalExpressionI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: <=");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Token);
                 return(true);
         }
 
         *Tokenizer = Start;
-        if(Token_GreaterThanEqual == GetToken(Tokenizer).Type &&
+        if(Token_GreaterThanEqual == (Token = GetToken(Tokenizer)).Type &&
            ParseShiftExpression(Tokenizer, &ParseTree->Children[1]) &&
            ParseRelationalExpressionI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: >=");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Token);
                 return(true);
         }
 
@@ -709,23 +717,24 @@ bool
 ParseEqualityExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        struct token Token;
 
         PARSE_TREE_UPDATE("Equality Expression'", 3);
 
-        if(Token_LogicalEqual == GetToken(Tokenizer).Type &&
+        if(Token_LogicalEqual == (Token = GetToken(Tokenizer)).Type &&
            ParseRelationalExpression(Tokenizer, &ParseTree->Children[1]) &&
            ParseEqualityExpressionI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "token: ==");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Token);
                 return(true);
         }
 
         *Tokenizer = Start;
-        if(Token_NotEqual == GetToken(Tokenizer).Type &&
+        if(Token_NotEqual == (Token = GetToken(Tokenizer)).Type &&
            ParseRelationalExpression(Tokenizer, &ParseTree->Children[1]) &&
            ParseEqualityExpressionI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "token: !=");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Token);
                 return(true);
         }
 
@@ -760,14 +769,15 @@ bool
 ParseAndExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        struct token Token;
 
         PARSE_TREE_UPDATE("And Expression'", 3);
 
-        if(Token_Ampersand == GetToken(Tokenizer).Type &&
+        if(Token_Ampersand == (Token = GetToken(Tokenizer)).Type &&
            ParseEqualityExpression(Tokenizer, &ParseTree->Children[1]) &&
            ParseAndExpressionI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "token: &");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Token);
                 return(true);
         }
 
@@ -801,14 +811,15 @@ bool
 ParseExclusiveOrExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        struct token Token;
 
         PARSE_TREE_UPDATE("Exclusive Or Expression'", 3);
 
-        if(Token_Carat == GetToken(Tokenizer).Type &&
+        if(Token_Carat == (Token = GetToken(Tokenizer)).Type &&
            ParseAndExpression(Tokenizer, &ParseTree->Children[1]) &&
            ParseExclusiveOrExpressionI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: ^");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Token);
                 return(true);
         }
 
@@ -842,14 +853,15 @@ bool
 ParseInclusiveOrExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        struct token Token;
 
         PARSE_TREE_UPDATE("Inclusive Or Expression'", 3);
 
-        if(Token_Pipe == GetToken(Tokenizer).Type &&
+        if(Token_Pipe == (Token = GetToken(Tokenizer)).Type &&
            ParseExclusiveOrExpression(Tokenizer, &ParseTree->Children[1]) &&
            ParseInclusiveOrExpressionI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: |");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Token);
                 return(true);
         }
 
@@ -883,14 +895,15 @@ bool
 ParseLogicalAndExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        struct token Token;
 
         PARSE_TREE_UPDATE("Logical And Expression'", 3);
 
-        if(Token_LogicalAnd == GetToken(Tokenizer).Type &&
+        if(Token_LogicalAnd == (Token = GetToken(Tokenizer)).Type &&
            ParseInclusiveOrExpression(Tokenizer, &ParseTree->Children[1]) &&
            ParseLogicalAndExpressionI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: &&");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Token);
                 return(true);
         }
 
@@ -924,14 +937,15 @@ bool
 ParseLogicalOrExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        struct token Token;
 
         PARSE_TREE_UPDATE("Logical Or Expression'", 3);
 
-        if(Token_LogicalOr == GetToken(Tokenizer).Type &&
+        if(Token_LogicalOr == (Token = GetToken(Tokenizer)).Type &&
            ParseLogicalAndExpression(Tokenizer, &ParseTree->Children[1]) &&
            ParseLogicalOrExpressionI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: ||");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Token);
                 return(true);
         }
 
@@ -990,17 +1004,18 @@ bool
 ParseConditionalExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        struct token Tokens[2];
 
         PARSE_TREE_UPDATE("Conditional Expression", 5);
 
         if(ParseLogicalOrExpression(Tokenizer, &ParseTree->Children[0]) &&
-           Token_QuestionMark == GetToken(Tokenizer).Type &&
+           Token_QuestionMark == (Tokens[0] = GetToken(Tokenizer)).Type &&
            ParseExpression(Tokenizer, &ParseTree->Children[2]) &&
-           Token_Colon == GetToken(Tokenizer).Type &&
+           Token_Colon == (Tokens[1] = GetToken(Tokenizer)).Type &&
            ParseConditionalExpression(Tokenizer, &ParseTree->Children[4]))
         {
-                ParseTreeSet(&ParseTree->Children[1], "symbol: ?");
-                ParseTreeSet(&ParseTree->Children[3], "symbol: :");
+                ParseTreeSet(&ParseTree->Children[1], "Symbol", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[3], "Symbol", Tokens[1]);
                 return(true);
         }
 
@@ -1040,7 +1055,7 @@ ParseAssignmentOperator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
                 case Token_CaratEquals:
                 case Token_PipeEquals:
                 {
-                        ParseTreeSet(ParseTree, "Assignment Operator");
+                        ParseTreeSet(ParseTree, "Assignment Operator", Token);
                         return(true);
                 }
         }
@@ -1084,14 +1099,15 @@ bool
 ParseExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        struct token Token;
 
         PARSE_TREE_UPDATE("Expression'", 3);
 
-        if(Token_Comma == GetToken(Tokenizer).Type &&
+        if(Token_Comma == (Token = GetToken(Tokenizer)).Type &&
            ParseAssignmentExpression(Tokenizer, &ParseTree->Children[1]) &&
            ParseExpressionI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: ,");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Token);
                 return(true);
         }
 
@@ -1125,10 +1141,11 @@ bool
 ParseIdentifier(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        struct token Token;
 
-        if(Token_Identifier == GetToken(Tokenizer).Type)
+        if(Token_Identifier == (Token = GetToken(Tokenizer)).Type)
         {
-                ParseTreeSet(ParseTree, "Identifier");
+                ParseTreeSet(ParseTree, "Identifier", Token);
                 return(true);
         }
 
@@ -1147,52 +1164,53 @@ bool
 ParseJumpStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
-        struct token Token = GetToken(Tokenizer);
+        struct token Tokens[2];
+        Tokens[0] = GetToken(Tokenizer);
         struct tokenizer AtToken = *Tokenizer;
 
         PARSE_TREE_UPDATE("Jump Statement", 3);
 
-        if(Token_Keyword == Token.Type &&
-           GSStringIsEqual("goto", Token.Text, Token.TextLength) &&
+        if(Token_Keyword == Tokens[0].Type &&
+           GSStringIsEqual("goto", Tokens[0].Text, Tokens[0].TextLength) &&
            ParseIdentifier(Tokenizer, &ParseTree->Children[1]) &&
-           Token_SemiColon == GetToken(Tokenizer).Type)
+           Token_SemiColon == (Tokens[1] = GetToken(Tokenizer)).Type)
         {
-                ParseTreeSet(&ParseTree->Children[0], "keyword: goto");
-                ParseTreeSet(&ParseTree->Children[2], "symbol: ;");
+                ParseTreeSet(&ParseTree->Children[0], "Keyword", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[2], "Symbol", Tokens[1]);
                 return(true);
         }
 
         PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = AtToken;
-        if(Token_Keyword == Token.Type &&
-           GSStringIsEqual("continue", Token.Text, Token.TextLength) &&
-           Token_SemiColon == GetToken(Tokenizer).Type)
+        if(Token_Keyword == Tokens[0].Type &&
+           GSStringIsEqual("continue", Tokens[0].Text, Tokens[0].TextLength) &&
+           Token_SemiColon == (Tokens[1] = GetToken(Tokenizer)).Type)
         {
-                ParseTreeSet(&ParseTree->Children[0], "keyword: continue");
-                ParseTreeSet(&ParseTree->Children[1], "symbol: ;");
+                ParseTreeSet(&ParseTree->Children[0], "Keyword", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[1], "Symbol", Tokens[1]);
                 return(true);
         }
 
         PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = AtToken;
-        if(Token_Keyword == Token.Type &&
-           GSStringIsEqual("break", Token.Text, Token.TextLength) &&
-           Token_SemiColon == GetToken(Tokenizer).Type)
+        if(Token_Keyword == Tokens[0].Type &&
+           GSStringIsEqual("break", Tokens[0].Text, Tokens[0].TextLength) &&
+           Token_SemiColon == (Tokens[1] = GetToken(Tokenizer)).Type)
         {
-                ParseTreeSet(&ParseTree->Children[0], "keyword: break");
-                ParseTreeSet(&ParseTree->Children[1], "symbol: ;");
+                ParseTreeSet(&ParseTree->Children[0], "Keyword", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[1], "Symbol", Tokens[1]);
                 return(true);
         }
 
         PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = AtToken;
-        if(Token_Keyword == Token.Type &&
-           GSStringIsEqual("return", Token.Text, Token.TextLength))
+        if(Token_Keyword == Tokens[0].Type &&
+           GSStringIsEqual("return", Tokens[0].Text, Tokens[0].TextLength))
         {
-                ParseTreeSet(&ParseTree->Children[0], "keyword: return");
+                ParseTreeSet(&ParseTree->Children[0], "Keyword", Tokens[0]);
                 int ChildIndex = 1;
                 struct tokenizer Previous = *Tokenizer;
 
@@ -1202,9 +1220,9 @@ ParseJumpStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
                         *Tokenizer = Previous;
                 }
 
-                if(Token_SemiColon == GetToken(Tokenizer).Type)
+                if(Token_SemiColon == (Tokens[1] = GetToken(Tokenizer)).Type)
                 {
-                        ParseTreeSet(&ParseTree->Children[ChildIndex], "symbol: ;");
+                        ParseTreeSet(&ParseTree->Children[ChildIndex], "Symbol", Tokens[1]);
                         return(true);
                 }
         }
@@ -1223,47 +1241,48 @@ bool
 ParseIterationStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
-        struct token Token = GetToken(Tokenizer);
+        struct token Tokens[5];
+        Tokens[0] = GetToken(Tokenizer);
         struct tokenizer AtToken = *Tokenizer;
 
-        PARSE_TREE_UPDATE("Iteration Statement", 8);
+        PARSE_TREE_UPDATE("Iteration Statement", 10); /* TODO(AARON): Magic Number! */
 
-        if(Token_Keyword == Token.Type &&
-           GSStringIsEqual("while", Token.Text, Token.TextLength) &&
-           Token_OpenParen == GetToken(Tokenizer).Type &&
+        if(Token_Keyword == Tokens[0].Type &&
+           GSStringIsEqual("while", Tokens[0].Text, Tokens[0].TextLength) &&
+           Token_OpenParen == (Tokens[1] = GetToken(Tokenizer)).Type &&
            ParseExpression(Tokenizer, &ParseTree->Children[2]) &&
-           Token_CloseParen == GetToken(Tokenizer).Type &&
+           Token_CloseParen == (Tokens[2] = GetToken(Tokenizer)).Type &&
            ParseStatement(Tokenizer, &ParseTree->Children[4]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "keyword: while");
-                ParseTreeSet(&ParseTree->Children[1], "symbol: (");
-                ParseTreeSet(&ParseTree->Children[3], "symbol: )");
+                ParseTreeSet(&ParseTree->Children[0], "Keyword", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[1], "Symbol", Tokens[1]);
+                ParseTreeSet(&ParseTree->Children[3], "Symbol", Tokens[2]);
                 return(true);
         }
 
         PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = AtToken;
-        if(Token_Keyword == Token.Type &&
-           GSStringIsEqual("do", Token.Text, Token.TextLength) &&
+        if(Token_Keyword == Tokens[0].Type &&
+           GSStringIsEqual("do", Tokens[0].Text, Tokens[0].TextLength) &&
            ParseStatement(Tokenizer, &ParseTree->Children[1]))
         {
                 parse_tree_node *ChildNode = &ParseTree->Children[0];
-                ParseTreeSet(ChildNode, "keyword: do");
+                ParseTreeSet(ChildNode, "Keyword", Tokens[0]);
 
-                struct token Token = GetToken(Tokenizer);
-                if(Token_Keyword == Token.Type &&
-                   GSStringIsEqual("while", Token.Text, Token.TextLength) &&
-                   Token_OpenParen == GetToken(Tokenizer).Type &&
+                Tokens[1] = GetToken(Tokenizer);
+                if(Token_Keyword == Tokens[1].Type &&
+                   GSStringIsEqual("while", Tokens[1].Text, Tokens[1].TextLength) &&
+                   Token_OpenParen == (Tokens[2] = GetToken(Tokenizer)).Type &&
                    ParseExpression(Tokenizer, &ParseTree->Children[4]) &&
-                   Token_CloseParen == GetToken(Tokenizer).Type &&
-                   Token_SemiColon == GetToken(Tokenizer).Type)
+                   Token_CloseParen == (Tokens[3] = GetToken(Tokenizer)).Type &&
+                   Token_SemiColon == (Tokens[4] = GetToken(Tokenizer)).Type)
                 {
-                        ParseTreeSet(++ChildNode, "keyword: while");
-                        ParseTreeSet(++ChildNode, "symbol: (");
+                        ParseTreeSet(++ChildNode, "Keyword", Tokens[1]);
+                        ParseTreeSet(++ChildNode, "Symbol", Tokens[2]);
                         ++ChildNode; // Child #4 is set in the `if' above.
-                        ParseTreeSet(++ChildNode, "symbol: )");
-                        ParseTreeSet(++ChildNode, "symbol: ;");
+                        ParseTreeSet(++ChildNode, "Symbol", Tokens[3]);
+                        ParseTreeSet(++ChildNode, "Symbol", Tokens[4]);
                         return(true);
                 }
         }
@@ -1271,12 +1290,12 @@ ParseIterationStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
         PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = AtToken;
-        if(Token_Keyword == Token.Type &&
-           GSStringIsEqual("for", Token.Text, Token.TextLength) &&
-           Token_OpenParen == GetToken(Tokenizer).Type)
+        if(Token_Keyword == Tokens[0].Type &&
+           GSStringIsEqual("for", Tokens[0].Text, Tokens[0].TextLength) &&
+           Token_OpenParen == (Tokens[1] = GetToken(Tokenizer)).Type)
         {
-                ParseTreeSet(&ParseTree->Children[0], "keyword: for");
-                ParseTreeSet(&ParseTree->Children[1], "symbol: (");
+                ParseTreeSet(&ParseTree->Children[0], "Keyword", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[1], "Symbol", Tokens[1]);
 
                 int ChildIndex = 2;
 
@@ -1290,12 +1309,12 @@ ParseIterationStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
                         ChildIndex++;
                 }
 
-                if(Token_SemiColon != GetToken(Tokenizer).Type)
+                if(Token_SemiColon != (Tokens[2] = GetToken(Tokenizer)).Type)
                 {
                         *Tokenizer = Start;
                         return(false);
                 }
-                ParseTreeSet(&ParseTree->Children[ChildIndex++], "symbol: ;");
+                ParseTreeSet(&ParseTree->Children[ChildIndex++], "Symbol", Tokens[2]);
 
                 Previous = *Tokenizer;
                 if(!ParseExpression(Tokenizer, &ParseTree->Children[ChildIndex++]))
@@ -1304,12 +1323,12 @@ ParseIterationStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
                         *Tokenizer = Previous;
                 }
 
-                if(Token_SemiColon != GetToken(Tokenizer).Type)
+                if(Token_SemiColon != (Tokens[3] = GetToken(Tokenizer)).Type)
                 {
                         *Tokenizer = Start;
                         return(false);
                 }
-                ParseTreeSet(&ParseTree->Children[ChildIndex++], "symbol: ;");
+                ParseTreeSet(&ParseTree->Children[ChildIndex++], "Symbol", Tokens[3]);
 
                 Previous = *Tokenizer;
                 if(!ParseExpression(Tokenizer, &ParseTree->Children[ChildIndex++]))
@@ -1318,10 +1337,10 @@ ParseIterationStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
                         *Tokenizer = Previous;
                 }
 
-                if(Token_CloseParen == GetToken(Tokenizer).Type &&
+                if(Token_CloseParen == (Tokens[4] = GetToken(Tokenizer)).Type &&
                    ParseStatement(Tokenizer, &ParseTree->Children[ChildIndex + 1]))
                 {
-                        ParseTreeSet(&ParseTree->Children[ChildIndex], "symbol: )");
+                        ParseTreeSet(&ParseTree->Children[ChildIndex], "Symbol", Tokens[4]);
                         return(true);
                 }
         }
@@ -1340,30 +1359,31 @@ bool
 ParseSelectionStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
-        struct token Token = GetToken(Tokenizer);
+        struct token Tokens[3];
+        Tokens[0] = GetToken(Tokenizer);
         struct tokenizer AtToken = *Tokenizer;
 
         PARSE_TREE_UPDATE("Selection Statement", 6);
 
-        if(Token_Keyword == Token.Type &&
-           GSStringIsEqual("if", Token.Text, Token.TextLength) &&
-           Token_OpenParen == GetToken(Tokenizer).Type &&
+        if(Token_Keyword == Tokens[0].Type &&
+           GSStringIsEqual("if", Tokens[0].Text, Tokens[0].TextLength) &&
+           Token_OpenParen == (Tokens[1] = GetToken(Tokenizer)).Type &&
            ParseExpression(Tokenizer, &ParseTree->Children[2]) &&
-           Token_CloseParen == GetToken(Tokenizer).Type &&
+           Token_CloseParen == (Tokens[2] = GetToken(Tokenizer)).Type &&
            ParseStatement(Tokenizer, &ParseTree->Children[4]))
         {
                 struct tokenizer AtElse = *Tokenizer;
                 struct token Token = GetToken(Tokenizer);
 
-                ParseTreeSet(&ParseTree->Children[0], "keyword: if");
-                ParseTreeSet(&ParseTree->Children[1], "symbol: (");
-                ParseTreeSet(&ParseTree->Children[3], "symbol: )");
+                ParseTreeSet(&ParseTree->Children[0], "Keyword", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[1], "Symbol", Tokens[1]);
+                ParseTreeSet(&ParseTree->Children[3], "Symbol", Tokens[2]);
 
                 if(Token_Keyword == Token.Type &&
                    GSStringIsEqual("else", Token.Text, Token.TextLength) &&
                    ParseStatement(Tokenizer, &ParseTree->Children[5]))
                 {
-                        ParseTreeSet(&ParseTree->Children[4], "keyword: else");
+                        ParseTreeSet(&ParseTree->Children[4], "Keyword", Token);
                         return(true);
                 }
 
@@ -1374,16 +1394,16 @@ ParseSelectionStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
         PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = AtToken;
-        if(Token_Keyword == Token.Type &&
-           GSStringIsEqual("switch", Token.Text, Token.TextLength) &&
-           Token_OpenParen == GetToken(Tokenizer).Type &&
+        if(Token_Keyword == Tokens[0].Type &&
+           GSStringIsEqual("switch", Tokens[0].Text, Tokens[0].TextLength) &&
+           Token_OpenParen == (Tokens[1] = GetToken(Tokenizer)).Type &&
            ParseExpression(Tokenizer, &ParseTree->Children[2]) &&
-           Token_CloseParen == GetToken(Tokenizer).Type &&
+           Token_CloseParen == (Tokens[2] = GetToken(Tokenizer)).Type &&
            ParseStatement(Tokenizer, &ParseTree->Children[4]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "keyword: switch");
-                ParseTreeSet(&ParseTree->Children[1], "symbol: (");
-                ParseTreeSet(&ParseTree->Children[3], "symbol: )");
+                ParseTreeSet(&ParseTree->Children[0], "Keyword", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[1], "Symbol", Tokens[1]);
+                ParseTreeSet(&ParseTree->Children[3], "Symbol", Tokens[2]);
                 return(true);
         }
 
@@ -1438,12 +1458,13 @@ bool
 ParseCompoundStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        token Token;
 
         PARSE_TREE_UPDATE("Compound Statement", 3);
 
-        if(Token_OpenBrace == GetToken(Tokenizer).Type)
+        if(Token_OpenBrace == (Token = GetToken(Tokenizer)).Type)
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: {");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Token);
                 int ChildIndex = 0;
 
                 struct tokenizer Previous = *Tokenizer;
@@ -1460,9 +1481,9 @@ ParseCompoundStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
                         *Tokenizer = Previous;
                 }
 
-                if(Token_CloseBrace == GetToken(Tokenizer).Type)
+                if(Token_CloseBrace == (Token = GetToken(Tokenizer)).Type)
                 {
-                        ParseTreeSet(&ParseTree->Children[ChildIndex], "symbol: }");
+                        ParseTreeSet(&ParseTree->Children[ChildIndex], "Symbol", Token);
                         return(true);
                 }
         }
@@ -1479,22 +1500,23 @@ bool
 ParseExpressionStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        token Token;
 
         PARSE_TREE_UPDATE("Expression Statement", 2);
 
         if(ParseExpression(Tokenizer, &ParseTree->Children[0]) &&
-           Token_SemiColon == GetToken(Tokenizer).Type)
+           Token_SemiColon == (Token = GetToken(Tokenizer)).Type)
         {
-                ParseTreeSet(&ParseTree->Children[1], "symbol: ;");
+                ParseTreeSet(&ParseTree->Children[1], "Symbol", Token);
                 return(true);
         }
 
         PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = Start;
-        if(Token_SemiColon == GetToken(Tokenizer).Type)
+        if(Token_SemiColon == (Token = GetToken(Tokenizer)).Type)
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: ;");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Token);
                 return(true);
         }
 
@@ -1512,41 +1534,43 @@ bool
 ParseLabeledStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        token Tokens[2];
+
         PARSE_TREE_UPDATE("Labeled Statement", 4);
 
         if(ParseIdentifier(Tokenizer, &ParseTree->Children[0]) &&
-           Token_Colon == GetToken(Tokenizer).Type &&
+           Token_Colon == (Tokens[0] = GetToken(Tokenizer)).Type &&
            ParseStatement(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[1], "symbol: :");
+                ParseTreeSet(&ParseTree->Children[1], "Symbol", Tokens[0]);
                 return(true);
         }
 
         *Tokenizer = Start;
-        struct token Token = GetToken(Tokenizer);
+        Tokens[0] = GetToken(Tokenizer);
         struct tokenizer AtToken = *Tokenizer;
 
-        if(Token_Keyword == Token.Type &&
-           GSStringIsEqual("case", Token.Text, Token.TextLength) &&
+        if(Token_Keyword == Tokens[0].Type &&
+           GSStringIsEqual("case", Tokens[0].Text, Tokens[0].TextLength) &&
            ParseConstantExpression(Tokenizer, &ParseTree->Children[1]) &&
-           Token_Colon == GetToken(Tokenizer).Type &&
+           Token_Colon == (Tokens[1] = GetToken(Tokenizer)).Type &&
            ParseStatement(Tokenizer, &ParseTree->Children[3]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "keyword: case");
-                ParseTreeSet(&ParseTree->Children[2], "symbol: :");
+                ParseTreeSet(&ParseTree->Children[0], "Keyword", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[2], "Symbol", Tokens[1]);
                 return(true);
         }
 
         PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = AtToken;
-        if(Token_Keyword == Token.Type &&
-           GSStringIsEqual("default", Token.Text, Token.TextLength) &&
-           Token_Colon == GetToken(Tokenizer).Type &&
+        if(Token_Keyword == Tokens[0].Type &&
+           GSStringIsEqual("default", Tokens[0].Text, Tokens[0].TextLength) &&
+           Token_Colon == (Tokens[1] = GetToken(Tokenizer)).Type &&
            ParseStatement(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "keyword: default");
-                ParseTreeSet(&ParseTree->Children[2], "symbol: :");
+                ParseTreeSet(&ParseTree->Children[0], "Keyword", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[2], "Symbol", Tokens[1]);
                 return(true);
         }
 
@@ -1607,7 +1631,7 @@ ParseTypedefName(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 
         if(ParseIdentifier(Tokenizer, &ParseTree->Children[0]) && TypedefIsName(Token))
         {
-                ParseTreeSet(ParseTree, "Typedef Name");
+                ParseTreeSet(ParseTree, "Typedef Name", Token);
                 return(true);
         }
 
@@ -1625,51 +1649,52 @@ bool
 ParseDirectAbstractDeclaratorI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        token Tokens[2];
 
         PARSE_TREE_UPDATE("Direct Abstract Declarator'", 4);
 
-        if(Token_OpenBracket == GetToken(Tokenizer).Type &&
+        if(Token_OpenBracket == (Tokens[0] = GetToken(Tokenizer)).Type &&
            ParseConstantExpression(Tokenizer, &ParseTree->Children[1]) &&
-           Token_CloseBracket == GetToken(Tokenizer).Type &&
+           Token_CloseBracket == (Tokens[1] = GetToken(Tokenizer)).Type &&
            ParseDirectAbstractDeclaratorI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: [");
-                ParseTreeSet(&ParseTree->Children[2], "symbol: ]");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[2], "Symbol", Tokens[1]);
                 return(true);
         }
 
         PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = Start;
-        if(Token_OpenBracket == GetToken(Tokenizer).Type &&
-           Token_CloseBracket == GetToken(Tokenizer).Type &&
+        if(Token_OpenBracket == (Tokens[0] = GetToken(Tokenizer)).Type &&
+           Token_CloseBracket == (Tokens[1] = GetToken(Tokenizer)).Type &&
            ParseDirectAbstractDeclaratorI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: [");
-                ParseTreeSet(&ParseTree->Children[1], "symbol: ]");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[1], "Symbol", Tokens[1]);
                 return(true);
         }
 
         *Tokenizer = Start;
-        if(Token_OpenParen == GetToken(Tokenizer).Type &&
+        if(Token_OpenParen == (Tokens[0] = GetToken(Tokenizer)).Type &&
            ParseParameterTypeList(Tokenizer, &ParseTree->Children[1]) &&
-           Token_CloseParen == GetToken(Tokenizer).Type &&
+           Token_CloseParen == (Tokens[1] = GetToken(Tokenizer)).Type &&
            ParseDirectAbstractDeclaratorI(Tokenizer, &ParseTree->Children[3]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: (");
-                ParseTreeSet(&ParseTree->Children[2], "symbol: )");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[2], "Symbol", Tokens[1]);
                 return(true);
         }
 
         PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = Start;
-        if(Token_OpenParen == GetToken(Tokenizer).Type &&
-           Token_CloseParen == GetToken(Tokenizer).Type &&
+        if(Token_OpenParen == (Tokens[0] = GetToken(Tokenizer)).Type &&
+           Token_CloseParen == (Tokens[1] = GetToken(Tokenizer)).Type &&
            ParseDirectAbstractDeclaratorI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: (");
-                ParseTreeSet(&ParseTree->Children[1], "symbol: )");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[1], "Symbol", Tokens[1]);
                 return(true);
         }
 
@@ -1687,60 +1712,61 @@ bool
 ParseDirectAbstractDeclarator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        token Tokens[2];
 
         PARSE_TREE_UPDATE("Direct Abstract Declarator", 4);
 
-        if(Token_OpenParen == GetToken(Tokenizer).Type &&
+        if(Token_OpenParen == (Tokens[0] = GetToken(Tokenizer)).Type &&
            ParseAbstractDeclarator(Tokenizer, &ParseTree->Children[1]) &&
-           Token_CloseParen == GetToken(Tokenizer).Type &&
+           Token_CloseParen == (Tokens[1] = GetToken(Tokenizer)).Type &&
            ParseDirectAbstractDeclaratorI(Tokenizer, &ParseTree->Children[3]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: (");
-                ParseTreeSet(&ParseTree->Children[2], "symbol: )");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[2], "Symbol", Tokens[1]);
                 return(true);
         }
 
         *Tokenizer = Start;
-        if(Token_OpenBracket == GetToken(Tokenizer).Type &&
+        if(Token_OpenBracket == (Tokens[0] = GetToken(Tokenizer)).Type &&
            ParseConstantExpression(Tokenizer, &ParseTree->Children[1]) &&
-           Token_CloseBracket == GetToken(Tokenizer).Type &&
+           Token_CloseBracket == (Tokens[1] = GetToken(Tokenizer)).Type &&
            ParseDirectAbstractDeclaratorI(Tokenizer, &ParseTree->Children[3]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: [");
-                ParseTreeSet(&ParseTree->Children[2], "symbol: ]");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[2], "Symbol", Tokens[1]);
                 return(true);
         }
 
         PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = Start;
-        if(Token_OpenBracket == GetToken(Tokenizer).Type &&
-           Token_CloseBracket == GetToken(Tokenizer).Type &&
+        if(Token_OpenBracket == (Tokens[0] = GetToken(Tokenizer)).Type &&
+           Token_CloseBracket == (Tokens[1] = GetToken(Tokenizer)).Type &&
            ParseDirectAbstractDeclaratorI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: [");
-                ParseTreeSet(&ParseTree->Children[1], "symbol: ]");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[1], "Symbol", Tokens[1]);
                 return(true);
         }
 
         *Tokenizer = Start;
-        if(Token_OpenParen == GetToken(Tokenizer).Type &&
+        if(Token_OpenParen == (Tokens[0] = GetToken(Tokenizer)).Type &&
            ParseParameterTypeList(Tokenizer, &ParseTree->Children[1]) &&
-           Token_CloseParen == GetToken(Tokenizer).Type &&
+           Token_CloseParen == (Tokens[1] = GetToken(Tokenizer)).Type &&
            ParseDirectAbstractDeclaratorI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: (");
-                ParseTreeSet(&ParseTree->Children[2], "symbol: )");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[2], "Symbol", Tokens[1]);
                 return(true);
         }
 
         *Tokenizer = Start;
-        if(Token_OpenParen == GetToken(Tokenizer).Type &&
-           Token_CloseParen == GetToken(Tokenizer).Type &&
+        if(Token_OpenParen == (Tokens[0] = GetToken(Tokenizer)).Type &&
+           Token_CloseParen == (Tokens[1] = GetToken(Tokenizer)).Type &&
            ParseDirectAbstractDeclaratorI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: (");
-                ParseTreeSet(&ParseTree->Children[1], "symbol: )");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[1], "Symbol", Tokens[1]);
                 return(true);
         }
 
@@ -1817,14 +1843,15 @@ bool
 ParseInitializerListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        token Token;
 
         PARSE_TREE_UPDATE("Initializer List'", 3);
 
-        if(Token_Comma == GetToken(Tokenizer).Type &&
+        if(Token_Comma == (Token = GetToken(Tokenizer)).Type &&
            ParseInitializer(Tokenizer, &ParseTree->Children[1]) &&
            ParseInitializerListI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: ,");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Token);
                 return(true);
         }
 
@@ -1864,6 +1891,7 @@ bool
 ParseInitializer(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        token Tokens[3];
 
         PARSE_TREE_UPDATE("Initializer", 4);
 
@@ -1873,24 +1901,24 @@ ParseInitializer(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
         }
 
         *Tokenizer = Start;
-        if(Token_OpenBrace == GetToken(Tokenizer).Type &&
+        if(Token_OpenBrace == (Tokens[0] = GetToken(Tokenizer)).Type &&
            ParseInitializerList(Tokenizer, &ParseTree->Children[1]) &&
-           Token_CloseBrace == GetToken(Tokenizer).Type)
+           Token_CloseBrace == (Tokens[1] = GetToken(Tokenizer)).Type)
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: {");
-                ParseTreeSet(&ParseTree->Children[2], "symbol: }");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[2], "Symbol", Tokens[1]);
                 return(true);
         }
 
         *Tokenizer = Start;
-        if(Token_OpenBrace == GetToken(Tokenizer).Type &&
+        if(Token_OpenBrace == (Tokens[0] = GetToken(Tokenizer)).Type &&
            ParseInitializerList(Tokenizer, &ParseTree->Children[1]) &&
-           Token_Comma == GetToken(Tokenizer).Type &&
-           Token_CloseBrace == GetToken(Tokenizer).Type)
+           Token_Comma == (Tokens[1] = GetToken(Tokenizer)).Type &&
+           Token_CloseBrace == (Tokens[2] = GetToken(Tokenizer)).Type)
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: {");
-                ParseTreeSet(&ParseTree->Children[2], "symbol: ,");
-                ParseTreeSet(&ParseTree->Children[3], "symbol: }");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[2], "Symbol", Tokens[1]);
+                ParseTreeSet(&ParseTree->Children[3], "Symbol", Tokens[2]);
                 return(true);
         }
 
@@ -1902,14 +1930,15 @@ bool
 ParseIdentifierListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        token Token;
 
         PARSE_TREE_UPDATE("Identifier List'", 3);
 
-        if(Token_Comma == GetToken(Tokenizer).Type &&
+        if(Token_Comma == (Token = GetToken(Tokenizer)).Type &&
            ParseIdentifier(Tokenizer, &ParseTree->Children[1]) &&
            ParseIdentifierListI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: ,");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Token);
                 return(true);
         }
 
@@ -1980,14 +2009,15 @@ bool
 ParseParameterListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        token Token;
 
         PARSE_TREE_UPDATE("Parameter List'", 3);
 
-        if(Token_Comma == GetToken(Tokenizer).Type &&
+        if(Token_Comma == (Token = GetToken(Tokenizer)).Type &&
            ParseParameterDeclaration(Tokenizer, &ParseTree->Children[1]) &&
            ParseParameterListI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: ,");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Token);
                 return(true);
         }
 
@@ -2026,17 +2056,18 @@ bool
 ParseParameterTypeList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        token Tokens[2];
 
         PARSE_TREE_UPDATE("Parameter Type List", 3);
 
         if(ParseParameterList(Tokenizer, &ParseTree->Children[0]))
         {
                 struct tokenizer Previous = *Tokenizer;
-                if(Token_Comma == GetToken(Tokenizer).Type &&
-                   Token_Ellipsis == GetToken(Tokenizer).Type)
+                if(Token_Comma == (Tokens[0] = GetToken(Tokenizer)).Type &&
+                   Token_Ellipsis == (Tokens[1] = GetToken(Tokenizer)).Type)
                 {
-                        ParseTreeSet(&ParseTree->Children[1], "symbol: ,");
-                        ParseTreeSet(&ParseTree->Children[2], "symbol: ...");
+                        ParseTreeSet(&ParseTree->Children[1], "Symbol", Tokens[0]);
+                        ParseTreeSet(&ParseTree->Children[2], "Symbol", Tokens[1]);
                         return(true);
                 }
 
@@ -2143,62 +2174,63 @@ bool
 ParseDirectDeclaratorI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        token Tokens[2];
 
         PARSE_TREE_UPDATE("Direct Declarator'", 4);
 
-        if(Token_OpenBracket == GetToken(Tokenizer).Type &&
+        if(Token_OpenBracket == (Tokens[0] = GetToken(Tokenizer)).Type &&
            ParseConstantExpression(Tokenizer, &ParseTree->Children[1]) &&
-           Token_CloseBracket == GetToken(Tokenizer).Type &&
+           Token_CloseBracket == (Tokens[1] = GetToken(Tokenizer)).Type &&
            ParseDirectDeclaratorI(Tokenizer, &ParseTree->Children[3]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: [");
-                ParseTreeSet(&ParseTree->Children[2], "symbol: ]");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[2], "Symbol", Tokens[1]);
                 return(true);
         }
 
         PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = Start;
-        if(Token_OpenBracket == GetToken(Tokenizer).Type &&
-           Token_CloseBracket == GetToken(Tokenizer).Type &&
+        if(Token_OpenBracket == (Tokens[0] = GetToken(Tokenizer)).Type &&
+           Token_CloseBracket == (Tokens[1] = GetToken(Tokenizer)).Type &&
            ParseDirectDeclaratorI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: [");
-                ParseTreeSet(&ParseTree->Children[1], "symbol: ]");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[1], "Symbol", Tokens[1]);
                 return(true);
         }
 
         *Tokenizer = Start;
-        if(Token_OpenParen == GetToken(Tokenizer).Type &&
+        if(Token_OpenParen == (Tokens[0] = GetToken(Tokenizer)).Type &&
            ParseParameterTypeList(Tokenizer, &ParseTree->Children[1]) &&
-           Token_CloseParen == GetToken(Tokenizer).Type &&
+           Token_CloseParen == (Tokens[1] = GetToken(Tokenizer)).Type &&
            ParseDirectDeclaratorI(Tokenizer, &ParseTree->Children[3]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: (");
-                ParseTreeSet(&ParseTree->Children[2], "symbol: )");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[2], "Symbol", Tokens[1]);
                 return(true);
         }
 
         *Tokenizer = Start;
-        if(Token_OpenParen == GetToken(Tokenizer).Type &&
+        if(Token_OpenParen == (Tokens[0] = GetToken(Tokenizer)).Type &&
            ParseIdentifierList(Tokenizer, &ParseTree->Children[1]) &&
-           Token_CloseParen == GetToken(Tokenizer).Type &&
+           Token_CloseParen == (Tokens[1] = GetToken(Tokenizer)).Type &&
            ParseDirectDeclaratorI(Tokenizer, &ParseTree->Children[3]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: (");
-                ParseTreeSet(&ParseTree->Children[2], "symbol: )");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[2], "Symbol", Tokens[1]);
                 return(true);
         }
 
         PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = Start;
-        if(Token_OpenParen == GetToken(Tokenizer).Type &&
-           Token_CloseParen == GetToken(Tokenizer).Type &&
+        if(Token_OpenParen == (Tokens[0] = GetToken(Tokenizer)).Type &&
+           Token_CloseParen == (Tokens[1] = GetToken(Tokenizer)).Type &&
            ParseDirectDeclaratorI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: (");
-                ParseTreeSet(&ParseTree->Children[1], "symbol: )");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[1], "Symbol", Tokens[1]);
                 return(true);
         }
 
@@ -2218,6 +2250,7 @@ bool
 ParseDirectDeclarator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        token Tokens[2];
 
         PARSE_TREE_UPDATE("Direct Declarator", 4);
 
@@ -2228,13 +2261,13 @@ ParseDirectDeclarator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
         }
 
         *Tokenizer = Start;
-        if(Token_OpenParen == GetToken(Tokenizer).Type &&
+        if(Token_OpenParen == (Tokens[0] = GetToken(Tokenizer)).Type &&
            ParseDeclarator(Tokenizer, &ParseTree->Children[1]) &&
-           Token_CloseParen == GetToken(Tokenizer).Type &&
+           Token_CloseParen == (Tokens[1] = GetToken(Tokenizer)).Type &&
            ParseDirectDeclaratorI(Tokenizer, &ParseTree->Children[3]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: (");
-                ParseTreeSet(&ParseTree->Children[2], "symbol: )");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[2], "Symbol", Tokens[1]);
                 return(true);
         }
 
@@ -2280,14 +2313,15 @@ bool
 ParseEnumerator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        token Token;
 
         PARSE_TREE_UPDATE("Enumerator", 3);
 
         if(ParseIdentifier(Tokenizer, &ParseTree->Children[0]) &&
-           Token_EqualSign == GetToken(Tokenizer).Type &&
+           Token_EqualSign == (Token = GetToken(Tokenizer)).Type &&
            ParseConstantExpression(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[1], "symbol: =");
+                ParseTreeSet(&ParseTree->Children[1], "Symbol", Token);
                 return(true);
         }
 
@@ -2307,14 +2341,15 @@ bool
 ParseEnumeratorListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        token Token;
 
         PARSE_TREE_UPDATE("Enumerator List'", 3);
 
-        if(Token_Comma == GetToken(Tokenizer).Type &&
+        if(Token_Comma == (Token = GetToken(Tokenizer)).Type &&
            ParseEnumerator(Tokenizer, &ParseTree->Children[1]) &&
            ParseEnumeratorListI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: ,");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Token);
                 return(true);
         }
 
@@ -2355,6 +2390,7 @@ ParseEnumSpecifier(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
         struct tokenizer Start = *Tokenizer;
         struct token Token = GetToken(Tokenizer);
         struct tokenizer AtToken = *Tokenizer;
+        struct token Tokens[2];
 
         PARSE_TREE_UPDATE("Enum Specifier", 5);
 
@@ -2365,15 +2401,15 @@ ParseEnumSpecifier(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
                 return(false);
         }
 
-        ParseTreeSet(&ParseTree->Children[0], "keyword: enum");
+        ParseTreeSet(&ParseTree->Children[0], "Keyword", Token);
 
         if(ParseIdentifier(Tokenizer, &ParseTree->Children[1]) &&
-           Token_OpenBrace == GetToken(Tokenizer).Type &&
+           Token_OpenBrace == (Tokens[0] = GetToken(Tokenizer)).Type &&
            ParseEnumeratorList(Tokenizer, &ParseTree->Children[3]) &&
-           Token_CloseBrace == GetToken(Tokenizer).Type)
+           Token_CloseBrace == (Tokens[1] = GetToken(Tokenizer)).Type)
         {
-                ParseTreeSet(&ParseTree->Children[2], "symbol: {");
-                ParseTreeSet(&ParseTree->Children[4], "symbol: }");
+                ParseTreeSet(&ParseTree->Children[2], "Symbol", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[4], "Symbol", Tokens[1]);
                 return(true);
         }
 
@@ -2381,12 +2417,12 @@ ParseEnumSpecifier(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
         PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = AtToken;
-        if(Token_OpenBrace == GetToken(Tokenizer).Type &&
+        if(Token_OpenBrace == (Tokens[0] = GetToken(Tokenizer)).Type &&
            ParseEnumeratorList(Tokenizer, &ParseTree->Children[2]) &&
-           Token_CloseBrace == GetToken(Tokenizer).Type)
+           Token_CloseBrace == (Tokens[1] = GetToken(Tokenizer)).Type)
         {
-                ParseTreeSet(&ParseTree->Children[1], "symbol: {");
-                ParseTreeSet(&ParseTree->Children[3], "symbol: }");
+                ParseTreeSet(&ParseTree->Children[1], "Symbol", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[3], "Symbol", Tokens[1]);
                 return(true);
         }
 
@@ -2411,24 +2447,25 @@ bool
 ParseStructDeclarator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        token Token;
 
         PARSE_TREE_UPDATE("Struct Declarator", 3);
 
         if(ParseDeclarator(Tokenizer, &ParseTree->Children[0]) &&
-           Token_Colon == GetToken(Tokenizer).Type &&
+           Token_Colon == (Token = GetToken(Tokenizer)).Type &&
            ParseConstantExpression(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[1], "symbol: :");
+                ParseTreeSet(&ParseTree->Children[1], "Symbol", Token);
                 return(true);
         }
 
         PARSE_TREE_CLEAR_CHILDREN();
 
         *Tokenizer = Start;
-        if(Token_Colon == GetToken(Tokenizer).Type &&
+        if(Token_Colon == (Token = GetToken(Tokenizer)).Type &&
            ParseConstantExpression(Tokenizer, &ParseTree->Children[1]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: :");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Token);
                 return(true);
         }
 
@@ -2448,14 +2485,15 @@ bool
 ParseStructDeclaratorListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        token Token;
 
         PARSE_TREE_UPDATE("Struct Declarator List'", 3);
 
-        if(Token_Comma == GetToken(Tokenizer).Type &&
+        if(Token_Comma == (Token = GetToken(Tokenizer)).Type &&
            ParseStructDeclarator(Tokenizer, &ParseTree->Children[1]) &&
            ParseStructDeclaratorListI(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: ,");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Token);
                 return(true);
         }
 
@@ -2538,14 +2576,15 @@ bool
 ParseStructDeclaration(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        token Token;
 
         PARSE_TREE_UPDATE("Struct Declaration", 3);
 
         if(ParseSpecifierQualifierList(Tokenizer, &ParseTree->Children[0]) &&
            ParseStructDeclaratorList(Tokenizer, &ParseTree->Children[1]) &&
-           Token_SemiColon == GetToken(Tokenizer).Type)
+           Token_SemiColon == (Token = GetToken(Tokenizer)).Type)
         {
-                ParseTreeSet(&ParseTree->Children[2], "Struct Declaration");
+                ParseTreeSet(&ParseTree->Children[2], "Struct Declaration", Token);
                 return(true);
         }
 
@@ -2562,14 +2601,15 @@ bool
 ParseInitDeclarator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        token Token;
 
         PARSE_TREE_UPDATE("Init Declarator", 3);
 
         if(ParseDeclarator(Tokenizer, &ParseTree->Children[0]) &&
-           Token_EqualSign == GetToken(Tokenizer).Type &&
+           Token_EqualSign == (Token = GetToken(Tokenizer)).Type &&
            ParseInitializer(Tokenizer, &ParseTree->Children[2]))
         {
-                ParseTreeSet(ParseTree, "symbol: =");
+                ParseTreeSet(&ParseTree->Children[1], "Symbol", Token);
                 return(true);
         }
 
@@ -2589,13 +2629,14 @@ bool
 ParseInitDeclaratorListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        token Token;
 
         PARSE_TREE_UPDATE("Init Declarator List'", 2);
 
-        if(Token_Comma == GetToken(Tokenizer).Type &&
+        if(Token_Comma == (Token = GetToken(Tokenizer)).Type &&
            ParseInitDeclarator(Tokenizer, &ParseTree->Children[1]))
         {
-                ParseTreeSet(&ParseTree->Children[0], "symbol: ,");
+                ParseTreeSet(&ParseTree->Children[0], "Symbol", Token);
                 return(true);
         }
 
@@ -2679,7 +2720,7 @@ ParseStructOrUnion(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
                 if(GSStringIsEqual(Token.Text, "struct", Token.TextLength) ||
                    GSStringIsEqual(Token.Text, "union", Token.TextLength))
                 {
-                        ParseTreeSet(ParseTree, "Struct or Union");
+                        ParseTreeSet(ParseTree, "Struct or Union", Token);
                         return(true);
                 }
         }
@@ -2700,14 +2741,16 @@ ParseStructOrUnionSpecifier(struct tokenizer *Tokenizer, parse_tree_node *ParseT
 
         PARSE_TREE_UPDATE("Struct or Union Specifier", 5);
 
+        token Tokens[2];
+
         if(ParseStructOrUnion(Tokenizer, &ParseTree->Children[0]) &&
            ParseIdentifier(Tokenizer, &ParseTree->Children[1]) &&
-           Token_OpenBrace == GetToken(Tokenizer).Type &&
+           Token_OpenBrace == (Tokens[0] = GetToken(Tokenizer)).Type &&
            ParseStructDeclarationList(Tokenizer, &ParseTree->Children[3]) &&
-           Token_CloseBrace == GetToken(Tokenizer).Type)
+           Token_CloseBrace == (Tokens[1] = GetToken(Tokenizer)).Type)
         {
-                ParseTreeSet(&ParseTree->Children[2], "symbol: (");
-                ParseTreeSet(&ParseTree->Children[4], "symbol: )");
+                ParseTreeSet(&ParseTree->Children[2], "Symbol", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[4], "Symbol", Tokens[1]);
                 return(true);
         }
 
@@ -2715,12 +2758,12 @@ ParseStructOrUnionSpecifier(struct tokenizer *Tokenizer, parse_tree_node *ParseT
 
         *Tokenizer = Start;
         if(ParseStructOrUnion(Tokenizer, &ParseTree->Children[0]) &&
-           Token_OpenBrace == GetToken(Tokenizer).Type &&
+           Token_OpenBrace == (Tokens[0] = GetToken(Tokenizer)).Type &&
            ParseStructDeclarationList(Tokenizer, &ParseTree->Children[2]) &&
-           Token_CloseBrace == GetToken(Tokenizer).Type)
+           Token_CloseBrace == (Tokens[1] = GetToken(Tokenizer)).Type)
         {
-                ParseTreeSet(&ParseTree->Children[1], "symbol: (");
-                ParseTreeSet(&ParseTree->Children[3], "symbol: )");
+                ParseTreeSet(&ParseTree->Children[1], "Symbol", Tokens[0]);
+                ParseTreeSet(&ParseTree->Children[3], "Symbol", Tokens[1]);
                 return(true);
         }
 
@@ -2752,7 +2795,7 @@ ParseTypeQualifier(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
                 if(GSStringIsEqual(Token.Text, "const", Token.TextLength) ||
                    GSStringIsEqual(Token.Text, "volatile", Token.TextLength))
                 {
-                        ParseTreeSet(ParseTree, "Type Qualifier");
+                        ParseTreeSet(ParseTree, "Type Qualifier", Token);
                         return(true);
                 }
         }
@@ -2780,7 +2823,7 @@ ParseTypeSpecifier(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
                 {
                         if(GSStringIsEqual(Token.Text, Keywords[Index], Token.TextLength))
                         {
-                                ParseTreeSet(ParseTree, "Type Specifier");
+                                ParseTreeSet(ParseTree, "Type Specifier", Token);
                                 return(true);
                         }
                 }
@@ -2827,7 +2870,7 @@ ParseStorageClassSpecifier(struct tokenizer *Tokenizer, parse_tree_node *ParseTr
                 {
                         if(GSStringIsEqual(Token.Text, Keywords[Index], Token.TextLength))
                         {
-                                ParseTreeSet(ParseTree, "Storage Class Specifier");
+                                ParseTreeSet(ParseTree, "Storage Class Specifier", Token);
                                 return(true);
                         }
                 }
@@ -2942,22 +2985,23 @@ bool
 ParseDeclaration(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 {
         struct tokenizer Start = *Tokenizer;
+        struct token Token;
 
         PARSE_TREE_UPDATE("Declaration", 3);
 
         if(ParseDeclarationSpecifiers(Tokenizer, &ParseTree->Children[0]) &&
            ParseInitDeclaratorList(Tokenizer, &ParseTree->Children[1]) &&
-           Token_SemiColon == GetToken(Tokenizer).Type)
+           Token_SemiColon == (Token = GetToken(Tokenizer)).Type)
         {
-                ParseTreeSet(&ParseTree->Children[2], "symbol: ;");
+                ParseTreeSet(&ParseTree->Children[2], "Symbol", Token);
                 return(true);
         }
 
         *Tokenizer = Start;
         if(ParseDeclarationSpecifiers(Tokenizer, &ParseTree->Children[0]) &&
-           Token_SemiColon == GetToken(Tokenizer).Type)
+           Token_SemiColon == (Token = GetToken(Tokenizer)).Type)
         {
-                ParseTreeSet(&ParseTree->Children[1], "symbol: ;");
+                ParseTreeSet(&ParseTree->Children[1], "Symbol", Token);
                 return(true);
         }
 
@@ -3114,6 +3158,8 @@ Parse(gs_buffer *FileContents)
                                 if(Result)
                                 {
                                         puts("Successfully parsed input");
+                                        puts("--------------------------------------------------------------------------------");
+                                        ParseTreePrint(ParseTree, 0, 4);
                                 }
                                 else
                                 {
