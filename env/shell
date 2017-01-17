@@ -22,7 +22,7 @@ function build() {
     executable="${executable%.*}"
     echo "$executable" > env/executable-name
 
-    local cflags="-std=c99 -pedantic-errors -fextended-identifiers -g -x c \
+    local cflags="-std=c99 -pedantic-errors -fextended-identifiers -g -x c -gdwarf-2 -g3 \
                   -Wno-format-security"
 
     gcc $cflags -o "env/build/$executable" "$cfile"

@@ -17,19 +17,26 @@ typedef struct parse_tree_node
         token *Token;
         char *Name;
         unsigned int NameLength;
-        struct parse_tree_node **Children;
+        struct parse_tree_node *Children;
         unsigned int NumChildren;
 } parse_tree_node;
 
 parse_tree_node *
-ParseTreeNew(void)
+ParseTree__Init(parse_tree_node *Self)
 {
-        parse_tree_node *Self = (parse_tree_node *)malloc(sizeof(parse_tree_node));
         Self->Token = GSNullPtr;
         Self->Name = GSNullPtr;
         Self->NameLength = 0;
         Self->Children = GSNullPtr;
         Self->NumChildren = 0;
+        return(Self);
+}
+
+parse_tree_node *
+ParseTreeNew(void)
+{
+        parse_tree_node *Self = (parse_tree_node *)malloc(sizeof(parse_tree_node));
+        ParseTree__Init(Self);
         return(Self);
 }
 
@@ -41,19 +48,20 @@ ParseTreeSet(parse_tree_node *Node, char *Name)
         {
                 free(Node->Name);
         }
-        Node->Name = malloc(NameLength + 1);
+        Node->Name = (char *)malloc(NameLength + 1);
         GSStringCopy(Name, Node->Name, NameLength);
         Node->NameLength = NameLength;
 }
 
-void ParseTreeNewChild(parse_tree_node*);
+void ParseTreeNewChild(parse_tree_node *);
+void ParseTreeAddChild(parse_tree_node *, char *);
 
 void
 ParseTreeNewChildren(parse_tree_node *Self, unsigned int Count)
 {
         for(int i=0; i<Count; i++)
         {
-                ParseTreeNewChild(Self);
+                ParseTreeAddChild(Self, "Empty");
         }
 }
 
@@ -63,7 +71,7 @@ ParseTreeNewChild(parse_tree_node *Self)
         /* NOTE(AARON): Self->NumChildren might not be zero. */
         if(Self->Children == NULL)
         {
-                Self->Children = (parse_tree_node **)malloc(sizeof(token));
+                Self->Children = (parse_tree_node *)malloc(sizeof(token));
                 if(Self->Children == NULL)
                 {
                         int errval = errno;
@@ -76,7 +84,7 @@ ParseTreeNewChild(parse_tree_node *Self)
                                 GSAbortWithMessage("Couldn't allocate node in debug tree! I don't know why!\n");
                         }
                 }
-                ParseTreeSet(Self->Children[0], "Empty");
+                ParseTreeSet(&Self->Children[0], "Empty");
                 Self->NumChildren = 1;
         }
         else
@@ -95,18 +103,20 @@ ParseTreeNewChild(parse_tree_node *Self)
                         }
                 }
 
-                ParseTreeSet(Self->Children[Self->NumChildren], "Empty");
+                ParseTreeSet(&Self->Children[Self->NumChildren], "Empty");
                 Self->NumChildren++;
         }
 }
 
 void
-ParseTreeAddChild(parse_tree_node *Self, token *Node, char *Name, unsigned int NameLength)
+ParseTreeAddChild(parse_tree_node *Self, char *Name)
 {
+        unsigned int NameLength = GSStringLength(Name);
+
         /* NOTE(AARON): Self->NumChildren might not be zero. */
         if(Self->Children == NULL)
         {
-                Self->Children = (parse_tree_node **)malloc(sizeof(token));
+                Self->Children = (parse_tree_node *)malloc(sizeof(token));
                 if(Self->Children == NULL)
                 {
                         int errval = errno;
@@ -119,7 +129,8 @@ ParseTreeAddChild(parse_tree_node *Self, token *Node, char *Name, unsigned int N
                                 GSAbortWithMessage("Couldn't allocate node in debug tree! I don't know why!\n");
                         }
                 }
-                ParseTreeSet(Self->Children[0], Name);
+                ParseTree__Init(&Self->Children[0]);
+                ParseTreeSet(&Self->Children[0], Name);
                 Self->NumChildren = 1;
         }
         else
@@ -138,7 +149,8 @@ ParseTreeAddChild(parse_tree_node *Self, token *Node, char *Name, unsigned int N
                         }
                 }
 
-                ParseTreeSet(Self->Children[Self->NumChildren], Name);
+                ParseTree__Init(&Self->Children[Self->NumChildren]);
+                ParseTreeSet(&Self->Children[Self->NumChildren], Name);
                 Self->NumChildren++;
         }
 }
