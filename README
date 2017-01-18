@@ -11,6 +11,10 @@ There's a really naive parse tree implementation to aid with debugging.
 The `parse' subcommand has a `--show-parse-tree' option that will display this
 parse tree.  Warning! It's really big!
 
+Note that the canonical home of this project is at:
+
+    https://git.groovestomp.com/cparser/
+
 --------------------------------------------------------------------------------
  Setup, Requirements, Etc.
 --------------------------------------------------------------------------------
