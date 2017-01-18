@@ -57,6 +57,14 @@
                 exit(EXIT_FAILURE); \
         }
 
+#define GSLog(...) \
+        { \
+                char String##__LINE__[256];                             \
+                sprintf(String##__LINE__, "In %s() at line #%i: ", __func__, __LINE__); \
+                fprintf(stdout, String##__LINE__);                       \
+                fprintf(stdout, __VA_ARGS__); \
+        }
+
 #define GS1024Inverse 1.0/1024
 #define GSBytesToKilobytes(X) (X) * GS1024Inverse
 #define GSBytesToMegabytes(X) GSBytesToKilobytes((X)) * GS1024Inverse

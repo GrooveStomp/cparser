@@ -2138,6 +2138,8 @@ ParsePointer(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
                 return(false);
         }
 
+        ParseTreeSet(ParseTree, "Pointer", Token);
+
         if(ParseTypeQualifierList(Tokenizer, &ParseTree->Children[0]) &&
            ParsePointer(Tokenizer, &ParseTree->Children[1]))
         {
@@ -3120,13 +3122,14 @@ ParseTranslationUnit(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 }
 
 void
-Parse(gs_buffer *FileContents)
+Parse(gs_buffer *FileContents, bool ShowParseTree)
 {
         parse_tree_node *ParseTree = ParseTreeNew();
 
         struct tokenizer Tokenizer;
         Tokenizer.Beginning = Tokenizer.At = FileContents->Start;
         Tokenizer.Line = Tokenizer.Column = 1;
+        char *FileEnd = FileContents->Start + FileContents->Length - 1;
 
         TypedefInit(TypedefNames);
 
@@ -3140,11 +3143,13 @@ Parse(gs_buffer *FileContents)
 
                 switch(Token.Type)
                 {
+                        /* Done! */
                         case Token_EndOfStream:
                         {
                                 Parsing = false;
                         } break;
 
+                        /* Skip this input. */
                         case Token_PreprocessorCommand:
                         case Token_Comment:
                         case Token_Unknown:
@@ -3152,26 +3157,36 @@ Parse(gs_buffer *FileContents)
                                 Tokenizer = AfterToken;
                         } break;
 
+                        /* Okay, let's parse! */
                         default:
                         {
                                 bool Result = ParseTranslationUnit(&Tokenizer, ParseTree);
 
-                                if(Result && Tokenizer.At == FileContents->Start + FileContents->Length - 1)
+                                if(Result && Tokenizer.At == FileEnd)
+                                {
+
                                         puts("Successfully parsed input");
+                                }
                                 else
                                 {
                                         puts("Input did not parse");
                                         if(!Result)
+                                        {
                                                 puts("Parsing failed");
-                                        else if(Tokenizer.At != FileContents->Start + FileContents->Length - 1)
+                                        }
+                                        else if(Tokenizer.At != FileEnd)
                                         {
                                                 puts("Parsing terminated early");
-                                                printf("Tokenizer->At(%p), File End(%p)\n", Tokenizer.At, FileContents->Start + FileContents->Length - 1);
+                                                printf("Tokenizer->At(%p), File End(%p)\n", Tokenizer.At, FileEnd);
                                         }
                                 }
 
-                                puts("--------------------------------------------------------------------------------");
-                                ParseTreePrint(ParseTree, 0, 2);
+                                if(ShowParseTree)
+                                {
+                                        puts("--------------------------------------------------------------------------------");
+                                        ParseTreePrint(ParseTree, 0, 2);
+                                        puts("--------------------------------------------------------------------------------");
+                                }
                                 Parsing = false;
                         } break;
                 }

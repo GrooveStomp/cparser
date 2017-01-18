@@ -187,6 +187,8 @@ ParseTreePrint(parse_tree_node *Self, unsigned int IndentLevel, unsigned int Ind
         {
                 printf("[%4d,%3d] ", Self->Token.Line, Self->Token.Column);
         }
+        else
+                printf("           ");
 
         if(IndentLevel > 0) printf("%*c", IndentLevel * IndentIncrement, ' ');
 

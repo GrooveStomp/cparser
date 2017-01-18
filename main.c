@@ -9,10 +9,13 @@
 void
 Usage(char *Name)
 {
-        printf("Usage: %s operation file\n", Name);
-        printf("  operation: One of: [parse, lex].\n");
-        printf("  file: Must be a file in this directory.\n");
-        printf("  Specify '-h' or '--help' for this help text.\n");
+        printf("Usage: %s operation file [options]\n", Name);
+        puts("  operation: One of: [parse, lex].");
+        puts("  file: Must be a file in this directory.");
+        puts("  Specify '-h' or '--help' for this help text.");
+        puts("");
+        puts("Options:");
+        puts("  --show-parse-tree: Valid with `parse' subcommand.");
         exit(EXIT_SUCCESS);
 }
 
@@ -22,7 +25,7 @@ main(int ArgCount, char **Arguments)
         gs_args Args;
         GSArgsInit(&Args, ArgCount, Arguments);
         if(GSArgsHelpWanted(&Args)           ||
-           ArgCount != 3                     ||
+           ArgCount < 3                      ||
            (!GSArgsIsPresent(&Args, "parse") &&
             !GSArgsIsPresent(&Args, "lex")))
                 Usage(GSArgsProgramName(&Args));
@@ -36,7 +39,7 @@ main(int ArgCount, char **Arguments)
                 GSAbortWithMessage("Couldn't copy entire file to buffer\n");
 
         if(GSArgsIsPresent(&Args, "parse"))
-                Parse(&Buffer);
+                Parse(&Buffer, GSArgsIsPresent(&Args, "--show-parse-tree"));
         else
                 Lex(&Buffer);
 
