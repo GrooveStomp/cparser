@@ -3155,17 +3155,24 @@ Parse(gs_buffer *FileContents)
                         default:
                         {
                                 bool Result = ParseTranslationUnit(&Tokenizer, ParseTree);
-                                if(Result)
-                                {
+
+                                if(Result && Tokenizer.At == FileContents->Start + FileContents->Length - 1)
                                         puts("Successfully parsed input");
-                                        puts("--------------------------------------------------------------------------------");
-                                        ParseTreePrint(ParseTree, 0, 4);
-                                }
                                 else
                                 {
                                         puts("Input did not parse");
-                                        Parsing = false;
+                                        if(!Result)
+                                                puts("Parsing failed");
+                                        else if(Tokenizer.At != FileContents->Start + FileContents->Length - 1)
+                                        {
+                                                puts("Parsing terminated early");
+                                                printf("Tokenizer->At(%p), File End(%p)\n", Tokenizer.At, FileContents->Start + FileContents->Length - 1);
+                                        }
                                 }
+
+                                puts("--------------------------------------------------------------------------------");
+                                ParseTreePrint(ParseTree, 0, 2);
+                                Parsing = false;
                         } break;
                 }
         }
