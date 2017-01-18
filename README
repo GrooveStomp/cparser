@@ -1,8 +1,15 @@
 --------------------------------------------------------------------------------
  Overview
 --------------------------------------------------------------------------------
-I am ostensibly building a C compiler.  This project started out as a simple
-lexer, but I've moved beyond that and am now dabbling in parsing.
+This is my in-progress C compiler. Currently it only contains a lexer and a
+parser, and the parser is not complete.
+There is no support for the C preprocessor at all.  Any preprocessor commands
+are simply ignored, as are comments.
+
+The parser does parse some C programs, like the provided sample.c.
+There's a really naive parse tree implementation to aid with debugging.
+The `parse' subcommand has a `--show-parse-tree' option that will display this
+parse tree.  Warning! It's really big!
 
 --------------------------------------------------------------------------------
  Setup, Requirements, Etc.
@@ -18,20 +25,9 @@ Build:
 
 Run:
 
-> run --help
-
---------------------------------------------------------------------------------
- Overview
---------------------------------------------------------------------------------
-gs.h is my own "standard" library. I'm maintaining that elsewhere.
-
-gstest.h and test.c are used for testing the lexer and parser. gstest.h is the
-testing portion to gs.h.
-
-sample.c and test.c are test inputs to throw at the lexer and parser.
-
-Of primary concern for anyone reading this are the files: main.c, lexer.c and
-parser.c.
+> ./test # Run tests.
+> ./cparser --help
+> ./cparser parse sample.c --show-parse-tree
 
 --------------------------------------------------------------------------------
  To Do
@@ -40,4 +36,4 @@ parser.c.
   integer-constants.txt test file.
 
 - Unicode support? C unicode libraries: icu, utf8proc, *microutf8*, *nunicode*
-  Both microutf8 and nunicode look quite good.g
+  Both microutf8 and nunicode look quite good.
