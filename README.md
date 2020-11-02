@@ -33,9 +33,13 @@ ignoring GNU extensions.)
 
 Clone this repo and chdir to it.
 
-## Build / Run
+## Build
 
-    $ source env/shell
-    $ build
-    $ ./test # Run tests
-    $ ./cparser --help
+Build `cparser` and `test` executables
+
+    $ make build
+
+Other targets:
+
+    $ make test # Run tests
+    $ make help # Show this help on the CLI

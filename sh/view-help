@@ -1,0 +1,9 @@
+#!/bin/sh
+
+if [ $(which glow 2> /dev/null) ]; then
+    glow $@
+elif [ $(which mdv 2> /dev/null) ]; then
+    mdv $@
+else
+    cat $@
+fi

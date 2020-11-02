@@ -7,10 +7,3 @@
 - C Preprocessor
 
 - Remove GNU extensions
-
-- Make shell scripts POSIX compliant
-
-- Remove custom environment stuff.
-  ie., 'build' should not be a shell function; instead an explicit script you invoke.
-
-- Use Make instead of custom Bash idioms.
