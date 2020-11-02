@@ -3,3 +3,14 @@
 
 - Unicode support? C unicode libraries: icu, utf8proc, *microutf8*, *nunicode*
   Both microutf8 and nunicode look quite good.
+
+- C Preprocessor
+
+- Remove GNU extensions
+
+- Make shell scripts POSIX compliant
+
+- Remove custom environment stuff.
+  ie., 'build' should not be a shell function; instead an explicit script you invoke.
+
+- Use Make instead of custom Bash idioms.
