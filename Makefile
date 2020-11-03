@@ -1,19 +1,17 @@
-.DEFAULT_GOAL := help
+.DEFAULT_GOAL := build
 .PHONY: help test clean
 
 CC=gcc
 CFLAGS=-std=c99 -pedantic-errors -fextended-identifiers -g -x c -gdwarf-2 -g3 -Wno-format-security
 
 build: $(OBJ)
-	$(CC) $(CFLAGS) -o cparser main.c
+	$(CC) $(CFLAGS) -o cparser src/main.c
 
 test:
-	./test
+	$(CC) $(CFLAGS) -o test src/test.c
 
 help:
-	sh ./sh/view-help README.md
+	@sh ./sh/view-help README.md
 
 clean:
-	rm *.o
-	rm cparser
-	rm test
+	@rm -f src/*.o cparser test
