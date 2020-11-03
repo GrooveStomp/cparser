@@ -6,7 +6,7 @@
 #include "lexer.c"
 #include "tree.c"
 
-void __Parser_ParseTreeUpdate(parse_tree_node *ParseTree, char *Name, unsigned int NumChildren) {
+void __Parser_ParseTreeUpdate(parse_tree_node *ParseTree, char *Name, u32 NumChildren) {
         ParseTreeSetName(ParseTree, Name);
         if (NumChildren > 0) {
                 ParseTreeNewChildren(ParseTree, NumChildren);
@@ -19,23 +19,23 @@ void __Parser_ParseTreeClearChildren(parse_tree_node *ParseTree) {
         }
 }
 
-gs_bool ParseAssignmentExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
-gs_bool ParseExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
-gs_bool ParseTypeName(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
-gs_bool ParseCastExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
-gs_bool ParseConditionalExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
-gs_bool ParseStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
-gs_bool ParseDeclarationList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
-gs_bool ParseParameterTypeList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
-gs_bool ParseAbstractDeclarator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
-gs_bool ParsePointer(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
-gs_bool ParseSpecifierQualifierList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
-gs_bool ParseInitializer(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
-gs_bool ParseDeclarationSpecifiers(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
-gs_bool ParseDeclarator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
-gs_bool ParseTypeQualifier(struct tokenizer *Tokneizer, parse_tree_node *ParseTree);
-gs_bool ParseTypeSpecifier(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
-gs_bool ParseDeclaration(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
+bool ParseAssignmentExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
+bool ParseExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
+bool ParseTypeName(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
+bool ParseCastExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
+bool ParseConditionalExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
+bool ParseStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
+bool ParseDeclarationList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
+bool ParseParameterTypeList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
+bool ParseAbstractDeclarator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
+bool ParsePointer(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
+bool ParseSpecifierQualifierList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
+bool ParseInitializer(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
+bool ParseDeclarationSpecifiers(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
+bool ParseDeclarator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
+bool ParseTypeQualifier(struct tokenizer *Tokneizer, parse_tree_node *ParseTree);
+bool ParseTypeSpecifier(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
+bool ParseDeclaration(struct tokenizer *Tokenizer, parse_tree_node *ParseTree);
 
 struct typedef_names {
         char *Name;
@@ -62,7 +62,7 @@ TypedefInit() {
         TypedefNames.NumNames = 0;
 }
 
-gs_bool TypedefIsName(struct token Token) {
+bool TypedefIsName(struct token Token) {
         for(int i = 0; i < TypedefNames.NumNames; i++)
         {
                 if(GSStringIsEqual(Token.Text, &TypedefNames.Name[TypedefNames.NameIndex[i]], Token.TextLength))
@@ -73,7 +73,7 @@ gs_bool TypedefIsName(struct token Token) {
         return(false);
 }
 
-gs_bool TypedefAddName(char *Name) {
+bool TypedefAddName(char *Name) {
         if(TypedefNames.NumNames == 0)
         {
                 GSStringCopy(Name, TypedefNames.Name, GSStringLength(Name));
@@ -105,7 +105,7 @@ gs_bool TypedefAddName(char *Name) {
           floating-constant
           enumeration-constant
 */
-gs_bool ParseConstant(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseConstant(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         struct token Token = GetToken(Tokenizer);
 
@@ -127,7 +127,7 @@ gs_bool ParseConstant(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         }
 }
 
-gs_bool ParseArgumentExpressionListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseArgumentExpressionListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         struct token Token;
 
@@ -150,7 +150,7 @@ gs_bool ParseArgumentExpressionListI(struct tokenizer *Tokenizer, parse_tree_nod
           assignment-expression
           argument-expression-list , assignment-expression
 */
-gs_bool ParseArgumentExpressionList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseArgumentExpressionList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Argument Expresion List", 2);
@@ -172,7 +172,7 @@ gs_bool ParseArgumentExpressionList(struct tokenizer *Tokenizer, parse_tree_node
           string
           ( expression )
 */
-gs_bool ParsePrimaryExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParsePrimaryExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         struct token Tokens[2];
 
@@ -208,7 +208,7 @@ gs_bool ParsePrimaryExpression(struct tokenizer *Tokenizer, parse_tree_node *Par
         return(false);
 }
 
-gs_bool ParsePostfixExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParsePostfixExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         struct token Tokens[2];
 
@@ -299,7 +299,7 @@ gs_bool ParsePostfixExpressionI(struct tokenizer *Tokenizer, parse_tree_node *Pa
           postfix-expression ++
           postfix-expression --
 */
-gs_bool ParsePostfixExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParsePostfixExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Postfix Expression", 2);
@@ -314,7 +314,7 @@ gs_bool ParsePostfixExpression(struct tokenizer *Tokenizer, parse_tree_node *Par
         return(false);
 }
 
-gs_bool ParseUnaryOperator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseUnaryOperator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         struct token Token = GetToken(Tokenizer);
         switch(Token.Type)
@@ -346,7 +346,7 @@ gs_bool ParseUnaryOperator(struct tokenizer *Tokenizer, parse_tree_node *ParseTr
           sizeof unary-expression
           sizeof ( type-name )
 */
-gs_bool ParseUnaryExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseUnaryExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         struct token Tokens[2];
 
@@ -421,7 +421,7 @@ gs_bool ParseUnaryExpression(struct tokenizer *Tokenizer, parse_tree_node *Parse
           unary-expression
           ( type-name ) cast-expression
 */
-gs_bool ParseCastExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseCastExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         struct token Tokens[2];
 
@@ -447,7 +447,7 @@ gs_bool ParseCastExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseT
         return(false);
 }
 
-gs_bool ParseMultiplicativeExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseMultiplicativeExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         struct token Token;
 
@@ -490,7 +490,7 @@ gs_bool ParseMultiplicativeExpressionI(struct tokenizer *Tokenizer, parse_tree_n
           multiplicative-expression / cast-expression
           multiplicative-expression % cast-expression
 */
-gs_bool ParseMultiplicativeExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseMultiplicativeExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Multiplicative Expression", 2);
@@ -505,7 +505,7 @@ gs_bool ParseMultiplicativeExpression(struct tokenizer *Tokenizer, parse_tree_no
         return(false);
 }
 
-gs_bool ParseAdditiveExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseAdditiveExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         struct token Token;
 
@@ -538,7 +538,7 @@ gs_bool ParseAdditiveExpressionI(struct tokenizer *Tokenizer, parse_tree_node *P
           additive-expression + multiplicative-expression
           additive-expression - multiplicative-expression
 */
-gs_bool ParseAdditiveExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseAdditiveExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Additive Expression", 2);
@@ -553,7 +553,7 @@ gs_bool ParseAdditiveExpression(struct tokenizer *Tokenizer, parse_tree_node *Pa
         return(false);
 }
 
-gs_bool ParseShiftExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseShiftExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         struct token Token;
 
@@ -586,7 +586,7 @@ gs_bool ParseShiftExpressionI(struct tokenizer *Tokenizer, parse_tree_node *Pars
           shift-expression << additive-expression
           shift-expression >> additive-expression
 */
-gs_bool ParseShiftExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseShiftExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Shift Expression", 2);
@@ -601,7 +601,7 @@ gs_bool ParseShiftExpression(struct tokenizer *Tokenizer, parse_tree_node *Parse
         return(false);
 }
 
-gs_bool ParseRelationalExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseRelationalExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         struct token Token;
 
@@ -654,7 +654,7 @@ gs_bool ParseRelationalExpressionI(struct tokenizer *Tokenizer, parse_tree_node 
           relational-expression <= shift-exression
           relational-expression >= shift-expression
 */
-gs_bool ParseRelationalExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseRelationalExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Relational Expressoin", 2);
@@ -669,7 +669,7 @@ gs_bool ParseRelationalExpression(struct tokenizer *Tokenizer, parse_tree_node *
         return(false);
 }
 
-gs_bool ParseEqualityExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseEqualityExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         struct token Token;
 
@@ -702,7 +702,7 @@ gs_bool ParseEqualityExpressionI(struct tokenizer *Tokenizer, parse_tree_node *P
           equality-expression == relational-expression
           equality-expression != relational-expression
 */
-gs_bool ParseEqualityExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseEqualityExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Equality Expression", 2);
@@ -717,7 +717,7 @@ gs_bool ParseEqualityExpression(struct tokenizer *Tokenizer, parse_tree_node *Pa
         return(false);
 }
 
-gs_bool ParseAndExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseAndExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         struct token Token;
 
@@ -740,7 +740,7 @@ gs_bool ParseAndExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseT
           equality-expression
           AND-expression & equality-expression
 */
-gs_bool ParseAndExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseAndExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "And Expression", 2);
@@ -755,7 +755,7 @@ gs_bool ParseAndExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTr
         return(false);
 }
 
-gs_bool ParseExclusiveOrExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseExclusiveOrExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         struct token Token;
 
@@ -778,7 +778,7 @@ gs_bool ParseExclusiveOrExpressionI(struct tokenizer *Tokenizer, parse_tree_node
           AND-expression
           exclusive-OR-expression ^ AND-expression
  */
-gs_bool ParseExclusiveOrExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseExclusiveOrExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Exclusive Or Expression", 2);
@@ -793,7 +793,7 @@ gs_bool ParseExclusiveOrExpression(struct tokenizer *Tokenizer, parse_tree_node 
         return(false);
 }
 
-gs_bool ParseInclusiveOrExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseInclusiveOrExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         struct token Token;
 
@@ -816,7 +816,7 @@ gs_bool ParseInclusiveOrExpressionI(struct tokenizer *Tokenizer, parse_tree_node
           exclusive-OR-expression
           inclusive-OR-expression | exclusive-OR-expression
 */
-gs_bool ParseInclusiveOrExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseInclusiveOrExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Inclusive Or Expression", 2);
@@ -831,7 +831,7 @@ gs_bool ParseInclusiveOrExpression(struct tokenizer *Tokenizer, parse_tree_node 
         return(false);
 }
 
-gs_bool ParseLogicalAndExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseLogicalAndExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         struct token Token;
 
@@ -854,7 +854,7 @@ gs_bool ParseLogicalAndExpressionI(struct tokenizer *Tokenizer, parse_tree_node 
           inclusive-OR-expression
           logical-AND-expression && inclusive-OR-expression
 */
-gs_bool ParseLogicalAndExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseLogicalAndExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Logical And Expression", 2);
@@ -869,7 +869,7 @@ gs_bool ParseLogicalAndExpression(struct tokenizer *Tokenizer, parse_tree_node *
         return(false);
 }
 
-gs_bool ParseLogicalOrExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseLogicalOrExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         struct token Token;
 
@@ -892,7 +892,7 @@ gs_bool ParseLogicalOrExpressionI(struct tokenizer *Tokenizer, parse_tree_node *
           logical-AND-expression
           logical-OR-expression || logical-AND-expression
 */
-gs_bool ParseLogicalOrExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseLogicalOrExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Logical Or Expression", 2);
@@ -911,7 +911,7 @@ gs_bool ParseLogicalOrExpression(struct tokenizer *Tokenizer, parse_tree_node *P
   constant-expression:
           conditional-expression
 */
-gs_bool ParseConstantExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseConstantExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Constant Expression", 1);
@@ -930,7 +930,7 @@ gs_bool ParseConstantExpression(struct tokenizer *Tokenizer, parse_tree_node *Pa
           logical-OR-expression
           logical-OR-expression ? expression : conditional-expression
 */
-gs_bool ParseConditionalExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseConditionalExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         struct token Tokens[2];
 
@@ -963,7 +963,7 @@ gs_bool ParseConditionalExpression(struct tokenizer *Tokenizer, parse_tree_node 
   assignment-operator:
   one of: = *= /= %= += -= <<= >>= &= ^= |=
 */
-gs_bool ParseAssignmentOperator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseAssignmentOperator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         struct token Token = GetToken(Tokenizer);
 
@@ -995,7 +995,7 @@ gs_bool ParseAssignmentOperator(struct tokenizer *Tokenizer, parse_tree_node *Pa
           conditional-expression
           unary-expression assignment-operator assignment-expression
 */
-gs_bool ParseAssignmentExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseAssignmentExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Assignment Expression", 3);
@@ -1019,7 +1019,7 @@ gs_bool ParseAssignmentExpression(struct tokenizer *Tokenizer, parse_tree_node *
         return(false);
 }
 
-gs_bool ParseExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         struct token Token;
 
@@ -1042,7 +1042,7 @@ gs_bool ParseExpressionI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree
           assignment-expression
           expression , assignment-expression
 */
-gs_bool ParseExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Expression", 2);
@@ -1057,7 +1057,7 @@ gs_bool ParseExpression(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
         return(false);
 }
 
-gs_bool ParseIdentifier(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseIdentifier(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         struct token Token;
 
@@ -1078,7 +1078,7 @@ gs_bool ParseIdentifier(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
           break ;
           return expression(opt) ;
 */
-gs_bool ParseJumpStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseJumpStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         struct token Tokens[2];
         Tokens[0] = GetToken(Tokenizer);
@@ -1153,7 +1153,7 @@ gs_bool ParseJumpStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTr
           do statement while ( expression) ;
           for ( expression(opt) ; expression(opt) ; expression(opt) ) statement
 */
-gs_bool ParseIterationStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseIterationStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         struct token Tokens[5];
         Tokens[0] = GetToken(Tokenizer);
@@ -1269,7 +1269,7 @@ gs_bool ParseIterationStatement(struct tokenizer *Tokenizer, parse_tree_node *Pa
           if ( expression ) statement else statement
           switch ( expression ) statement
 */
-gs_bool ParseSelectionStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseSelectionStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         struct token Tokens[3];
         Tokens[0] = GetToken(Tokenizer);
@@ -1323,7 +1323,7 @@ gs_bool ParseSelectionStatement(struct tokenizer *Tokenizer, parse_tree_node *Pa
         return(false);
 }
 
-gs_bool ParseStatementListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseStatementListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Statement List'", 2);
@@ -1343,7 +1343,7 @@ gs_bool ParseStatementListI(struct tokenizer *Tokenizer, parse_tree_node *ParseT
           statement
           statement-list statement
 */
-gs_bool ParseStatementList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseStatementList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Statement List", 2);
@@ -1362,7 +1362,7 @@ gs_bool ParseStatementList(struct tokenizer *Tokenizer, parse_tree_node *ParseTr
   compound-statement:
           { declaration-list(opt) statement-list(opt) }
 */
-gs_bool ParseCompoundStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseCompoundStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         token Token;
 
@@ -1402,7 +1402,7 @@ gs_bool ParseCompoundStatement(struct tokenizer *Tokenizer, parse_tree_node *Par
   expression-statement:
           expression(opt) ;
 */
-gs_bool ParseExpressionStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseExpressionStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         token Token;
 
@@ -1434,7 +1434,7 @@ gs_bool ParseExpressionStatement(struct tokenizer *Tokenizer, parse_tree_node *P
           case constant-expression : statement
           default : statement
 */
-gs_bool ParseLabeledStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseLabeledStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         token Tokens[2];
 
@@ -1489,7 +1489,7 @@ gs_bool ParseLabeledStatement(struct tokenizer *Tokenizer, parse_tree_node *Pars
           iteration-statement
           jump-statement
 */
-gs_bool ParseStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Statement", 1);
@@ -1520,7 +1520,7 @@ gs_bool ParseStatement(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) 
   typedef-name:
           identifier
 */
-gs_bool ParseTypedefName(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseTypedefName(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         struct token Token = GetToken(Tokenizer);
         *Tokenizer = Start;
@@ -1543,7 +1543,7 @@ gs_bool ParseTypedefName(struct tokenizer *Tokenizer, parse_tree_node *ParseTree
           direct-abstract-declarator(opt) [ constant-expression(opt) ]
           direct-abstract-declarator(opt) ( parameter-type-list(opt) )
 */
-gs_bool ParseDirectAbstractDeclaratorI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseDirectAbstractDeclaratorI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         token Tokens[2];
 
@@ -1604,7 +1604,7 @@ gs_bool ParseDirectAbstractDeclaratorI(struct tokenizer *Tokenizer, parse_tree_n
           direct-abstract-declarator(opt) [ constant-expression(opt) ]
           direct-abstract-declarator(opt) ( parameter-type-list(opt) )
 */
-gs_bool ParseDirectAbstractDeclarator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseDirectAbstractDeclarator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         token Tokens[2];
 
@@ -1673,7 +1673,7 @@ gs_bool ParseDirectAbstractDeclarator(struct tokenizer *Tokenizer, parse_tree_no
           pointer
           pointer(opt) direct-abstract-declarator
 */
-gs_bool ParseAbstractDeclarator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseAbstractDeclarator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Abstract Declarator", 2);
@@ -1706,7 +1706,7 @@ gs_bool ParseAbstractDeclarator(struct tokenizer *Tokenizer, parse_tree_node *Pa
   type-name:
           specifier-qualifier-list abstract-declarator(opt)
 */
-gs_bool ParseTypeName(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseTypeName(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Type Name", 2);
@@ -1729,7 +1729,7 @@ gs_bool ParseTypeName(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         return(false);
 }
 
-gs_bool ParseInitializerListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseInitializerListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         token Token;
 
@@ -1752,7 +1752,7 @@ gs_bool ParseInitializerListI(struct tokenizer *Tokenizer, parse_tree_node *Pars
           initializer
           initializer-list , initializer
 */
-gs_bool ParseInitializerList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseInitializerList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Initializer List", 2);
@@ -1773,7 +1773,7 @@ gs_bool ParseInitializerList(struct tokenizer *Tokenizer, parse_tree_node *Parse
           { initializer-list }
           { initializer-list , }
 */
-gs_bool ParseInitializer(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseInitializer(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         token Tokens[3];
 
@@ -1810,7 +1810,7 @@ gs_bool ParseInitializer(struct tokenizer *Tokenizer, parse_tree_node *ParseTree
         return(false);
 }
 
-gs_bool ParseIdentifierListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseIdentifierListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         token Token;
 
@@ -1833,7 +1833,7 @@ gs_bool ParseIdentifierListI(struct tokenizer *Tokenizer, parse_tree_node *Parse
           identifier
           identifier-list , identifier
 */
-gs_bool ParseIdentifierList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseIdentifierList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Identifier List", 2);
@@ -1853,7 +1853,7 @@ gs_bool ParseIdentifierList(struct tokenizer *Tokenizer, parse_tree_node *ParseT
           declaration-specifiers declarator
           declaration-specifiers abstract-declarator(opt)
 */
-gs_bool ParseParameterDeclaration(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseParameterDeclaration(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Parameter Declaration", 2);
@@ -1883,7 +1883,7 @@ gs_bool ParseParameterDeclaration(struct tokenizer *Tokenizer, parse_tree_node *
         return(false);
 }
 
-gs_bool ParseParameterListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseParameterListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         token Token;
 
@@ -1906,7 +1906,7 @@ gs_bool ParseParameterListI(struct tokenizer *Tokenizer, parse_tree_node *ParseT
           parameter-declaration
           parameter-list , parameter-declaration
 */
-gs_bool ParseParameterList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseParameterList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Parameter List", 2);
@@ -1926,7 +1926,7 @@ gs_bool ParseParameterList(struct tokenizer *Tokenizer, parse_tree_node *ParseTr
           parameter-list
           parameter-list , ...
 */
-gs_bool ParseParameterTypeList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseParameterTypeList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         token Tokens[2];
 
@@ -1951,7 +1951,7 @@ gs_bool ParseParameterTypeList(struct tokenizer *Tokenizer, parse_tree_node *Par
         return(false);
 }
 
-gs_bool ParseTypeQualifierListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseTypeQualifierListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Type Qualifier List'", 2);
@@ -1971,7 +1971,7 @@ gs_bool ParseTypeQualifierListI(struct tokenizer *Tokenizer, parse_tree_node *Pa
           type-qualifier
           type-qualifier-list type-qualifier
 */
-gs_bool ParseTypeQualifierList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseTypeQualifierList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Type Qualifier List", 2);
@@ -1991,7 +1991,7 @@ gs_bool ParseTypeQualifierList(struct tokenizer *Tokenizer, parse_tree_node *Par
           * type-qualifier-list(opt)
           * type-qualifier-list(opt) pointer
   */
-gs_bool ParsePointer(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParsePointer(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         struct token Token = GetToken(Tokenizer);
         struct tokenizer AtToken = *Tokenizer;
@@ -2038,7 +2038,7 @@ gs_bool ParsePointer(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
           direct-declarator ( parameter-type-list )
           direct-declarator ( identifier-list(opt) )
 */
-gs_bool ParseDirectDeclaratorI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseDirectDeclaratorI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         token Tokens[2];
 
@@ -2112,7 +2112,7 @@ gs_bool ParseDirectDeclaratorI(struct tokenizer *Tokenizer, parse_tree_node *Par
           direct-declarator ( parameter-type-list )
           direct-declarator ( identifier-list(opt) )
 */
-gs_bool ParseDirectDeclarator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseDirectDeclarator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         token Tokens[2];
 
@@ -2143,7 +2143,7 @@ gs_bool ParseDirectDeclarator(struct tokenizer *Tokenizer, parse_tree_node *Pars
   declarator:
           pointer(opt) direct-declarator
 */
-gs_bool ParseDeclarator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseDeclarator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Declarator", 2);
@@ -2171,7 +2171,7 @@ gs_bool ParseDeclarator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
           identifier
           identifier = constant-expression
 */
-gs_bool ParseEnumerator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseEnumerator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         token Token;
 
@@ -2197,7 +2197,7 @@ gs_bool ParseEnumerator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
         return(false);
 }
 
-gs_bool ParseEnumeratorListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseEnumeratorListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         token Token;
 
@@ -2220,7 +2220,7 @@ gs_bool ParseEnumeratorListI(struct tokenizer *Tokenizer, parse_tree_node *Parse
           enumerator
           enumerator-list , enumerator
 */
-gs_bool ParseEnumeratorList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseEnumeratorList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Enumerator List", 2);
@@ -2240,7 +2240,7 @@ gs_bool ParseEnumeratorList(struct tokenizer *Tokenizer, parse_tree_node *ParseT
           enum identifier(opt) { enumerator-list }
           enum identifier
 */
-gs_bool ParseEnumSpecifier(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseEnumSpecifier(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         struct token Token = GetToken(Tokenizer);
         struct tokenizer AtToken = *Tokenizer;
@@ -2297,7 +2297,7 @@ gs_bool ParseEnumSpecifier(struct tokenizer *Tokenizer, parse_tree_node *ParseTr
           declarator
           declarator(opt) : constant-expression
 */
-gs_bool ParseStructDeclarator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseStructDeclarator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         token Token;
 
@@ -2333,7 +2333,7 @@ gs_bool ParseStructDeclarator(struct tokenizer *Tokenizer, parse_tree_node *Pars
         return(false);
 }
 
-gs_bool ParseStructDeclaratorListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseStructDeclaratorListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         token Token;
 
@@ -2356,7 +2356,7 @@ gs_bool ParseStructDeclaratorListI(struct tokenizer *Tokenizer, parse_tree_node 
           struct-declarator
           struct-declarator-list , struct-declarator
 */
-gs_bool ParseStructDeclaratorList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseStructDeclaratorList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Struct Declarator List", 2);
@@ -2376,7 +2376,7 @@ gs_bool ParseStructDeclaratorList(struct tokenizer *Tokenizer, parse_tree_node *
           type-specifier specifier-qualifier-list(opt)
           type-qualifier specifier-qualifier-list(opt)
 */
-gs_bool ParseSpecifierQualifierList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseSpecifierQualifierList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Specifier Qualifier List", 2);
@@ -2418,7 +2418,7 @@ gs_bool ParseSpecifierQualifierList(struct tokenizer *Tokenizer, parse_tree_node
   struct-declaration:
           specifier-qualifier-list struct-declarator-list ;
 */
-gs_bool ParseStructDeclaration(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseStructDeclaration(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         token Token;
 
@@ -2441,7 +2441,7 @@ gs_bool ParseStructDeclaration(struct tokenizer *Tokenizer, parse_tree_node *Par
           declarator
           declarator = initializer
 */
-gs_bool ParseInitDeclarator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseInitDeclarator(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         token Token;
 
@@ -2467,7 +2467,7 @@ gs_bool ParseInitDeclarator(struct tokenizer *Tokenizer, parse_tree_node *ParseT
         return(false);
 }
 
-gs_bool ParseInitDeclaratorListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseInitDeclaratorListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         token Token;
 
@@ -2489,7 +2489,7 @@ gs_bool ParseInitDeclaratorListI(struct tokenizer *Tokenizer, parse_tree_node *P
           init-declarator
           init-declarator-list , init-declarator
 */
-gs_bool ParseInitDeclaratorList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseInitDeclaratorList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Init Declaration List", 2);
@@ -2504,7 +2504,7 @@ gs_bool ParseInitDeclaratorList(struct tokenizer *Tokenizer, parse_tree_node *Pa
         return(false);
 }
 
-gs_bool ParseStructDeclarationListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseStructDeclarationListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Struct Declaration List'", 2);
@@ -2524,7 +2524,7 @@ gs_bool ParseStructDeclarationListI(struct tokenizer *Tokenizer, parse_tree_node
           struct-declaration
           struct-declaration-list struct-declaration
 */
-gs_bool ParseStructDeclarationList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseStructDeclarationList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Struct Declaration List", 2);
@@ -2543,7 +2543,7 @@ gs_bool ParseStructDeclarationList(struct tokenizer *Tokenizer, parse_tree_node 
   struct-or-union:
   One of: struct union
 */
-gs_bool ParseStructOrUnion(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseStructOrUnion(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         struct token Token = GetToken(Tokenizer);
 
@@ -2566,7 +2566,7 @@ gs_bool ParseStructOrUnion(struct tokenizer *Tokenizer, parse_tree_node *ParseTr
           struct-or-union identifier(opt) { struct-declaration-list }
           struct-or-union identifier
 */
-gs_bool ParseStructOrUnionSpecifier(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseStructOrUnionSpecifier(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Struct or Union Specifier", 5);
@@ -2614,7 +2614,7 @@ gs_bool ParseStructOrUnionSpecifier(struct tokenizer *Tokenizer, parse_tree_node
   type-qualifier:
   One of: const volatile
 */
-gs_bool ParseTypeQualifier(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseTypeQualifier(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         struct token Token = GetToken(Tokenizer);
 
@@ -2637,7 +2637,7 @@ gs_bool ParseTypeQualifier(struct tokenizer *Tokenizer, parse_tree_node *ParseTr
   One of: void char short int long float double signed unsigned
   struct-or-union-specifier enum-specifier typedef-name
 */
-gs_bool ParseTypeSpecifier(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseTypeSpecifier(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         char *Keywords[] = { "void", "char", "short", "int", "long", "float",
                              "double", "signed", "unsigned" };
@@ -2683,7 +2683,7 @@ gs_bool ParseTypeSpecifier(struct tokenizer *Tokenizer, parse_tree_node *ParseTr
   storage-class-specifier:
   One of: auto register static extern typedef
 */
-gs_bool ParseStorageClassSpecifier(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseStorageClassSpecifier(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         char *Keywords[] = { "auto", "register", "static", "extern", "typedef" };
 
@@ -2711,7 +2711,7 @@ gs_bool ParseStorageClassSpecifier(struct tokenizer *Tokenizer, parse_tree_node 
           type-specifier declaration-specifiers(opt)
           type-qualifier declaration-specifiers(opt)
 */
-gs_bool ParseDeclarationSpecifiers(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseDeclarationSpecifiers(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Declaration Specifiers", 2);
@@ -2760,7 +2760,7 @@ gs_bool ParseDeclarationSpecifiers(struct tokenizer *Tokenizer, parse_tree_node 
         return(false);
 }
 
-gs_bool ParseDeclarationListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseDeclarationListI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Declaration List'", 2);
@@ -2780,7 +2780,7 @@ gs_bool ParseDeclarationListI(struct tokenizer *Tokenizer, parse_tree_node *Pars
           declaration
           declaration-list declaration
 */
-gs_bool ParseDeclarationList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseDeclarationList(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Declaration List", 2);
@@ -2799,7 +2799,7 @@ gs_bool ParseDeclarationList(struct tokenizer *Tokenizer, parse_tree_node *Parse
   declaration:
           declaration-specifiers init-declarator-list(opt) ;
 */
-gs_bool ParseDeclaration(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseDeclaration(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
         struct token Token;
 
@@ -2829,7 +2829,7 @@ gs_bool ParseDeclaration(struct tokenizer *Tokenizer, parse_tree_node *ParseTree
   function-definition:
           declaration-specifiers(opt) declarator declaration-list(opt) compound-statement
 */
-gs_bool ParseFunctionDefinition(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseFunctionDefinition(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Function Definition", 4);
@@ -2878,7 +2878,7 @@ gs_bool ParseFunctionDefinition(struct tokenizer *Tokenizer, parse_tree_node *Pa
           function-definition
           declaration
 */
-gs_bool ParseExternalDeclaration(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseExternalDeclaration(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "External Declaration", 1);
@@ -2892,7 +2892,7 @@ gs_bool ParseExternalDeclaration(struct tokenizer *Tokenizer, parse_tree_node *P
         return(false);
 }
 
-gs_bool ParseTranslationUnitI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseTranslationUnitI(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Translation Unit'", 2);
@@ -2912,7 +2912,7 @@ gs_bool ParseTranslationUnitI(struct tokenizer *Tokenizer, parse_tree_node *Pars
           external-declaration
           translation-unit external-declaration
 */
-gs_bool ParseTranslationUnit(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
+bool ParseTranslationUnit(struct tokenizer *Tokenizer, parse_tree_node *ParseTree) {
         struct tokenizer Start = *Tokenizer;
 
         __Parser_ParseTreeUpdate(ParseTree, "Translation Unit", 2);
@@ -2927,7 +2927,7 @@ gs_bool ParseTranslationUnit(struct tokenizer *Tokenizer, parse_tree_node *Parse
         return(false);
 }
 
-void Parse(gs_buffer *FileContents, gs_bool ShowParseTree) {
+void Parse(gs_buffer *FileContents, bool ShowParseTree) {
         parse_tree_allocator Allocator;
         Allocator.Alloc = malloc;
         Allocator.Free = free;
@@ -2940,7 +2940,7 @@ void Parse(gs_buffer *FileContents, gs_bool ShowParseTree) {
 
         TypedefInit(TypedefNames);
 
-        gs_bool Parsing = true;
+        bool Parsing = true;
         while(Parsing)
         {
                 struct tokenizer Start = Tokenizer;
@@ -2967,7 +2967,7 @@ void Parse(gs_buffer *FileContents, gs_bool ShowParseTree) {
                         /* Okay, let's parse! */
                         default:
                         {
-                                gs_bool Result = ParseTranslationUnit(&Tokenizer, ParseTree);
+                                bool Result = ParseTranslationUnit(&Tokenizer, ParseTree);
 
                                 if(Result && Tokenizer.At == FileEnd)
                                 {

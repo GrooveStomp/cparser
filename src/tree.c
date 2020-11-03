@@ -1,11 +1,9 @@
-#ifndef TREE2
-#define TREE2
+#ifndef TREE
+#define TREE
 
 #include <stdint.h>
-#include <stddef.h>
 #include <errno.h>
 #include "gs.h"
-#include "lexer.c"
 
 #define DEFAULT_ALLOC_COUNT 2
 
@@ -21,9 +19,9 @@ typedef struct parse_tree_allocator {
 
 typedef struct parse_tree_node {
         parse_tree_allocator Allocator;
-        uint32_t NameLength;
-        uint32_t Capacity;
-        uint32_t NumChildren;
+        u32 NameLength;
+        u32 Capacity;
+        u32 NumChildren;
         token Token;
         char *Name;
         struct parse_tree_node *Children;
@@ -35,8 +33,8 @@ void ParseTreeDeinit(parse_tree_node *Node);
 void ParseTreeSetName(parse_tree_node *Node, char *Name);
 void ParseTreeSetToken(parse_tree_node *Node, token Token);
 void ParseTreeSet(parse_tree_node *Self, char *Name, token Token);
-void ParseTreeNewChildren(parse_tree_node *Self, uint32_t Count);
-void ParseTreePrint(parse_tree_node *Self, uint32_t IndentLevel, uint32_t IndentIncrement);
+void ParseTreeNewChildren(parse_tree_node *Self, u32 Count);
+void ParseTreePrint(parse_tree_node *Self, u32 IndentLevel, u32 IndentIncrement);
 
 parse_tree_node *__tree_Alloc(parse_tree_allocator Allocator) {
         parse_tree_node *Node = (parse_tree_node *)Allocator.Alloc(sizeof(*Node));
@@ -69,7 +67,7 @@ parse_tree_node *ParseTreeInit(parse_tree_allocator Allocator) {
 
 /* Name must be a NULL-terminated string! */
 void ParseTreeSetName(parse_tree_node *Node, char *Name) {
-        unsigned int NameLength = GSStringLength(Name);
+        u32 NameLength = GSStringLength(Name);
         if (Node->Name != NULL) {
                 Node->Allocator.Free(Node->Name);
         }
@@ -94,8 +92,8 @@ void ParseTreeSet(parse_tree_node *Self, char *Name, token Token) {
 }
 
 void __tree_AddChild(parse_tree_node *Self, char *Name) {
-        unsigned int NameLength = GSStringLength(Name);
-        unsigned int AllocCount = DEFAULT_ALLOC_COUNT;
+        u32 NameLength = GSStringLength(Name);
+        u32 AllocCount = DEFAULT_ALLOC_COUNT;
 
         if (Self->Children == NULL) {
                 Self->Children = (parse_tree_node *)malloc(sizeof(parse_tree_node) * AllocCount);
@@ -134,7 +132,7 @@ void __tree_AddChild(parse_tree_node *Self, char *Name) {
         Self->NumChildren++;
 }
 
-void ParseTreeNewChildren(parse_tree_node *Self, unsigned int Count) {
+void ParseTreeNewChildren(parse_tree_node *Self, u32 Count) {
         for (int i=0; i<Count; i++) {
                 __tree_AddChild(Self, "Empty");
         }
@@ -161,7 +159,7 @@ void ParseTreeDeinit(parse_tree_node *Self) {
         Self->Allocator.Free(Self);
 }
 
-void ParseTreePrint(parse_tree_node *Self, uint32_t IndentLevel, uint32_t IndentIncrement) {
+void ParseTreePrint(parse_tree_node *Self, u32 IndentLevel, u32 IndentIncrement) {
         int MinCompareLength = GSMin(Self->NameLength, 5);
         if (GSStringIsEqual("Empty", Self->Name, MinCompareLength)) return;
 
@@ -188,4 +186,4 @@ void ParseTreePrint(parse_tree_node *Self, uint32_t IndentLevel, uint32_t Indent
         }
 }
 
-#endif // TREE2
+#endif // TREE

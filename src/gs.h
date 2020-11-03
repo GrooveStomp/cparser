@@ -3,7 +3,7 @@
  * Created: 2016-07-14
  * Last Updated: 2016-08-22
  * Creator: Aaron Oman (a.k.a GrooveStomp)
- * Notice: (C) Copyright 2016 by Aaron Oman
+ * Notice: (C) Copyright 2016-2020 by Aaron Oman
  *-----------------------------------------------------------------------------
  *
  * Standard library for personal use. Heavily influenced by Sean Barrett's stb.
@@ -11,7 +11,7 @@
  ******************************************************************************/
 #ifndef GS_H
 #define GS_H
-#define GS_VERSION 0.2.0
+#define GS_VERSION 0.2.0-dev
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -70,18 +70,33 @@
 #define GSBytesToMegabytes(X) GSBytesToKilobytes((X)) * GS1024Inverse
 #define GSBytesToGigabytes(X) GSBytesToMegabytes((X)) * GS1024Inverse
 
+/******************************************************************************
+ * Primitive Type Definitions
+ * TODO: Conditionally do typedefs?
+ ******************************************************************************/
 #define GSNullChar '\0'
 #define GSNullPtr NULL
 
-/******************************************************************************
- * Boolean Definitions
- ******************************************************************************/
-
-typedef int gs_bool;
+typedef int bool;
 #ifndef false
 #define false 0
 #define true !false
 #endif
+
+typedef char i8;
+typedef unsigned char u8;
+typedef short i16;
+typedef unsigned short u16;
+typedef int i32;
+typedef unsigned int u32;
+typedef long i64;
+typedef unsigned long u64;
+typedef long long i128;
+typedef unsigned long long u128;
+
+typedef float f32;
+typedef double f64;
+typedef long double f128;
 
 /******************************************************************************
  * Character Definitions
@@ -89,20 +104,20 @@ typedef int gs_bool;
  * Functions to interact with C's basic ASCII char type.
  ******************************************************************************/
 
-gs_bool
+bool
 GSCharIsEndOfStream(char C)
 {
 	return(C == '\0');
 }
 
-gs_bool
+bool
 GSCharIsEndOfLine(char C)
 {
 	return((C == '\n') ||
 	       (C == '\r'));
 }
 
-gs_bool
+bool
 GSCharIsWhitespace(char C)
 {
 	return((C == ' ') ||
@@ -112,47 +127,47 @@ GSCharIsWhitespace(char C)
 	       GSCharIsEndOfLine(C));
 }
 
-gs_bool
+bool
 GSCharIsOctal(char C)
 {
-	gs_bool Result = (C >= '0' && C <= '7');
+	bool Result = (C >= '0' && C <= '7');
 	return(Result);
 }
 
-gs_bool
+bool
 GSCharIsDecimal(char C)
 {
-	gs_bool Result = (C >= '0' && C <= '9');
+	bool Result = (C >= '0' && C <= '9');
 	return(Result);
 }
 
-gs_bool
+bool
 GSCharIsHexadecimal(char C)
 {
-	gs_bool Result = ((C >= '0' && C <= '9') ||
+	bool Result = ((C >= '0' && C <= '9') ||
 		       (C >= 'a' && C <= 'f') ||
 		       (C >= 'A' && C <= 'F'));
 	return(Result);
 }
 
-gs_bool
+bool
 GSCharIsAlphabetical(char C)
 {
-	gs_bool Result = ((C >= 'a' && C <= 'z') || (C >= 'A' && C <= 'Z'));
+	bool Result = ((C >= 'a' && C <= 'z') || (C >= 'A' && C <= 'Z'));
 	return(Result);
 }
 
-gs_bool
+bool
 GSCharIsAlphanumeric(char C)
 {
-        gs_bool Result = GSCharIsAlphabetical(C) || GSCharIsDecimal(C);
+        bool Result = GSCharIsAlphabetical(C) || GSCharIsDecimal(C);
         return(Result);
 }
 
-gs_bool
+bool
 GSCharIsUpcase(char C)
 {
-        gs_bool Result =
+        bool Result =
                 GSCharIsAlphabetical(C) &&
                 (C >= 'A') &&
                 (C <= 'Z');
@@ -174,10 +189,10 @@ GSCharUpcase(char C)
         return(Result);
 }
 
-gs_bool
+bool
 GSCharIsDowncase(char C)
 {
-        gs_bool Result =
+        bool Result =
                 GSCharIsAlphabetical(C) &&
                 (C >= 'a') &&
                 (C <= 'z');
@@ -205,7 +220,7 @@ GSCharDowncase(char C)
  * C string type. That is, ASCII characters with terminating NULL.
  ******************************************************************************/
 
-gs_bool
+bool
 GSStringIsEqual(char *LeftString, char *RightString, int MaxNumToMatch)
 {
 	int NumMatched = 0;
@@ -242,7 +257,7 @@ GSStringLength(char *String)
 	return(P - String);
 }
 
-gs_bool
+bool
 GSStringCopy(char *Source, char *Dest, int Max)
 {
         if(Source == NULL || Dest == NULL)
@@ -260,7 +275,7 @@ GSStringCopy(char *Source, char *Dest, int Max)
         return(true);
 }
 
-gs_bool
+bool
 GSStringCopyNoNull(char *Source, char *Dest, int Max)
 {
         if(Source == NULL || Dest == NULL)
@@ -422,7 +437,7 @@ GSStringCapitalize(char *Source, unsigned int Length)
         return(Source);
 }
 
-typedef gs_bool (*GSStringFilterFn)(char C);
+typedef bool (*GSStringFilterFn)(char C);
 
 int /* Returns length of new string */
 GSStringKeep(char *Source, char *Dest, unsigned int MaxLength, GSStringFilterFn FilterFn)
@@ -542,7 +557,7 @@ GSHashMapInit(void *Memory, unsigned int MaxKeyLength, unsigned int NumEntries)
         return(Self);
 }
 
-gs_bool
+bool
 __GSHashMapUpdate(gs_hash_map *Self, char *Key, void *Value)
 {
         unsigned int KeyLength = GSStringLength(Key);
@@ -567,7 +582,7 @@ __GSHashMapUpdate(gs_hash_map *Self, char *Key, void *Value)
         return(false);
 }
 
-gs_bool /* Wanted must be a NULL terminated string */
+bool /* Wanted must be a NULL terminated string */
 GSHashMapHasKey(gs_hash_map *Self, char *Wanted)
 {
         unsigned int HashIndex = __GSHashMapComputeHash(Self, Wanted);
@@ -602,7 +617,7 @@ GSHashMapHasKey(gs_hash_map *Self, char *Wanted)
              See: https://en.wikipedia.org/wiki/Open_addressing
   Key must be a NULL terminated string.
  */
-gs_bool
+bool
 GSHashMapSet(gs_hash_map *Self, char *Key, void *Value)
 {
         unsigned int KeyLength = GSStringLength(Key);
@@ -647,7 +662,7 @@ GSHashMapSet(gs_hash_map *Self, char *Key, void *Value)
         return(false);
 }
 
-gs_bool /* Memory must be large enough for the resized Hash. Memory _cannot_ overlap! */
+bool /* Memory must be large enough for the resized Hash. Memory _cannot_ overlap! */
 GSHashMapGrow(gs_hash_map **Self, unsigned int NumEntries, void *New)
 {
         gs_hash_map *Old = *Self;
@@ -663,7 +678,7 @@ GSHashMapGrow(gs_hash_map **Self, unsigned int NumEntries, void *New)
                 char *Value = (char *)(Old->Values[I]);
                 if(Key != NULL)
                 {
-                        gs_bool Success = GSHashMapSet(*Self, Key, Value);
+                        bool Success = GSHashMapSet(*Self, Key, Value);
                         if(!Success)
                                 GSAbortWithMessage("This should have worked!\n");
                 }
@@ -763,7 +778,7 @@ GSArgsProgramName(gs_args *Self)
         return(Result);
 }
 
-gs_bool
+bool
 GSArgsIsPresent(gs_args *Args, char *Wanted)
 {
         int StringLength = GSStringLength(Wanted);
@@ -811,7 +826,7 @@ GSArgsAfter(gs_args *Args, char *Marker)
         return(Arg);
 }
 
-gs_bool
+bool
 GSArgsHelpWanted(gs_args *Args)
 {
         if(GSArgsIsPresent(Args, "-h") ||
@@ -845,11 +860,11 @@ GSBufferInit(gs_buffer *Buffer, char *Start, size_t Size)
         return(Buffer);
 }
 
-gs_bool
+bool
 GSBufferIsEOF(gs_buffer *Buffer)
 {
         int Size = Buffer->Cursor - Buffer->Start;
-        gs_bool Result = Size >= Buffer->Length;
+        bool Result = Size >= Buffer->Length;
         return(Result);
 }
 
@@ -868,14 +883,14 @@ GSBufferNextLine(gs_buffer *Buffer)
         Buffer->Cursor++;
 }
 
-gs_bool
+bool
 GSBufferSaveCursor(gs_buffer *Buffer)
 {
         Buffer->SavedCursor = Buffer->Cursor;
         return(true);
 }
 
-gs_bool
+bool
 GSBufferRestoreCursor(gs_buffer *Buffer)
 {
         if(Buffer->SavedCursor == NULL) return(false);
@@ -899,7 +914,7 @@ GSFileSize(char *FileName)
         return(FileSize);
 }
 
-gs_bool
+bool
 GSFileCopyToBuffer(char *FileName, gs_buffer *Buffer)
 {
         FILE *File = fopen(FileName, "r");
