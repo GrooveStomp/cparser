@@ -167,8 +167,7 @@ void ParseTreePrint(parse_tree_node *Self, uint32_t IndentLevel, uint32_t Indent
 
         if (Self->Token.Type != Token_Unknown) {
                 printf("[%4d,%3d] ", Self->Token.Line, Self->Token.Column);
-        }
-        else {
+        } else {
                 printf("           ");
         }
 

@@ -12,8 +12,7 @@
 #define CastSizeIntTo32Bits(x) (x)
 #endif
 
-enum token_type
-{
+enum token_type {
         Token_Unknown,
 
         Token_Asterisk,
@@ -77,9 +76,7 @@ enum token_type
         Token_EndOfStream,
 };
 
-char *
-TokenName(enum token_type Type)
-{
+char *TokenName(enum token_type Type) {
         switch(Type)
         {
                 case Token_Unknown: { return "Unknown"; } break;
@@ -147,8 +144,7 @@ TokenName(enum token_type Type)
         }
 }
 
-typedef struct token
-{
+typedef struct token {
         char *Text;
         size_t TextLength;
         enum token_type Type;
@@ -156,183 +152,148 @@ typedef struct token
         unsigned int Column;
 } token;
 
-typedef struct tokenizer
-{
+typedef struct tokenizer {
         char *Beginning;
         char *At;
         unsigned int Line;
         unsigned int Column;
 } tokenizer;
 
-void
-TokenizerInit(struct tokenizer *Self, char *Memory)
-{
+void TokenizerInit(struct tokenizer *Self, char *Memory) {
         Self->Beginning = Memory;
         Self->At = Memory;
         Self->Line = 0;
         Self->Column = 0;
 }
 
-void
-AdvanceTokenizer(struct tokenizer *Tokenizer)
-{
-        if(GSCharIsEndOfLine(Tokenizer->At[0]))
-        {
+void AdvanceTokenizer(struct tokenizer *Tokenizer) {
+        if (GSCharIsEndOfLine(Tokenizer->At[0])) {
                 ++Tokenizer->Line;
                 Tokenizer->Column = 1;
-        }
-        else
-        {
+        } else {
                 ++Tokenizer->Column;
         }
         ++Tokenizer->At;
 }
 
-void
-CopyTokenizer(struct tokenizer *Source, struct tokenizer *Dest)
-{
+void CopyTokenizer(struct tokenizer *Source, struct tokenizer *Dest) {
         Dest->Beginning = Source->Beginning;
         Dest->At = Source->At;
         Dest->Line = Source->Line;
         Dest->Column = Source->Column;
 }
 
-void
-AdvanceTokenizerToChar(struct tokenizer *Tokenizer, char Char)
-{
-        while(!GSCharIsEndOfStream(Tokenizer->At[0]))
-        {
-                if(Tokenizer->At[0] == Char) break;
+void AdvanceTokenizerToChar(struct tokenizer *Tokenizer, char Char) {
+        while (!GSCharIsEndOfStream(Tokenizer->At[0])) {
+                if (Tokenizer->At[0] == Char) break;
                 AdvanceTokenizer(Tokenizer);
         }
 }
 
-gs_bool
-CopyToTokenAndAdvance(struct tokenizer *Tokenizer, struct token *Token, int Length, enum token_type Type)
-{
+gs_bool CopyToTokenAndAdvance(struct tokenizer *Tokenizer, struct token *Token, int Length, enum token_type Type) {
         Token->Text = Tokenizer->At;
         Token->TextLength = Length;
         Token->Type = Type;
         Token->Line = Tokenizer->Line;
         Token->Column = Tokenizer->Column;
 
-        for(int I=0; I<Length; ++I) AdvanceTokenizer(Tokenizer);
+        for (int i=0; i<Length; ++i) AdvanceTokenizer(Tokenizer);
 }
 
-void
-EatAllWhitespace(struct tokenizer *Tokenizer)
-{
-        for(; GSCharIsWhitespace(Tokenizer->At[0]); AdvanceTokenizer(Tokenizer));
+void EatAllWhitespace(struct tokenizer *Tokenizer) {
+        for (; GSCharIsWhitespace(Tokenizer->At[0]); AdvanceTokenizer(Tokenizer));
 }
 
-gs_bool
-IsIdentifierCharacter(char C)
-{
+gs_bool IsIdentifierCharacter(char C) {
 	gs_bool Result = (GSCharIsAlphabetical(C) || GSCharIsDecimal(C) || C == '_');
-	return(Result);
+	return Result;
 }
 
-gs_bool
-IsIntegerSuffix(char C)
-{
+gs_bool IsIntegerSuffix(char C) {
 	gs_bool Result = (C == 'u' ||
                           C == 'U' ||
                           C == 'l' ||
                           C == 'L');
-	return(Result);
+	return Result;
 }
 
-gs_bool
-GetCharacter(struct tokenizer *Tokenizer, struct token *Token)
-{
+gs_bool GetCharacter(struct tokenizer *Tokenizer, struct token *Token) {
         char *Cursor = Tokenizer->At;
 
         /* First character must be a single quote. */
-        if(*Cursor != '\'') return(false);
+        if (*Cursor != '\'') return false;
         ++Cursor; /* Skip past the first single quote. */
 
         /* Read until closing single quote. */
-        for(; *Cursor != '\''; ++Cursor);
+        for (; *Cursor != '\''; ++Cursor);
 
         /* If previous character is an escape, then closing quote is next char. */
-        if(*(Cursor-1) == '\\' && *(Cursor -2) != '\\')
-        {
+        if (*(Cursor-1) == '\\' && *(Cursor -2) != '\\') {
                 ++Cursor;
         }
         ++Cursor; /* Point to character after literal. */
 
         /* Longest char literal is: '\''. */
-        if(Cursor - Tokenizer->At > 4) return(false);
+        if (Cursor - Tokenizer->At > 4) return false;
 
         CopyToTokenAndAdvance(Tokenizer, Token, Cursor - Tokenizer->At, Token_Character);
 
-        return(true);
+        return true;
 }
 
-gs_bool
-GetString(struct tokenizer *Tokenizer, struct token *Token)
-{
+gs_bool GetString(struct tokenizer *Tokenizer, struct token *Token) {
         char *Cursor = Tokenizer->At;
-        if(*Cursor != '"') return(false);
+        if (*Cursor != '"') return false;
 
-        while(true)
-        {
+        while (true) {
                 ++Cursor;
-                if(*Cursor == '\0') return(false);
-                if(*Cursor == '"' && *(Cursor - 1) != '\\') break;
+                if (*Cursor == '\0') return false;
+                if (*Cursor == '"' && *(Cursor - 1) != '\\') break;
         }
         ++Cursor; /* Swallow the last double quote. */
 
         CopyToTokenAndAdvance(Tokenizer, Token, Cursor - Tokenizer->At, Token_String);
 
-        return(true);
+        return true;
 }
 
-gs_bool
-IsOctalString(char *Text, int Length)
-{
-        if(Length < 2) return(false);
+gs_bool IsOctalString(char *Text, int Length) {
+        if (Length < 2) return false;
 
         char Last = Text[Length-1];
 
         /* Leading 0 required for octal integers. */
-        if('0' != Text[0]) return(false);
+        if ('0' != Text[0]) return false;
 
-        if(!(GSCharIsOctal(Last) || IsIntegerSuffix(Last))) return(false);
+        if (!(GSCharIsOctal(Last) || IsIntegerSuffix(Last))) return false;
 
         /* Loop from character after leading '0' to second-last. */
-        for(int i=1; i<Length-1; ++i)
-        {
-                if(!GSCharIsOctal(Text[i])) return(false);
+        for (int i=1; i<Length-1; ++i) {
+                if (!GSCharIsOctal(Text[i])) return false;
         }
 
-        return(true);
+        return true;
 }
 
-gs_bool
-IsHexadecimalString(char *Text, int Length)
-{
-        if(Length < 3) return(false);
+gs_bool IsHexadecimalString(char *Text, int Length) {
+        if (Length < 3) return false;
 
         char Last = Text[Length-1];
 
         /* Hex numbers must start with: '0x' or '0X'. */
-        if(!(Text[0] == '0' && (Text[1] == 'x' || Text[1] == 'X'))) return(false);
+        if (!(Text[0] == '0' && (Text[1] == 'x' || Text[1] == 'X'))) return false;
 
-        if(!(GSCharIsHexadecimal(Last) || IsIntegerSuffix(Last))) return(false);
+        if (!(GSCharIsHexadecimal(Last) || IsIntegerSuffix(Last))) return false;
 
         /* Loop from character after leading '0x' to second-last. */
-        for(int i=2; i<Length-1; ++i)
-        {
-                if(!GSCharIsHexadecimal(Text[i])) return(false);
+        for (int i=2; i<Length-1; ++i) {
+                if (!GSCharIsHexadecimal(Text[i])) return false;
         }
 
-        return(true);
+        return true;
 }
 
-gs_bool
-GetPrecisionNumber(struct tokenizer *Tokenizer, struct token *Token)
-{
+gs_bool GetPrecisionNumber(struct tokenizer *Tokenizer, struct token *Token) {
         /*
           A floating constant consists of an integer part, a decimal point, a
           fraction part, an e or E, an optionally signed integer exponent and an
@@ -352,65 +313,56 @@ GetPrecisionNumber(struct tokenizer *Tokenizer, struct token *Token)
         gs_bool HasFractionalPart = false;
         gs_bool HasExponentPart = false;
 
-        if(GSCharIsDecimal(*Cursor))
-        {
-                for(; GSCharIsDecimal(*Cursor); ++Cursor);
+        if (GSCharIsDecimal(*Cursor)) {
+                for (; GSCharIsDecimal(*Cursor); ++Cursor);
                 HasIntegerPart = true;
         }
 
-        if('.' == *Cursor)
-        {
+        if ('.' == *Cursor) {
                 ++Cursor;
                 HasDecimalPoint = true;
-                if(GSCharIsDecimal(*Cursor))
+                if (GSCharIsDecimal(*Cursor))
                 {
-                        for(; GSCharIsDecimal(*Cursor); ++Cursor);
+                        for (; GSCharIsDecimal(*Cursor); ++Cursor);
                         HasFractionalPart = true;
                 }
         }
 
-        if('e' == *Cursor || 'E' == *Cursor)
-        {
+        if ('e' == *Cursor || 'E' == *Cursor){
                 ++Cursor;
                 HasExponentPart = true;
 
                 /* Optional negative sign for exponent is allowed. */
-                if('-' == *Cursor)
-                {
+                if ('-' == *Cursor) {
                         ++Cursor;
                 }
 
                 /* Exponent must contain an exponent part. */
-                if(!GSCharIsDecimal(*Cursor))
-                {
-                        return(false);
+                if (!GSCharIsDecimal(*Cursor)) {
+                        return false;
                 }
 
-                for(; GSCharIsDecimal(*Cursor); ++Cursor);
+                for (; GSCharIsDecimal(*Cursor); ++Cursor);
         }
 
         /* IsFloatSuffix(C) */
         char C = *Cursor;
-        if('f' == C || 'F' == C || 'l' == C || 'L' == C)
-        {
+        if ('f' == C || 'F' == C || 'l' == C || 'L' == C) {
                 ++Cursor;
         }
 
-        if((HasIntegerPart || HasFractionalPart) &&
-           (HasDecimalPoint || HasExponentPart))
-        {
+        if ((HasIntegerPart || HasFractionalPart) &&
+           (HasDecimalPoint || HasExponentPart)) {
                 CopyToTokenAndAdvance(Tokenizer, Token, Cursor - Tokenizer->At, Token_PrecisionNumber);
-                return(true);
+                return true;
         }
 
-        return(false);
+        return false;
 }
 
-gs_bool
-GetInteger(struct tokenizer *Tokenizer, struct token *Token)
-{
+gs_bool GetInteger(struct tokenizer *Tokenizer, struct token *Token) {
         char *LastChar = Tokenizer->At;
-        for(; *LastChar && (GSCharIsDecimal(*LastChar) || GSCharIsAlphabetical(*LastChar)); ++LastChar);
+        for (; *LastChar && (GSCharIsDecimal(*LastChar) || GSCharIsAlphabetical(*LastChar)); ++LastChar);
 
         int Length = LastChar - Tokenizer->At;
         --LastChar;
@@ -419,73 +371,60 @@ GetInteger(struct tokenizer *Tokenizer, struct token *Token)
         /* Token->Text = Tokenizer->At; */
         /* Token->TextLength = Length; */
 
-        if(Length < 1) return(false);
+        if (Length < 1) return false;
 
         char *Cursor = Tokenizer->At;
 
         if ((IsOctalString(Cursor, Length) || IsHexadecimalString(Cursor, Length)) ||
-            (1 == Length && '0' == *Cursor))
-        {
+            (1 == Length && '0' == *Cursor)) {
                 CopyToTokenAndAdvance(Tokenizer, Token, Length, Token_Integer);
-                return(true);
+                return true;
         }
 
         /* Can't have a multi-digit integer starting with zero unless it's Octal. */
-        if('0' == *Cursor)
-        {
-                return(false);
+        if ('0' == *Cursor) {
+                return false;
         }
 
-        for(int I=0; I<Length-1; ++I)
-        {
-                if(!GSCharIsDecimal(Cursor[I]))
-                {
-                        return(false);
+        for (int i=0; i<Length-1; ++i) {
+                if (!GSCharIsDecimal(Cursor[i])) {
+                        return false;
                 }
         }
 
-        if(GSCharIsDecimal(*LastChar) || IsIntegerSuffix(*LastChar))
-        {
+        if (GSCharIsDecimal(*LastChar) || IsIntegerSuffix(*LastChar)) {
                 CopyToTokenAndAdvance(Tokenizer, Token, Length, Token_Integer);
-                return(true);
+                return true;
         }
 
-        return(false);
+        return false;
 }
 
-gs_bool
-GetIdentifier(struct tokenizer *Tokenizer, struct token *Token)
-{
-        if(!GSCharIsAlphabetical(Tokenizer->At[0]) &&
-           '_' != Tokenizer->At[0])
-        {
-                return(false);
+gs_bool GetIdentifier(struct tokenizer *Tokenizer, struct token *Token) {
+        if (!GSCharIsAlphabetical(Tokenizer->At[0]) &&
+           '_' != Tokenizer->At[0]) {
+                return false;
         }
 
         char *Cursor = Tokenizer->At;
 
-        for(; IsIdentifierCharacter(*Cursor); ++Cursor);
-
+        for (; IsIdentifierCharacter(*Cursor); ++Cursor);
         CopyToTokenAndAdvance(Tokenizer, Token, Cursor - Tokenizer->At, Token_Identifier);
 
-        return(true);
+        return true;
 }
 
-gs_bool
-GetComment(struct tokenizer *Tokenizer, struct token *Token)
-{
-        if(Tokenizer->At[0] != '/' || Tokenizer->At[1] != '*') return(false);
+gs_bool GetComment(struct tokenizer *Tokenizer, struct token *Token) {
+        if (Tokenizer->At[0] != '/' || Tokenizer->At[1] != '*') return false;
 
         char *Cursor = Tokenizer->At;
 
-        while(true)
-        {
-                if('\0' == *Cursor)
-                {
-                        return(false);
+        while (true) {
+                if ('\0' == *Cursor) {
+                        return false;
                 }
-                if('*' == Cursor[0] && '/' == Cursor[1])
-                {
+
+                if ('*' == Cursor[0] && '/' == Cursor[1]) {
                         break;
                 }
                 ++Cursor;
@@ -495,12 +434,10 @@ GetComment(struct tokenizer *Tokenizer, struct token *Token)
 
         CopyToTokenAndAdvance(Tokenizer, Token, Cursor - Tokenizer->At, Token_Comment);
 
-        return(true);
+        return true;
 }
 
-gs_bool
-GetKeyword(struct tokenizer *Tokenizer, struct token *Token)
-{
+gs_bool GetKeyword(struct tokenizer *Tokenizer, struct token *Token) {
         static char *Keywords[] = {
                 "auto", "break", "case", "char", "const", "continue", "default",
                 "double", "do", "else", "enum", "extern", "float", "for",
@@ -509,61 +446,51 @@ GetKeyword(struct tokenizer *Tokenizer, struct token *Token)
                 "union", "unsigned", "void", "volatile", "while"
         };
 
-        for(int i = 0; i < ArraySize(Keywords); ++i)
-        {
-                if(GSStringIsEqual(Tokenizer->At, Keywords[i], GSStringLength(Keywords[i])))
-                {
+        for (int i = 0; i < ArraySize(Keywords); ++i) {
+                if (GSStringIsEqual(Tokenizer->At, Keywords[i], GSStringLength(Keywords[i]))) {
                         CopyToTokenAndAdvance(Tokenizer, Token, GSStringLength(Keywords[i]), Token_Keyword);
 
-                        return(true);
+                        return true;
                 }
         }
 
-        return(false);
+        return false;
 }
 
-gs_bool
-GetPreprocessorCommand(struct tokenizer *Tokenizer, struct token *Token)
-{
-        if(Tokenizer->At[0] != '#') return(false);
+gs_bool GetPreprocessorCommand(struct tokenizer *Tokenizer, struct token *Token) {
+        if (Tokenizer->At[0] != '#') return false;
 
         char *Cursor = Tokenizer->At;
 
         /* Preprocessor commands must start a line on their own. */
-        for(--Cursor; Cursor > Tokenizer->Beginning && GSCharIsWhitespace(*Cursor); --Cursor);
+        for (--Cursor; Cursor > Tokenizer->Beginning && GSCharIsWhitespace(*Cursor); --Cursor);
 
-        if(*(++Cursor) != '\n' && Cursor != Tokenizer->Beginning)
-        {
-                return(false);
+        if (*(++Cursor) != '\n' && Cursor != Tokenizer->Beginning) {
+                return false;
         }
         Cursor = Tokenizer->At + 1; /* Skip the starting '#' for macros. */
 
-        while(true)
-        {
-                if(*Cursor == '\n' && *(Cursor - 1) != '\\') break;
-                if(*Cursor == '\0') break;
+        while (true) {
+                if (*Cursor == '\n' && *(Cursor - 1) != '\\') break;
+                if (*Cursor == '\0') break;
                 ++Cursor;
         }
 
         CopyToTokenAndAdvance(Tokenizer, Token, Cursor - Tokenizer->At, Token_PreprocessorCommand);
 
-        return(true);
+        return true;
 }
 
-gs_bool
-GetSymbol(struct tokenizer *Tokenizer, struct token *Token, char *Symbol, enum token_type Type)
-{
+gs_bool GetSymbol(struct tokenizer *Tokenizer, struct token *Token, char *Symbol, enum token_type Type) {
         int Length = GSStringLength(Symbol);
-        if(!GSStringIsEqual(Tokenizer->At, Symbol, Length)) return(false);
+        if (!GSStringIsEqual(Tokenizer->At, Symbol, Length)) return false;
 
         CopyToTokenAndAdvance(Tokenizer, Token, Length, Type);
 
-        return(true);
+        return true;
 }
 
-struct token
-GetToken(struct tokenizer *Tokenizer)
-{
+struct token GetToken(struct tokenizer *Tokenizer) {
         EatAllWhitespace(Tokenizer);
 
         struct token Token;
@@ -597,7 +524,7 @@ GetToken(struct tokenizer *Tokenizer)
                         GetSymbol(Tokenizer, &Token, "|=", Token_PipeEquals);
 
         }
-        if(Token.Type != Token_Unknown) return(Token);
+        if (Token.Type != Token_Unknown) return Token;
 
         {
                 GetKeyword(Tokenizer, &Token) ||
@@ -611,13 +538,12 @@ GetToken(struct tokenizer *Tokenizer)
 
         }
 
-        if(Token.Type == Token_PreprocessorCommand ||
-           Token.Type == Token_Comment)
-        {
+        if (Token.Type == Token_PreprocessorCommand ||
+           Token.Type == Token_Comment) {
                 Token = GetToken(Tokenizer);
         }
 
-        if(Token.Type != Token_Unknown) return(Token);
+        if (Token.Type != Token_Unknown) return Token;
 
         char C = Tokenizer->At[0];
         CopyToTokenAndAdvance(Tokenizer, &Token, 1, Token_Unknown);
@@ -652,24 +578,19 @@ GetToken(struct tokenizer *Tokenizer)
                 case '#': { Token.Type = Token_Hash; } break;
         }
 
-        return(Token);
+        return Token;
 }
 
-gs_bool
-Lex(gs_buffer *FileContents)
-{
+gs_bool Lex(gs_buffer *FileContents) {
         struct tokenizer Tokenizer;
         TokenizerInit(&Tokenizer, FileContents->Start);
 
         gs_bool Parsing = true;
-        while(Parsing)
-        {
+        while (Parsing) {
                 struct token Token = GetToken(&Tokenizer);
-                switch(Token.Type)
-                {
+                switch(Token.Type) {
                         case Token_EndOfStream: { Parsing = false; } break;
-                        case Token_Unknown:
-                        {
+                        case Token_Unknown: {
                                 printf("[%u,%u] Token Name: %20s, Token Text: %.*s (%.*s)\n",
                                        Token.Line + 1,
                                        Token.Column,
@@ -677,8 +598,7 @@ Lex(gs_buffer *FileContents)
                                        CastSizeIntTo32Bits(Token.TextLength), Token.Text,
                                        CastSizeIntTo32Bits(Token.TextLength + 4), Token.Text - 2);
                         } break;
-                        default:
-                        {
+                        default: {
                                 printf("[%u,%u] Token Name: %20s, Token Text: %.*s\n",
                                        Token.Line + 1,
                                        Token.Column,

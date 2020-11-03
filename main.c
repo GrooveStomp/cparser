@@ -6,9 +6,7 @@
 #include "lexer.c"
 #include "parser.c"
 
-void
-Usage(char *Name)
-{
+void Usage(char *Name) {
         printf("Usage: %s operation file [options]\n", Name);
         puts("  operation: One of: [parse, lex].");
         puts("  file: Must be a file in this directory.");
@@ -19,12 +17,10 @@ Usage(char *Name)
         exit(EXIT_SUCCESS);
 }
 
-int
-main(int ArgCount, char **Arguments)
-{
+int main(int ArgCount, char **Arguments) {
         gs_args Args;
         GSArgsInit(&Args, ArgCount, Arguments);
-        if(GSArgsHelpWanted(&Args)           ||
+        if (GSArgsHelpWanted(&Args)           ||
            ArgCount < 3                      ||
            (!GSArgsIsPresent(&Args, "parse") &&
             !GSArgsIsPresent(&Args, "lex")))
@@ -35,13 +31,13 @@ main(int ArgCount, char **Arguments)
         size_t AllocSize = GSFileSize(Filename);
         GSBufferInit(&Buffer, alloca(AllocSize), AllocSize);
 
-        if(!GSFileCopyToBuffer(Filename, &Buffer))
+        if (!GSFileCopyToBuffer(Filename, &Buffer))
                 GSAbortWithMessage("Couldn't copy entire file to buffer\n");
 
-        if(GSArgsIsPresent(&Args, "parse"))
+        if (GSArgsIsPresent(&Args, "parse"))
                 Parse(&Buffer, GSArgsIsPresent(&Args, "--show-parse-tree"));
         else
                 Lex(&Buffer);
 
-        return(EXIT_SUCCESS);
+        return EXIT_SUCCESS;
 }

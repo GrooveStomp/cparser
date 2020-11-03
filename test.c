@@ -29,22 +29,18 @@ typedef gs_bool (*parser_function)(struct tokenizer *, parse_tree_node *);
                 GSTestAssert(Tokenizer.At == (String), "Tokenizer doesn't advance\n"); \
         }
 
-struct tokenizer
-InitTokenizer(char *String)
-{
+struct tokenizer InitTokenizer(char *String) {
         struct tokenizer Tokenizer;
         Tokenizer.Beginning = Tokenizer.At = String;
         Tokenizer.Line = Tokenizer.Column = 1;
-        return(Tokenizer);
+        return Tokenizer;
 }
 
 /*----------------------------------------------------------------------------
   Tests
   ----------------------------------------------------------------------------*/
 
-void
-TestConstant()
-{
+void TestConstant() {
         parser_function Fn = ParseConstant;
         Accept(Fn, "1");   /* integer-constant */
         Accept(Fn, "'c'"); /* character-constant */
@@ -54,17 +50,13 @@ TestConstant()
         Reject(Fn, "sizeof(int)");
 }
 
-void
-TestArgumentExpressionList()
-{
+void TestArgumentExpressionList() {
         parser_function Fn = ParseArgumentExpressionList;
         Accept(Fn, "(int)4.0");           /* assignment-expression */
         Accept(Fn, "(int)4.0, (int)4.0"); /* argument-expression-list , assignment-expression */
 }
 
-void
-TestPrimaryExpression()
-{
+void TestPrimaryExpression() {
         parser_function Fn = ParsePrimaryExpression;
         Accept(Fn, "my_var");        /* identifier */
         Accept(Fn, "4.0");           /* constant */
@@ -72,9 +64,7 @@ TestPrimaryExpression()
         Accept(Fn, "(sizeof(int))"); /* ( expression ) */
 }
 
-void
-TestPostfixExpression()
-{
+void TestPostfixExpression() {
         parser_function Fn = ParsePostfixExpression;
         Accept(Fn, "my_var");       /* primary-expression */
         Accept(Fn, "my_var[0]");    /* postfix-expression [ expression ] */
@@ -86,9 +76,7 @@ TestPostfixExpression()
         Reject(Fn, "--my_value");
 }
 
-void
-TestUnaryOperator()
-{
+void TestUnaryOperator() {
         parser_function Fn = ParseUnaryOperator;
         Accept(Fn, "&");
         Accept(Fn, "*");
@@ -98,9 +86,7 @@ TestUnaryOperator()
         Accept(Fn, "!");
 }
 
-void
-TestUnaryExpression()
-{
+void TestUnaryExpression() {
         parser_function Fn = ParseUnaryExpression;
         Accept(Fn, "\"String\"");    /* postfix-expression */
         Accept(Fn, "++Foo");         /* ++ unary-expression */
@@ -110,17 +96,13 @@ TestUnaryExpression()
         Accept(Fn, "sizeof(int)");   /* sizeof ( type-name ) */
 }
 
-void
-TestCastExpression()
-{
+void TestCastExpression() {
         parser_function Fn = ParseCastExpression;
         Accept(Fn, "sizeof(int)"); /* unary-expression */
         Accept(Fn, "(int)4.0");    /* ( type-name ) cast-expression */
 }
 
-void
-TestMultiplicativeExpression()
-{
+void TestMultiplicativeExpression() {
         parser_function Fn = ParseMultiplicativeExpression;
         Accept(Fn, "(int)4.0");            /* cast-expression */
         Accept(Fn, "(int)4.0 * (int)4.0"); /* multiplicative-expression * cast-expression */
@@ -128,27 +110,21 @@ TestMultiplicativeExpression()
         Accept(Fn, "(int)4.0 % (int)4.0"); /* multiplicative-expression % cast-expression */
 }
 
-void
-TestAdditiveExpression()
-{
+void TestAdditiveExpression() {
         parser_function Fn = ParseAdditiveExpression;
         Accept(Fn, "4 * 4");               /* multiplicative-expression */
         Accept(Fn, "(int)4.0 + (int)4.0"); /* additive-expression + multiplicative-expression */
         Accept(Fn, "(int)4.0 - (int)4.0"); /* additive-expression - multiplicative-expression */
 }
 
-void
-TestShiftExpression()
-{
+void TestShiftExpression() {
         parser_function Fn = ParseShiftExpression;
         Accept(Fn, "4 + 4");          /* additive-expression */
         Accept(Fn, "4 + 4 << 4 + 4"); /* shift-expression << additive-expression */
         Accept(Fn, "4 + 4 >> 4 + 4"); /* shift-expression >> additive-expression */
 }
 
-void
-TestRelationalExpression()
-{
+void TestRelationalExpression() {
         parser_function Fn = ParseRelationalExpression;
         Accept(Fn, "my_value << 4");                        /* shift-expression */
         Accept(Fn, "(my_value << 4) < (your_value >> 2)");  /* relational-expression < shift-expression */
@@ -157,73 +133,55 @@ TestRelationalExpression()
         Accept(Fn, "(my_value << 4) >= (your_value >> 2)"); /* relational-expression >= shift-expression */
 }
 
-void
-TestEqualityExpression()
-{
+void TestEqualityExpression() {
         parser_function Fn = ParseEqualityExpression;
         Accept(Fn, "1 < 2");              /* relational-expression */
         Accept(Fn, "(1 < 2) == (2 > 1)"); /* equality-expression == relational-expression */
         Accept(Fn, "(1 < 2) != 3");       /* equality-expression != relational-expression */
 }
 
-void
-TestAndExpression()
-{
+void TestAndExpression() {
         parser_function Fn = ParseAndExpression;
         Accept(Fn, "1 != 3");      /* equality-expression */
         Accept(Fn, "1 != 3 & 24"); /* AND-expression & equality-expression */
 }
 
-void
-TestExclusiveOrExpression()
-{
+void TestExclusiveOrExpression() {
         parser_function Fn = ParseExclusiveOrExpression;
         Accept(Fn, "1 != 3 & 24");        /* AND-expression */
         Accept(Fn, "(2 != 3 & 24) ^ 31"); /* exclusive-OR-expression ^ AND-expression */
 }
 
-void
-TestInclusiveOrExpression()
-{
+void TestInclusiveOrExpression() {
         parser_function Fn = ParseInclusiveOrExpression;
         Accept(Fn, "(2 != 3 & 24) ^ 31"); /* exclusive-OR-expression */
         Accept(Fn, "2 | 3");              /* inclusive-OR-expression | exclusive-OR-expression */
 }
 
-void
-TestLogicalAndExpression()
-{
+void TestLogicalAndExpression() {
         parser_function Fn = ParseLogicalAndExpression;
         Accept(Fn, "2 | 3");              /* inclusive-OR-expression */
         Accept(Fn, "(2 | 3) && (2 | 3)"); /* logical-AND-expression && inclusive-OR-expression */
 }
 
-void
-TestLogicalOrExpression()
-{
+void TestLogicalOrExpression() {
         parser_function Fn = ParseLogicalOrExpression;
         Accept(Fn, "2 && 3");           /* logical-AND-expression */
         Accept(Fn, "2 && 3 || 2 && 3"); /* logical-OR-expression || logical-AND-expression */
 }
 
-void
-TestConstantExpression()
-{
+void TestConstantExpression() {
         parser_function Fn = ParseConstantExpression;
         Accept(Fn, "2 || 3 ? 4 : 5");   /* conditional-expression */
 }
 
-void
-TestConditionalExpression()
-{
+void TestConditionalExpression() {
         parser_function Fn = ParseConditionalExpression;
         Accept(Fn, "2 && 3 || 2 && 3"); /* logical-OR-expression */
         Accept(Fn, "2 || 3 ? 4 : 5");   /* logical-OR-expression ? expression : conditional-expression */
 }
 
-void
-TestAssignmentOperator()
-{
+void TestAssignmentOperator() {
         parser_function Fn = ParseAssignmentOperator;
         Accept(Fn, "=");
         Accept(Fn, "*=");
@@ -238,26 +196,20 @@ TestAssignmentOperator()
         Accept(Fn, "|=");
 }
 
-void
-TestAssignmentExpression()
-{
+void TestAssignmentExpression() {
         parser_function Fn = ParseAssignmentExpression;
         Accept(Fn, "2 || 3 ? 4 : 5"); /* conditional-expression */
         Accept(Fn, "++Foo |= ++Foo"); /* unary-expression assignment-operator assignment-expression */
 }
 
-void
-TestExpression()
-{
+void TestExpression() {
         parser_function Fn = ParseExpression;
         Accept(Fn, "++Foo |= (2 || 3 ? 4 : 5)"); /* assignment-expression */
         Accept(Fn, "++Foo, Foo++");              /* expression, assignment-expression */
         Accept(Fn, "i=0");
 }
 
-void
-TestIdentifier()
-{
+void TestIdentifier() {
         parser_function Fn = ParseIdentifier;
         Accept(Fn, "_foo");
         Accept(Fn, "foo123_");
@@ -265,9 +217,7 @@ TestIdentifier()
         Reject(Fn, "123_foo");
 }
 
-void
-TestJumpStatement()
-{
+void TestJumpStatement() {
         parser_function Fn = ParseJumpStatement;
         Accept(Fn, "goto foo;"); /* goto identifier ; */
         Accept(Fn, "continue;"); /* continue ; */
@@ -275,9 +225,7 @@ TestJumpStatement()
         Accept(Fn, "return;");   /* return expression(opt) ; */
 }
 
-void
-TestIterationStatement()
-{
+void TestIterationStatement() {
         parser_function Fn = ParseIterationStatement;
         Accept(Fn, "while(true) {}");                     /* while ( expression ) statement */
         Accept(Fn, "do { foo = 2; } while(++Foo |= 3);"); /* do statement while ( expression ) ; */
@@ -285,26 +233,20 @@ TestIterationStatement()
         Accept(Fn, "for(i=0; i<Foo; i++) { ; }");         /* for ( expression(opt) ; expression(opt) ; expression(opt) ) statement */
 }
 
-void
-TestSelectionStatement()
-{
+void TestSelectionStatement() {
         parser_function Fn = ParseSelectionStatement;
         Accept(Fn, "if(true) return;");                 /* if ( expression ) statement */
         Accept(Fn, "if(1 = 3) goto end; else return;"); /* if ( expression ) statement else statement */
         Accept(Fn, "switch(Foo) { break; }");           /* switch ( expression ) statement */
 }
 
-void
-TestStatementList()
-{
+void TestStatementList() {
         parser_function Fn = ParseStatementList;
         Accept(Fn, "i = 1;");        /* statement */
         Accept(Fn, "i = 1; i = 1;"); /* statement-list statement */
 }
 
-void
-TestCompoundStatement()
-{
+void TestCompoundStatement() {
         parser_function Fn = ParseCompoundStatement;
         Accept(Fn, "{ int i; i = 2; i = 3; }"); /* { declaration-list(opt) statement-list(opt) } */
         Accept(Fn, "{ }");
@@ -312,9 +254,7 @@ TestCompoundStatement()
         Accept(Fn, "{ i = 3; }");
 }
 
-void
-TestExpressionStatement()
-{
+void TestExpressionStatement() {
         parser_function Fn = ParseExpressionStatement;
         Accept(Fn, ";"); /* expression(opt) */
         Accept(Fn, "++Foo |= (2 || 3 ? 4 : 5) ;");
@@ -322,18 +262,14 @@ TestExpressionStatement()
         Accept(Fn, "i=0;");
 }
 
-void
-TestLabeledStatement()
-{
+void TestLabeledStatement() {
         parser_function Fn = ParseLabeledStatement;
         Accept(Fn, "label: i = 0;");                    /* identifier : statement */
         Accept(Fn, "case Foo: break;");                 /* case constant-expression : statement */
         Accept(Fn, "default: { exit(EXIT_SUCCESS); }"); /* default : statement */
 }
 
-void
-TestStatement()
-{
+void TestStatement() {
         parser_function Fn = ParseStatement;
         Accept(Fn, "default: { exit(EXIT_SUCCESS); }"); /* labeled-statement */
         Accept(Fn, "++Foo |= (2 || 3 ? 4 : 5);");       /* expression-statement */
@@ -343,9 +279,7 @@ TestStatement()
         Accept(Fn, "goto foo;");                        /* jump-statement */
 }
 
-void
-TestTypedefName()
-{
+void TestTypedefName() {
         parser_function Fn = ParseTypedefName;
         Reject(Fn, "my_type");
         TypedefInit();
@@ -354,9 +288,7 @@ TestTypedefName()
         TypedefClear();
 }
 
-void
-TestDirectAbstractDeclarator()
-{
+void TestDirectAbstractDeclarator() {
         parser_function Fn = ParseDirectAbstractDeclarator;
         Accept(Fn, "(int i)");                   /* ( abstract-declarator ) */
         Accept(Fn, "(int i[2])");                /* direct-abstract-declarator(opt) [ constant-expression(opt) ] */
@@ -369,9 +301,7 @@ TestDirectAbstractDeclarator()
         Accept(Fn, "(())");                      /* direct-abstract-declarator(opt) ( parameter-type-list(opt) ) */
 }
 
-void
-TestAbstractDeclarator()
-{
+void TestAbstractDeclarator() {
         parser_function Fn = ParseAbstractDeclarator;
         Accept(Fn, "*");                              /* pointer */
         Accept(Fn, "* volatile");                     /* pointer */
@@ -380,9 +310,7 @@ TestAbstractDeclarator()
         Accept(Fn, "* const ((int arg1, int arg2))"); /* pointer(opt) direct-abstract-declarator */
 }
 
-void
-TestTypeName()
-{
+void TestTypeName() {
         parser_function Fn = ParseTypeName;
         Accept(Fn, "volatile int"); /* specifier-qualifier-list abstract-declarator(opt) */
         Accept(Fn, "const void");   /* specifier-qualifier-list abstract-declarator(opt) */
@@ -395,67 +323,51 @@ TestTypeName()
         TypedefClear();
 }
 
-void
-TestInitializerList()
-{
+void TestInitializerList() {
         parser_function Fn = ParseInitializerList;
         Accept(Fn, "++Foo |= --Foo"); /* initializer */
         Accept(Fn, "++Foo |= --Foo, ++Bar |= --Bar"); /* initializer-list , initializer */
 }
 
-void
-TestInitializer()
-{
+void TestInitializer() {
         parser_function Fn = ParseInitializer;
         Accept(Fn, "++Foo |= --Foo");           /* assignment-expression */
         Accept(Fn, "{ i |= --i, ++j |= j }");   /* { initializer-list } */
         Accept(Fn, "{ i |= --i, ++j |= j,  }"); /* { initializer-list , } */
 }
 
-void
-TestIdentifierList()
-{
+void TestIdentifierList() {
         parser_function Fn = ParseIdentifierList;
         Accept(Fn, "foo");           /* identifier */
         Accept(Fn, "foo, bar, baz"); /* identifier-list , identifier */
 }
 
-void
-TestParameterDeclaration()
-{
+void TestParameterDeclaration() {
         parser_function Fn = ParseParameterDeclaration;
         Accept(Fn, "auto int foo");    /* declaration-specifiers declarator */
         Accept(Fn, "register char *"); /* declaration-specifiers abstract-declarator(opt) */
         Accept(Fn, "extern float");    /* declaration-specifiers abstract-declarator(opt) */
 }
 
-void
-TestParameterList()
-{
+void TestParameterList() {
         parser_function Fn = ParseParameterList;
         Accept(Fn, "extern float");                  /* parameter-declaration */
         Accept(Fn, "extern float, register char *"); /* parameter-list, parameter-declaration */
 }
 
-void
-TestParameterTypeList()
-{
+void TestParameterTypeList() {
         parser_function Fn = ParseParameterTypeList;
         Accept(Fn, "extern float, register char *"); /* parameter-list */
         Accept(Fn, "float, char, ...");              /* parameter-list , ... */
 }
 
-void
-TestTypeQualifierList()
-{
+void TestTypeQualifierList() {
         parser_function Fn = ParseTypeQualifierList;
         Accept(Fn, "const");          /* type-qualifier */
         Accept(Fn, "const volatile"); /* type-qualifier-list type-qualifier */
 }
 
-void
-TestPointer()
-{
+void TestPointer() {
         parser_function Fn = ParsePointer;
         Accept(Fn, "*");                  /* type-qualifier-list(opt) */
         Accept(Fn, "* const");            /* type-qualifier-list(opt) */
@@ -464,9 +376,7 @@ TestPointer()
         Accept(Fn, "* const * volatile"); /* type-qualifier-list(opt) pointer */
 }
 
-void
-TestDirectDeclarator()
-{
+void TestDirectDeclarator() {
         parser_function Fn = ParseDirectDeclarator;
         Accept(Fn, "foo");                  /* identifier */
         Accept(Fn, "(foo)");                /* ( declarator ) */
@@ -476,58 +386,44 @@ TestDirectDeclarator()
         Accept(Fn, "(foo)()");              /* direct-declarator ( identifier-list(opt) ) */
 }
 
-void
-TestDeclarator()
-{
+void TestDeclarator() {
         parser_function Fn = ParseDeclarator;
         Accept(Fn, "* const * volatile (foo)(int i, char c)"); /* pointer(opt) direct-declarator */
         Accept(Fn, "(foo)(int i, char c)");                    /* pointer(opt) direct-declarator */
 }
 
-void
-TestEnumerator()
-{
+void TestEnumerator() {
         parser_function Fn = ParseEnumerator;
         Accept(Fn, "foo");     /* identifier */
         Accept(Fn, "foo = 2"); /* identifier = constant-expression */
 }
 
-void
-TestEnumeratorList()
-{
+void TestEnumeratorList() {
         parser_function Fn = ParseEnumeratorList;
         Accept(Fn, "foo = 2");          /* enumerator */
         Accept(Fn, "foo = 2, bar = 3"); /* enumerator-list , enumerator */
 }
 
-void
-TestEnumSpecifier()
-{
+void TestEnumSpecifier() {
         parser_function Fn = ParseEnumSpecifier;
         Accept(Fn, "enum { foo = 2, bar = 3 }");        /* enum identifier(opt) { enumerator-list } */
         Accept(Fn, "enum MyEnum { foo = 2, bar = 3 }"); /* enum identifier(opt) { enumerator-list } */
         Accept(Fn, "enum foo");                         /* enum identifier */
 }
 
-void
-TestStructDeclarator()
-{
+void TestStructDeclarator() {
         parser_function Fn = ParseStructDeclarator;
         Accept(Fn, "(foo)(int i, char c)");    /* declarator */
         Accept(Fn, "(foo)(int i, char c): 2"); /* declarator(opt) : constant-expression */
 }
 
-void
-TestStructDeclaratorList()
-{
+void TestStructDeclaratorList() {
         parser_function Fn = ParseStructDeclaratorList;
         Accept(Fn, "(foo)(int i, char c)"); /* struct-declarator */
         Accept(Fn, "x: 2, y: 3");           /* struct-declarator-list , struct-declarator */
 }
 
-void
-TestSpecifierQualifierList()
-{
+void TestSpecifierQualifierList() {
         parser_function Fn = ParseSpecifierQualifierList;
         Accept(Fn, "void char short");                      /* type-specifier specifier-qualifier-list(opt) */
         Accept(Fn, "int");                                  /* type-specifier specifier-qualifier-list(opt) */
@@ -536,65 +432,49 @@ TestSpecifierQualifierList()
         Accept(Fn, "void const short volatile double int"); /* type-qualifier specifier-qualifier-list(opt) */
 }
 
-void
-TestStructDeclaration()
-{
+void TestStructDeclaration() {
         parser_function Fn = ParseStructDeclaration;
         Accept(Fn, "volatile double x: 2, y: 3;"); /* specifier-qualifier-list struct-declarator-list ; */
 }
 
-void
-TestInitDeclarator()
-{
+void TestInitDeclarator() {
         parser_function Fn = ParseInitDeclarator;
         Accept(Fn, "* const * volatile (foo)(int i, char c)"); /* declarator */
         Accept(Fn, "(foo)(int i, char c) = ++Foo |= --Foo");   /* declarator = initializer */
 }
 
-void
-TestInitDeclaratorList()
-{
+void TestInitDeclaratorList() {
         parser_function Fn = ParseInitDeclaratorList;
         Accept(Fn, "foo = 2");          /* init-declarator */
         Accept(Fn, "foo = 2, bar = 3"); /* init-declarator-list , init-declarator */
 }
 
-void
-TestStructDeclarationList()
-{
+void TestStructDeclarationList() {
         parser_function Fn = ParseStructDeclarationList;
         Accept(Fn, "volatile double x: 2, y: 3;"); /* struct-declaration */
         Accept(Fn, "int x: 2; int y: 3;");         /* struct-declaration-list struct-declaration */
 }
 
-void
-TestStructOrUnion()
-{
+void TestStructOrUnion() {
         parser_function Fn = ParseStructOrUnion;
         Accept(Fn, "struct");
         Accept(Fn, "union");
 }
 
-void
-TestStructOrUnionSpecifier()
-{
+void TestStructOrUnionSpecifier() {
         parser_function Fn = ParseStructOrUnionSpecifier;
         Accept(Fn, "struct foo { int x: 2; float y: 3.0; }"); /* struct-or-union identifier(opt) { struct-declaration-list } */
         Accept(Fn, "union { int x: 2; float y: 3.0; }");      /* struct-or-union identifier(opt) { struct-declaration-list } */
         Accept(Fn, "struct foo");                             /* struct-or-union identifier */
 }
 
-void
-TestTypeQualifier()
-{
+void TestTypeQualifier() {
         parser_function Fn = ParseTypeQualifier;
         Accept(Fn, "const");
         Accept(Fn, "volatile");
 }
 
-void
-TestTypeSpecifier()
-{
+void TestTypeSpecifier() {
         parser_function Fn = ParseTypeSpecifier;
         Accept(Fn, "void");
         Accept(Fn, "char");
@@ -610,9 +490,7 @@ TestTypeSpecifier()
         Reject(Fn, "foo");                              /* typedef-name */
 }
 
-void
-TestStorageClassSpecifier()
-{
+void TestStorageClassSpecifier() {
         parser_function Fn = ParseStorageClassSpecifier;
         Accept(Fn, "auto");
         Accept(Fn, "register");
@@ -621,9 +499,7 @@ TestStorageClassSpecifier()
         Accept(Fn, "typedef");
 }
 
-void
-TestDeclarationSpecifiers()
-{
+void TestDeclarationSpecifiers() {
         parser_function Fn = ParseDeclarationSpecifiers;
         Accept(Fn, "static static");        /* storage-class-specifier declaration-specifers(opt) */
         Accept(Fn, "static");               /* storage-class-specifier declaration-specifers(opt) */
@@ -636,17 +512,13 @@ TestDeclarationSpecifiers()
         Accept(Fn, "const volatile");       /* type-qualifier declaration-specifiers(opt) */
 }
 
-void
-TestDeclarationList()
-{
+void TestDeclarationList() {
         parser_function Fn = ParseDeclarationList;
         Accept(Fn, "const volatile foo;");                /* declaration */
         Accept(Fn, "volatile short foo; const int bar;"); /* declaration-list declaration */
 }
 
-void
-TestDeclaration()
-{
+void TestDeclaration() {
         parser_function Fn = ParseDeclaration;
         Accept(Fn, "const volatile;");     /* declaration-specifiers init-declarator-list(opt) ; */
         Accept(Fn, "const volatile foo;"); /* declaration-specifiers init-declarator-list(opt) ; */
@@ -654,9 +526,7 @@ TestDeclaration()
         Accept(Fn, "const volatile foo = 2, bar = 3;");
 }
 
-void
-TestFunctionDefinition()
-{
+void TestFunctionDefinition() {
         parser_function Fn = ParseFunctionDefinition;
         /* declaration-specifiers(opt) declarator declaration-list(opt) compound-statement */
         Accept(Fn, "int main(){}");
@@ -666,17 +536,13 @@ TestFunctionDefinition()
 
 }
 
-void
-TestExternalDeclaration()
-{
+void TestExternalDeclaration() {
         parser_function Fn = ParseExternalDeclaration;
         Accept(Fn, "main() {}");                   /* function-definition */
         Accept(Fn, "const volatile int foo = 2;"); /* declaration */
 }
 
-void
-TestTranslationUnit()
-{
+void TestTranslationUnit() {
         parser_function Fn = ParseTranslationUnit;
         Accept(Fn, "int global = 1; int main(){}");
         Accept(Fn, "int main(int argc, char **argv) { int i = 2; return(i); }");
@@ -686,9 +552,7 @@ TestTranslationUnit()
   Main Entrypoint
   ----------------------------------------------------------------------------*/
 
-int
-main(int ArgCount, char **Arguments)
-{
+int main(int ArgCount, char **Arguments) {
         gs_args Args;
         GSArgsInit(&Args, ArgCount, Arguments);
 
@@ -767,5 +631,5 @@ main(int ArgCount, char **Arguments)
         TestTranslationUnit();
 
         printf("All tests successful\n");
-        return(EXIT_SUCCESS);
+        return EXIT_SUCCESS;
 }
