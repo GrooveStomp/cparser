@@ -107,38 +107,37 @@ typedef long double f128;
 bool
 GSCharIsEndOfStream(char C)
 {
-	return(C == '\0');
+	return C == '\0';
 }
 
 bool
 GSCharIsEndOfLine(char C)
 {
-	return((C == '\n') ||
-	       (C == '\r'));
+	return (C == '\n') || (C == '\r');
 }
 
 bool
 GSCharIsWhitespace(char C)
 {
-	return((C == ' ') ||
+	return (C == ' ') ||
 	       (C == '\t') ||
 	       (C == '\v') ||
 	       (C == '\f') ||
-	       GSCharIsEndOfLine(C));
+	       GSCharIsEndOfLine(C);
 }
 
 bool
 GSCharIsOctal(char C)
 {
 	bool Result = (C >= '0' && C <= '7');
-	return(Result);
+	return Result;
 }
 
 bool
 GSCharIsDecimal(char C)
 {
 	bool Result = (C >= '0' && C <= '9');
-	return(Result);
+	return Result;
 }
 
 bool
@@ -147,21 +146,21 @@ GSCharIsHexadecimal(char C)
 	bool Result = ((C >= '0' && C <= '9') ||
 		       (C >= 'a' && C <= 'f') ||
 		       (C >= 'A' && C <= 'F'));
-	return(Result);
+	return Result;
 }
 
 bool
 GSCharIsAlphabetical(char C)
 {
 	bool Result = ((C >= 'a' && C <= 'z') || (C >= 'A' && C <= 'Z'));
-	return(Result);
+	return Result;
 }
 
 bool
 GSCharIsAlphanumeric(char C)
 {
         bool Result = GSCharIsAlphabetical(C) || GSCharIsDecimal(C);
-        return(Result);
+        return Result;
 }
 
 bool
@@ -172,7 +171,7 @@ GSCharIsUpcase(char C)
                 (C >= 'A') &&
                 (C <= 'Z');
 
-        return(Result);
+        return Result;
 }
 
 char
@@ -186,7 +185,7 @@ GSCharUpcase(char C)
                 Result = Delta + 'A';
         }
 
-        return(Result);
+        return Result;
 }
 
 bool
@@ -197,7 +196,7 @@ GSCharIsDowncase(char C)
                 (C >= 'a') &&
                 (C <= 'z');
 
-        return(Result);
+        return Result;
 }
 
 char
@@ -211,7 +210,7 @@ GSCharDowncase(char C)
                 Result = Delta + 'a';
         }
 
-        return(Result);
+        return Result;
 }
 
 /******************************************************************************
@@ -229,7 +228,7 @@ GSStringIsEqual(char *LeftString, char *RightString, int MaxNumToMatch)
            *RightString == GSNullChar &&
            *LeftString != *RightString)
         {
-                return(false);
+                return false;
         }
 
 	while(NumMatched < MaxNumToMatch)
@@ -242,11 +241,11 @@ GSStringIsEqual(char *LeftString, char *RightString, int MaxNumToMatch)
 		}
 		else
 		{
-			return(false);
+			return false;
 		}
 	}
 
-	return(true);
+	return true;
 }
 
 size_t
@@ -254,7 +253,7 @@ GSStringLength(char *String)
 {
 	char *P = String;
 	while(*P != '\0') P++;
-	return(P - String);
+	return P - String;
 }
 
 bool
@@ -262,7 +261,7 @@ GSStringCopy(char *Source, char *Dest, int Max)
 {
         if(Source == NULL || Dest == NULL)
         {
-                return(false);
+                return false;
         }
 
         int I = 0;
@@ -272,7 +271,7 @@ GSStringCopy(char *Source, char *Dest, int Max)
         }
         Dest[I] = '\0';
 
-        return(true);
+        return true;
 }
 
 bool
@@ -280,7 +279,7 @@ GSStringCopyNoNull(char *Source, char *Dest, int Max)
 {
         if(Source == NULL || Dest == NULL)
         {
-                return(false);
+                return false;
         }
 
         for(int I = 0; Source[I] != '\0' && I < Max; I++)
@@ -288,7 +287,7 @@ GSStringCopyNoNull(char *Source, char *Dest, int Max)
                 Dest[I] = Source[I];
         }
 
-        return(true);
+        return true;
 }
 
 /* NOTE: Assumes a maximum string length of 512 bytes. */
@@ -316,7 +315,7 @@ GSStringTrimWhitespace(char *Source, unsigned int MaxLength)
         }
         Source[Count] = GSNullChar;
 
-        return(Count);
+        return Count;
 }
 
 /*
@@ -367,7 +366,7 @@ GSStringSnakeCaseToCamelCase(char *Source, unsigned int SourceLength)
         }
         Source[Di] = GSNullChar;
 
-        return(Di);
+        return Di;
 }
 
 /*
@@ -403,7 +402,7 @@ GSStringCamelCaseToSnakeCase(char *Source, char *Dest, unsigned int SourceLength
         }
         Dest[Di] = GSNullChar;
 
-        return(Di);
+        return Di;
 }
 
 /*
@@ -430,11 +429,11 @@ GSStringCapitalize(char *Source, unsigned int Length)
         }
 
         if(Index >= Length)
-                return(Source);
+                return Source;
 
         Source[Index] = GSCharUpcase(Source[Index]);
 
-        return(Source);
+        return Source;
 }
 
 typedef bool (*GSStringFilterFn)(char C);
@@ -456,7 +455,7 @@ GSStringKeep(char *Source, char *Dest, unsigned int MaxLength, GSStringFilterFn 
         }
         Dest[DestIndex] = GSNullChar;
 
-        return(DestIndex + 1);
+        return DestIndex + 1;
 }
 
 int /* Returns length of new string */
@@ -476,7 +475,7 @@ GSStringReject(char *Source, char *Dest, unsigned int MaxLength, GSStringFilterF
         }
         Dest[DestIndex] = GSNullChar;
 
-        return(DestIndex + 1);
+        return DestIndex + 1;
 }
 
 /******************************************************************************
@@ -522,7 +521,7 @@ __GSHashMapComputeHash(gs_hash_map *Self, char *String)
                         HashAddress;
         }
         unsigned int Result = HashAddress % Self->Capacity;
-        return(Result);
+        return Result;
 }
 
 size_t
@@ -532,6 +531,8 @@ GSHashMapBytesRequired(unsigned int MaxKeyLength, unsigned int NumEntries)
                 sizeof(gs_hash_map) +
                 (sizeof(char) * MaxKeyLength * NumEntries) +
                 (sizeof(void *) * NumEntries);
+
+        return AllocSize;
 }
 
 gs_hash_map *
@@ -554,7 +555,7 @@ GSHashMapInit(void *Memory, unsigned int MaxKeyLength, unsigned int NumEntries)
         Self->Values = (void **)(Self->Keys + KeysMemLength);
         memset(Self->Values, 0, (sizeof(void **) * NumEntries));
 
-        return(Self);
+        return Self;
 }
 
 bool
@@ -572,14 +573,14 @@ __GSHashMapUpdate(gs_hash_map *Self, char *Key, void *Value)
                                    GSStringLength(Key)))
                 {
                         Self->Values[HashIndex] = Value;
-                        return(true);
+                        return true;
                 }
                 HashIndex = (HashIndex + 1) % Self->Capacity;
         }
         while(HashIndex != StartHash);
 
         /* Couldn't find Key to update. */
-        return(false);
+        return false;
 }
 
 bool /* Wanted must be a NULL terminated string */
@@ -589,7 +590,7 @@ GSHashMapHasKey(gs_hash_map *Self, char *Wanted)
         char *Key = &Self->Keys[HashIndex * Self->MaxKeyLength];
         if(GSStringIsEqual(Wanted, Key, GSStringLength(Wanted)))
         {
-                return(true);
+                return true;
         }
 
         unsigned int StartHash = HashIndex;
@@ -602,12 +603,12 @@ GSHashMapHasKey(gs_hash_map *Self, char *Wanted)
                 Key = &Self->Keys[HashIndex * Self->MaxKeyLength];
                 if(GSStringIsEqual(Wanted, Key, GSStringLength(Wanted)))
                 {
-                        return(true);
+                        return true;
                 }
                 HashIndex = (HashIndex + 1) % Self->Capacity;
         }
 
-        return(false);
+        return false;
 }
 
 /*
@@ -629,7 +630,7 @@ GSHashMapSet(gs_hash_map *Self, char *Key, void *Value)
         }
 
         /* We're not updating, so return false if we're at capacity. */
-        if(Self->Count >= Self->Capacity) return(false);
+        if(Self->Count >= Self->Capacity) return false;
 
         /* Add a brand-new key in. */
         if(Self->Keys[HashIndex * Self->MaxKeyLength] == GSNullChar)
@@ -637,7 +638,7 @@ GSHashMapSet(gs_hash_map *Self, char *Key, void *Value)
                 GSStringCopy(Key, &Self->Keys[HashIndex * Self->MaxKeyLength], KeyLength);
                 Self->Values[HashIndex] = Value;
                 Self->Count++;
-                return(true);
+                return true;
         }
 
         /* We have a collision! Find a free index. */
@@ -653,13 +654,13 @@ GSHashMapSet(gs_hash_map *Self, char *Key, void *Value)
                         GSStringCopy(Key, &Self->Keys[HashIndex * Self->MaxKeyLength], KeyLength);
                         Self->Values[HashIndex] = Value;
                         Self->Count++;
-                        return(true);
+                        return true;
                 }
                 HashIndex = (HashIndex + 1) % Self->Capacity;
         }
 
         /* Couldn't find any free space. */
-        return(false);
+        return false;
 }
 
 bool /* Memory must be large enough for the resized Hash. Memory _cannot_ overlap! */
@@ -668,8 +669,8 @@ GSHashMapGrow(gs_hash_map **Self, unsigned int NumEntries, void *New)
         gs_hash_map *Old = *Self;
 
         /* No point in making smaller... */
-        if(NumEntries <= Old->Capacity) return(false);
-        if(New == NULL) return(false);
+        if(NumEntries <= Old->Capacity) return false;
+        if(New == NULL) return false;
 
         *Self = GSHashMapInit(New, Old->MaxKeyLength, NumEntries);
         for(int I=0; I<Old->Capacity; I++)
@@ -684,7 +685,7 @@ GSHashMapGrow(gs_hash_map **Self, unsigned int NumEntries, void *New)
                 }
         }
 
-        return(true);
+        return true;
 }
 
 void * /* Wanted must be a NULL terminated string */
@@ -695,7 +696,7 @@ GSHashMapGet(gs_hash_map *Self, char *Wanted)
         if(GSStringIsEqual(Wanted, Key, GSStringLength(Key)))
         {
                 void *Result = Self->Values[HashIndex];
-                return(Result);
+                return Result;
         }
 
         unsigned int StartHash = HashIndex;
@@ -709,12 +710,12 @@ GSHashMapGet(gs_hash_map *Self, char *Wanted)
                 if(GSStringIsEqual(Wanted, Key, GSStringLength(Key)))
                 {
                         void *Result = Self->Values[HashIndex];
-                        return(Result);
+                        return Result;
                 }
                 HashIndex = (HashIndex + 1) % Self->Capacity;
         }
 
-        return(NULL);
+        return NULL;
 }
 
 void * /* Wanted must be a NULL terminated string */
@@ -728,7 +729,7 @@ GSHashMapDelete(gs_hash_map *Self, char *Wanted)
                 Self->Values[HashIndex] = NULL;
                 Self->Keys[HashIndex * Self->MaxKeyLength] = GSNullChar;
                 Self->Count--;
-                return(Result);
+                return Result;
         }
 
         unsigned int StartHash = HashIndex;
@@ -745,12 +746,12 @@ GSHashMapDelete(gs_hash_map *Self, char *Wanted)
                         Self->Values[HashIndex] = NULL;
                         Self->Keys[HashIndex * Self->MaxKeyLength] = GSNullChar;
                         Self->Count--;
-                        return(Result);
+                        return Result;
                 }
                 HashIndex = (HashIndex + 1) % Self->Capacity;
         }
 
-        return(NULL);
+        return NULL;
 }
 
 /******************************************************************************
@@ -775,7 +776,7 @@ GSArgsProgramName(gs_args *Self)
 {
         char *ProgramName = Self->Args[0];
         char *Result = basename(ProgramName);
-        return(Result);
+        return Result;
 }
 
 bool
@@ -786,10 +787,10 @@ GSArgsIsPresent(gs_args *Args, char *Wanted)
         {
                 if(GSStringIsEqual(Wanted, Args->Args[I], StringLength))
                 {
-                        return(true);
+                        return true;
                 }
         }
-        return(false);
+        return false;
 }
 
 int /* Returns -1 if Arg not found. */
@@ -800,10 +801,10 @@ GSArgsFind(gs_args *Args, char *Wanted)
         {
                 if(GSStringIsEqual(Wanted, Args->Args[I], StringLength))
                 {
-                        return(I);
+                        return I;
                 }
         }
-        return(-1);
+        return -1;
 }
 
 char * /* Returns NULL if Index is invalid. */
@@ -811,19 +812,19 @@ GSArgsAtIndex(gs_args *Args, int Index)
 {
         if((Index < 0) ||
            (Index > (Args->Count - 1)))
-                return(NULL);
+                return NULL;
         else
-                return(Args->Args[Index]);
+                return Args->Args[Index];
 }
 
 char * /* Returns NULL if Marker is not found or no trailing arg. */
 GSArgsAfter(gs_args *Args, char *Marker)
 {
         int Index = GSArgsFind(Args, Marker);
-        if(Index < 0) return(NULL);
+        if(Index < 0) return NULL;
 
         char *Arg = GSArgsAtIndex(Args, Index + 1);
-        return(Arg);
+        return Arg;
 }
 
 bool
@@ -831,9 +832,9 @@ GSArgsHelpWanted(gs_args *Args)
 {
         if(GSArgsIsPresent(Args, "-h") ||
            GSArgsIsPresent(Args, "--help"))
-                return(true);
+                return true;
         else
-                return(false);
+                return false;
 }
 
 /******************************************************************************
@@ -857,7 +858,7 @@ GSBufferInit(gs_buffer *Buffer, char *Start, size_t Size)
         Buffer->Length = 0;
         Buffer->Capacity = Size;
         Buffer->SavedCursor = NULL;
-        return(Buffer);
+        return Buffer;
 }
 
 bool
@@ -865,7 +866,7 @@ GSBufferIsEOF(gs_buffer *Buffer)
 {
         int Size = Buffer->Cursor - Buffer->Start;
         bool Result = Size >= Buffer->Length;
-        return(Result);
+        return Result;
 }
 
 void
@@ -887,17 +888,17 @@ bool
 GSBufferSaveCursor(gs_buffer *Buffer)
 {
         Buffer->SavedCursor = Buffer->Cursor;
-        return(true);
+        return true;
 }
 
 bool
 GSBufferRestoreCursor(gs_buffer *Buffer)
 {
-        if(Buffer->SavedCursor == NULL) return(false);
+        if(Buffer->SavedCursor == NULL) return false;
 
         Buffer->Cursor = Buffer->SavedCursor;
         Buffer->SavedCursor = NULL;
-        return(true);
+        return true;
 }
 
 size_t
@@ -911,19 +912,19 @@ GSFileSize(char *FileName)
                 FileSize = ftell(File);
                 fclose(File);
         }
-        return(FileSize);
+        return FileSize;
 }
 
 bool
 GSFileCopyToBuffer(char *FileName, gs_buffer *Buffer)
 {
         FILE *File = fopen(FileName, "r");
-        if(File == NULL) return(false);
+        if(File == NULL) return false;
 
         fseek(File, 0, SEEK_END);
         size_t FileSize = ftell(File);
         int Remaining = (Buffer->Start + Buffer->Capacity) - Buffer->Cursor;
-        if(FileSize > Remaining) return(false);
+        if(FileSize > Remaining) return false;
 
         fseek(File, 0, SEEK_SET);
         fread(Buffer->Cursor, 1, FileSize, File);
@@ -931,7 +932,7 @@ GSFileCopyToBuffer(char *FileName, gs_buffer *Buffer)
         Buffer->Cursor += FileSize;
         *(Buffer->Cursor) = '\0';
 
-        return(true);
+        return true;
 }
 
 #endif /* GS_H */
