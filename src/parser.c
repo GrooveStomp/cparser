@@ -1,3 +1,12 @@
+/******************************************************************************
+ * File: parser.c
+ * Created:
+ * Updated: 2016-11-03
+ * Package: C-Parser
+ * Creator: Aaron Oman (GrooveStomp)
+ * Copyright - 2020, Aaron Oman and the C-Parser contributors
+ * SPDX-License-Identifier: LGPL-3.0-only
+ ******************************************************************************/
 #ifndef _PARSER_C
 #define _PARSER_C
 

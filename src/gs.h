@@ -1,9 +1,11 @@
 /******************************************************************************
  * File: gs.h
  * Created: 2016-07-14
- * Last Updated: 2016-08-22
- * Creator: Aaron Oman (a.k.a GrooveStomp)
- * Notice: (C) Copyright 2016-2020 by Aaron Oman
+ * Updated: 2016-11-03
+ * Package: gslibc
+ * Creator: Aaron Oman (GrooveStomp)
+ * Copyright 2016 - 2020, Aaron Oman and the gslibc contributors
+ * SPDX-License-Identifier: LGPL-3.0-only
  *-----------------------------------------------------------------------------
  *
  * Standard library for personal use. Heavily influenced by Sean Barrett's stb.

@@ -3,4 +3,4 @@ DataLicense: CC0-1.0
 PackageName: C-Parser
 PackageOriginator: Aaron Oman
 PackageHomePage: https://git.sr.ht/~groovestomp/c-parser/
-PackageLicenseDeclared: AGPL-3.0-only
+PackageLicenseDeclared: LGPL-3.0-only

@@ -1,15 +1,17 @@
 /******************************************************************************
  * File: gstest.h
  * Created: 2016-08-19
- * Last Updated: 2016-08-22
- * Creator: Aaron Oman (a.k.a GrooveStomp)
- * Notice: (C) Copyright 2016 by Aaron Oman
+ * Updated: 2020-11-03
+ * Package: glsibc
+ * Creator: Aaron Oman (GrooveStomp)
+ * Copyright 2016 - 2020, Aaron Oman and the gslibc contributors
+ * SPDX-License-Identifier: LGPL-3.0-only
  *-----------------------------------------------------------------------------
  *
  * Library containing functions and macros to aid in testing other C code.
  *
  ******************************************************************************/
-#define GS_TEST_VERSION 0.1.0
+#define GS_TEST_VERSION 0.1.0-dev
 
 #include <stdlib.h> /* EXIT_SUCCESS, EXIT_FAILURE */
 

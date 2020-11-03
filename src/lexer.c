@@ -1,9 +1,16 @@
+/******************************************************************************
+ * File: lexer.c
+ * Created:
+ * Updated: 2016-11-03
+ * Package: C-Parser
+ * Creator: Aaron Oman (GrooveStomp)
+ * Copyright - 2020, Aaron Oman and the C-Parser contributors
+ * SPDX-License-Identifier: LGPL-3.0-only
+ ******************************************************************************/
 #ifndef _LEXER_C
 #define _LEXER_C
 
 #include "gs.h"
-
-#define CastSizeIntTo32Bits(x) (u32)(x)
 
 enum token_type {
         Token_Unknown,
@@ -588,15 +595,15 @@ void Lex(gs_buffer *FileContents) {
                                        Token.Line + 1,
                                        Token.Column,
                                        TokenName(Token.Type),
-                                       CastSizeIntTo32Bits(Token.TextLength), Token.Text,
-                                       CastSizeIntTo32Bits(Token.TextLength + 4), Token.Text - 2);
+                                       (u32)(Token.TextLength), Token.Text,
+                                       (u32)(Token.TextLength + 4), Token.Text - 2);
                         } break;
                         default: {
                                 printf("[%u,%u] Token Name: %20s, Token Text: %.*s\n",
                                        Token.Line + 1,
                                        Token.Column,
                                        TokenName(Token.Type),
-                                       CastSizeIntTo32Bits(Token.TextLength),
+                                       (u32)(Token.TextLength),
                                        Token.Text);
                         } break;
                 }

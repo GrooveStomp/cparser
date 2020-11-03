@@ -1,3 +1,12 @@
+/******************************************************************************
+ * File: parse_tree.c
+ * Created:
+ * Updated: 2016-11-03
+ * Package: C-Parser
+ * Creator: Aaron Oman (GrooveStomp)
+ * Copyright - 2020, Aaron Oman and the C-Parser contributors
+ * SPDX-License-Identifier: LGPL-3.0-only
+ ******************************************************************************/
 #ifndef PARSE_TREE
 #define PARSE_TREE
 
@@ -177,7 +186,7 @@ void ParseTreePrint(parse_tree_node *Self, u32 IndentLevel, u32 IndentIncrement)
                 printf("Unknown Name");
         }
 
-        if (Self->Token.Type != Token_Unknown) printf("( %.*s )", CastSizeIntTo32Bits(Self->Token.TextLength), Self->Token.Text);
+        if (Self->Token.Type != Token_Unknown) printf("( %.*s )", (u32)(Self->Token.TextLength), Self->Token.Text);
 
         printf("\n");
 
