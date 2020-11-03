@@ -3,8 +3,6 @@
 
 #include "gs.h"
 
-#define ArraySize(Array) (sizeof((Array)) / sizeof((Array)[0]))
-
 /* GCC-specific defines that let us remove compiler size warnings below. */
 #if __LP64__
 #define CastSizeIntTo32Bits(x) (int)(x)
@@ -446,7 +444,7 @@ bool GetKeyword(struct tokenizer *Tokenizer, struct token *Token) {
                 "union", "unsigned", "void", "volatile", "while"
         };
 
-        for (int i = 0; i < ArraySize(Keywords); ++i) {
+        for (int i = 0; i < GSArraySize(Keywords); ++i) {
                 if (GSStringIsEqual(Tokenizer->At, Keywords[i], GSStringLength(Keywords[i]))) {
                         CopyToTokenAndAdvance(Tokenizer, Token, GSStringLength(Keywords[i]), Token_Keyword);
 

@@ -1,5 +1,5 @@
-#ifndef TREE
-#define TREE
+#ifndef PARSE_TREE
+#define PARSE_TREE
 
 #include <stdint.h>
 #include <errno.h>
@@ -36,12 +36,12 @@ void ParseTreeSet(parse_tree_node *Self, char *Name, token Token);
 void ParseTreeNewChildren(parse_tree_node *Self, u32 Count);
 void ParseTreePrint(parse_tree_node *Self, u32 IndentLevel, u32 IndentIncrement);
 
-parse_tree_node *__tree_Alloc(parse_tree_allocator Allocator) {
+parse_tree_node *__ParseTree_Alloc(parse_tree_allocator Allocator) {
         parse_tree_node *Node = (parse_tree_node *)Allocator.Alloc(sizeof(*Node));
         return Node;
 }
 
-void __tree_Init(parse_tree_node *Node, parse_tree_allocator Allocator) {
+void __ParseTree_Init(parse_tree_node *Node, parse_tree_allocator Allocator) {
         Node->Allocator = Allocator;
 
         Node->Token.Text = NULL;
@@ -60,8 +60,8 @@ void __tree_Init(parse_tree_node *Node, parse_tree_allocator Allocator) {
 }
 
 parse_tree_node *ParseTreeInit(parse_tree_allocator Allocator) {
-        parse_tree_node *Node = __tree_Alloc(Allocator);
-        __tree_Init(Node, Allocator);
+        parse_tree_node *Node = __ParseTree_Alloc(Allocator);
+        __ParseTree_Init(Node, Allocator);
         return Node;
 }
 
@@ -91,7 +91,7 @@ void ParseTreeSet(parse_tree_node *Self, char *Name, token Token) {
         ParseTreeSetToken(Self, Token);
 }
 
-void __tree_AddChild(parse_tree_node *Self, char *Name) {
+void __ParseTree_AddChild(parse_tree_node *Self, char *Name) {
         u32 NameLength = GSStringLength(Name);
         u32 AllocCount = DEFAULT_ALLOC_COUNT;
 
@@ -107,7 +107,7 @@ void __tree_AddChild(parse_tree_node *Self, char *Name) {
                 }
                 Self->Capacity = AllocCount;
                 for (int i=0; i<AllocCount; i++) {
-                        __tree_Init(&Self->Children[i], Self->Allocator);
+                        __ParseTree_Init(&Self->Children[i], Self->Allocator);
                 }
         } else if (Self->Capacity <= Self->NumChildren) {
                 if (Self->Capacity > 0) {
@@ -123,7 +123,7 @@ void __tree_AddChild(parse_tree_node *Self, char *Name) {
                         }
                         Self->Capacity = AllocCount;
                         for (int i=Self->NumChildren; i<AllocCount; i++) {
-                                __tree_Init(&Self->Children[i], Self->Allocator);
+                                __ParseTree_Init(&Self->Children[i], Self->Allocator);
                         }
                 }
         }
@@ -134,7 +134,7 @@ void __tree_AddChild(parse_tree_node *Self, char *Name) {
 
 void ParseTreeNewChildren(parse_tree_node *Self, u32 Count) {
         for (int i=0; i<Count; i++) {
-                __tree_AddChild(Self, "Empty");
+                __ParseTree_AddChild(Self, "Empty");
         }
 }
 
@@ -186,4 +186,4 @@ void ParseTreePrint(parse_tree_node *Self, u32 IndentLevel, u32 IndentIncrement)
         }
 }
 
-#endif // TREE
+#endif // PARSE_TREE

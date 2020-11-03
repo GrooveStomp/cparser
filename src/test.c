@@ -6,7 +6,7 @@
 #include "gstest.h"
 #include "lexer.c"
 #include "parser.c"
-#include "tree.c"
+#include "parse_tree.c"
 
 typedef gs_bool (*parser_function)(struct tokenizer *, parse_tree_node *);
 

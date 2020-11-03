@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include "gs.h"
 #include "lexer.c"
-#include "tree.c"
+#include "parse_tree.c"
 
 void __Parser_ParseTreeUpdate(parse_tree_node *ParseTree, char *Name, u32 NumChildren) {
         ParseTreeSetName(ParseTree, Name);
@@ -2645,7 +2645,7 @@ bool ParseTypeSpecifier(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
         struct token Token = GetToken(Tokenizer);
         if(Token.Type == Token_Keyword)
         {
-                for(int Index = 0; Index < ArraySize(Keywords); Index++)
+                for(int Index = 0; Index < GSArraySize(Keywords); Index++)
                 {
                         if(GSStringIsEqual(Token.Text, Keywords[Index], Token.TextLength))
                         {
@@ -2690,7 +2690,7 @@ bool ParseStorageClassSpecifier(struct tokenizer *Tokenizer, parse_tree_node *Pa
         struct token Token = GetToken(Tokenizer);
         if(Token.Type == Token_Keyword)
         {
-                for(int Index = 0; Index < ArraySize(Keywords); Index++)
+                for(int Index = 0; Index < GSArraySize(Keywords); Index++)
                 {
                         if(GSStringIsEqual(Token.Text, Keywords[Index], Token.TextLength))
                         {
