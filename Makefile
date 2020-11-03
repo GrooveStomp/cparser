@@ -1,11 +1,17 @@
-.DEFAULT_GOAL := build
-.PHONY: help test clean
+.DEFAULT_GOAL := release
+.PHONY: help test clean release debug
 
 CC=gcc
-CFLAGS=-std=c99 -pedantic-errors -fextended-identifiers -g -x c -gdwarf-2 -g3 -Wno-format-security
+CFLAGS=-std=c99 -pedantic-errors -x c -Wno-format-security
+RELEASE_CFLAGS=-O2
+DEBUG_CFLAGS=-gdwarf-4 -g3 -fvar-tracking-assignments
+EXE=cparser
 
-build: $(OBJ)
-	$(CC) $(CFLAGS) -o cparser src/main.c
+debug:
+	$(CC) $(CFLAGS) $(DEBUG_CFLAGS) -o $(EXE) src/main.c
+
+release:
+	$(CC) $(CFLAGS) $(RELEASE_CFLAGS) -o $(EXE) src/main.c
 
 test:
 	$(CC) $(CFLAGS) -o test src/test.c
@@ -14,4 +20,4 @@ help:
 	@sh ./sh/view-help README.md
 
 clean:
-	@rm -f src/*.o cparser test
+	@rm -f src/*.o $(EXE) $(EXE) test

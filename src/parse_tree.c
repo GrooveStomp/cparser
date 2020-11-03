@@ -177,7 +177,7 @@ void ParseTreePrint(parse_tree_node *Self, u32 IndentLevel, u32 IndentIncrement)
                 printf("Unknown Name");
         }
 
-        if (Self->Token.Type != Token_Unknown) printf("( %.*s )", Self->Token.TextLength, Self->Token.Text);
+        if (Self->Token.Type != Token_Unknown) printf("( %.*s )", CastSizeIntTo32Bits(Self->Token.TextLength), Self->Token.Text);
 
         printf("\n");
 

@@ -927,7 +927,7 @@ GSFileCopyToBuffer(char *FileName, gs_buffer *Buffer)
         if(FileSize > Remaining) return false;
 
         fseek(File, 0, SEEK_SET);
-        fread(Buffer->Cursor, 1, FileSize, File);
+        size_t BytesRead = fread(Buffer->Cursor, 1, FileSize, File);
         Buffer->Length += FileSize;
         Buffer->Cursor += FileSize;
         *(Buffer->Cursor) = '\0';

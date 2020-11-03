@@ -35,11 +35,12 @@ Clone this repo and chdir to it.
 
 ## Build
 
-Build `cparser` and `test` executables
+These commands output an executable named `cparser`
 
-    $ make build
+    $ make debug
+    $ make release
 
 Other targets:
 
-    $ make test # Run tests
+    $ make test # Build test executable
     $ make help # Show this help on the CLI

@@ -8,23 +8,25 @@
 #include "parser.c"
 #include "parse_tree.c"
 
-typedef gs_bool (*parser_function)(struct tokenizer *, parse_tree_node *);
+typedef bool (*parser_function)(struct tokenizer *, parse_tree_node *);
+
+parse_tree_allocator Allocator = { .Alloc = malloc, .Free = free };
 
 #define Accept(Function, String) \
         { \
-                parse_tree_node *ParseTree = ParseTreeNew(); \
+                parse_tree_node *ParseTree = ParseTreeInit(Allocator); \
                 struct tokenizer Tokenizer = InitTokenizer((String)); \
-                gs_bool Result = Function(&Tokenizer, ParseTree); \
-                ParseTreeFree(ParseTree); \
+                bool Result = Function(&Tokenizer, ParseTree); \
+                ParseTreeDeinit(ParseTree); \
                 GSTestAssert(Result == true, "Result should be true\n"); \
                 GSTestAssert(Tokenizer.At == (String) + GSStringLength((String)), "Tokenizer advances to end of string\n"); \
         }
 #define Reject(Function, String) \
         { \
-                parse_tree_node *ParseTree = ParseTreeNew(); \
+                parse_tree_node *ParseTree = ParseTreeInit(Allocator); \
                 struct tokenizer Tokenizer = InitTokenizer((String)); \
-                gs_bool Result = Function(&Tokenizer, ParseTree); \
-                ParseTreeFree(ParseTree); \
+                bool Result = Function(&Tokenizer, ParseTree); \
+                ParseTreeDeinit(ParseTree); \
                 GSTestAssert(Result != true, "Result should be false\n"); \
                 GSTestAssert(Tokenizer.At == (String), "Tokenizer doesn't advance\n"); \
         }
@@ -631,5 +633,6 @@ int main(int ArgCount, char **Arguments) {
         TestTranslationUnit();
 
         printf("All tests successful\n");
+
         return EXIT_SUCCESS;
 }
