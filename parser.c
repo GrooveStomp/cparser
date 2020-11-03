@@ -4,8 +4,6 @@
 #include <stdio.h>
 #include "bool.c"
 #include "lexer.c"
-
-/* NOTE(AARON): Debug include - tree.c */
 #include "tree.c"
 
 #define PARSE_TREE_UPDATE(Name, NumChildren) \
@@ -3124,7 +3122,10 @@ ParseTranslationUnit(struct tokenizer *Tokenizer, parse_tree_node *ParseTree)
 void
 Parse(gs_buffer *FileContents, bool ShowParseTree)
 {
-        parse_tree_node *ParseTree = ParseTreeNew();
+        parse_tree_allocator Allocator;
+        Allocator.Alloc = malloc;
+        Allocator.Free = free;
+        parse_tree_node *ParseTree = ParseTreeInit(Allocator);
 
         struct tokenizer Tokenizer;
         Tokenizer.Beginning = Tokenizer.At = FileContents->Start;
@@ -3191,6 +3192,8 @@ Parse(gs_buffer *FileContents, bool ShowParseTree)
                         } break;
                 }
         }
+
+        ParseTreeDeinit(ParseTree);
 }
 
 #endif /* _PARSER_C */
