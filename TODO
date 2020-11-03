@@ -4,6 +4,12 @@
 - Unicode support? C unicode libraries: icu, utf8proc, *microutf8*, *nunicode*
   Both microutf8 and nunicode look quite good.
 
-- C Preprocessor
+- Support the C preprocessor.
 
-- Remove GNU extensions
+- Standard arg parsing.
+
+- Changelog.
+
+- Commit hook for updating changelog as part of release.
+
+- Processing for doing a release.

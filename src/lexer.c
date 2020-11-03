@@ -3,12 +3,7 @@
 
 #include "gs.h"
 
-/* GCC-specific defines that let us remove compiler size warnings below. */
-#if __LP64__
-#define CastSizeIntTo32Bits(x) (int)(x)
-#else
-#define CastSizeIntTo32Bits(x) (x)
-#endif
+#define CastSizeIntTo32Bits(x) (u32)(x)
 
 enum token_type {
         Token_Unknown,
@@ -188,7 +183,7 @@ void AdvanceTokenizerToChar(struct tokenizer *Tokenizer, char Char) {
         }
 }
 
-bool CopyToTokenAndAdvance(struct tokenizer *Tokenizer, struct token *Token, int Length, enum token_type Type) {
+void CopyToTokenAndAdvance(struct tokenizer *Tokenizer, struct token *Token, int Length, enum token_type Type) {
         Token->Text = Tokenizer->At;
         Token->TextLength = Length;
         Token->Type = Type;
@@ -579,7 +574,7 @@ struct token GetToken(struct tokenizer *Tokenizer) {
         return Token;
 }
 
-bool Lex(gs_buffer *FileContents) {
+void Lex(gs_buffer *FileContents) {
         struct tokenizer Tokenizer;
         TokenizerInit(&Tokenizer, FileContents->Start);
 
