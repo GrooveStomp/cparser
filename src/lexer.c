@@ -12,6 +12,8 @@
 
 #include "gs.h"
 
+#include <stdio.h> /* TODO: Remove printfs */
+
 enum token_type {
         Token_Unknown,
 

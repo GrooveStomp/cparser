@@ -15,6 +15,8 @@
 #include "lexer.c"
 #include "parse_tree.c"
 
+gs_allocator __Parser_Allocator;
+
 void __Parser_ParseTreeUpdate(parse_tree_node *ParseTree, char *Name, u32 NumChildren) {
         ParseTreeSetName(ParseTree, Name);
         if (NumChildren > 0) {
@@ -55,17 +57,17 @@ struct typedef_names {
 struct typedef_names TypedefNames;
 
 void TypedefClear() {
-        free((void *)TypedefNames.Name);
-        free((void *)TypedefNames.NameIndex);
+        __Parser_Allocator.Free((void *)TypedefNames.Name);
+        __Parser_Allocator.Free((void *)TypedefNames.NameIndex);
         TypedefNames.Capacity = 0;
         TypedefNames.NumNames = 0;
 }
 
 void TypedefInit() {
-        char *Memory = (char *)malloc(1024);
+        char *Memory = (char *)__Parser_Allocator.Alloc(1024);
         TypedefNames.Name = Memory;
         TypedefNames.Capacity = 1024;
-        TypedefNames.NameIndex = malloc(1024 / 2 * sizeof(int));
+        TypedefNames.NameIndex = __Parser_Allocator.Alloc(1024 / 2 * sizeof(int));
         TypedefNames.NumNames = 0;
 }
 
@@ -2742,10 +2744,8 @@ bool ParseTranslationUnit(struct tokenizer *Tokenizer, parse_tree_node *ParseTre
         return false;
 }
 
-void Parse(gs_buffer *FileContents, bool ShowParseTree) {
-        parse_tree_allocator Allocator;
-        Allocator.Alloc = malloc;
-        Allocator.Free = free;
+void Parse(gs_allocator Allocator, gs_buffer *FileContents, bool ShowParseTree) {
+        __Parser_Allocator = Allocator;
         parse_tree_node *ParseTree = ParseTreeInit(Allocator);
 
         struct tokenizer Tokenizer;

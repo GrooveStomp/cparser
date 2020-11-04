@@ -15,12 +15,6 @@
 #define GS_H
 #define GS_VERSION 0.2.0-dev
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h> /* memset */
-#include <stdarg.h> /* va_list */
-#include <libgen.h> /* basename */
-
 #define GSArraySize(Array) (sizeof((Array)) / sizeof((Array)[0]))
 
 /******************************************************************************
@@ -50,22 +44,24 @@
 #define GSMax(A, B) ((A) < (B) ? (B) : (A))
 #define GSMin(A, B) ((A) < (B) ? (A) : (B))
 
-#define GSAbortWithMessage(...) \
-        { \
-                char String##__LINE__[256];                             \
-                sprintf(String##__LINE__, "In %s() at line #%i: ", __func__, __LINE__); \
-                fprintf(stderr, String##__LINE__);                       \
-                fprintf(stderr, __VA_ARGS__); \
-                exit(EXIT_FAILURE); \
-        }
+// TODO: Move to platform-specific header
+/* #define GSAbortWithMessage(...) \ */
+/*         { \ */
+/*                 char String##__LINE__[256];                             \ */
+/*                 sprintf(String##__LINE__, "In %s() at line #%i: ", __func__, __LINE__); \ */
+/*                 fprintf(stderr, String##__LINE__);                       \ */
+/*                 fprintf(stderr, __VA_ARGS__); \ */
+/*                 exit(EXIT_FAILURE); \ */
+/*         } */
 
-#define GSLog(...) \
-        { \
-                char String##__LINE__[256];                             \
-                sprintf(String##__LINE__, "In %s() at line #%i: ", __func__, __LINE__); \
-                fprintf(stdout, String##__LINE__);                       \
-                fprintf(stdout, __VA_ARGS__); \
-        }
+// TODO: Move to platform-specific header
+/* #define GSLog(...) \ */
+/*         { \ */
+/*                 char String##__LINE__[256];                             \ */
+/*                 sprintf(String##__LINE__, "In %s() at line #%i: ", __func__, __LINE__); \ */
+/*                 fprintf(stdout, String##__LINE__);                       \ */
+/*                 fprintf(stdout, __VA_ARGS__); \ */
+/*         } */
 
 #define GS1024Inverse 1.0/1024
 #define GSBytesToKilobytes(X) (X) * GS1024Inverse
@@ -77,6 +73,11 @@
  * TODO: Conditionally do typedefs?
  ******************************************************************************/
 #define GSNullChar '\0'
+
+#ifndef NULL
+#define NULL 0
+#endif
+
 #define GSNullPtr NULL
 
 typedef int bool;
@@ -99,6 +100,16 @@ typedef unsigned long long u128;
 typedef float f32;
 typedef double f64;
 typedef long double f128;
+
+/******************************************************************************
+ * Allocator
+ ******************************************************************************/
+typedef struct gs_allocator {
+        void *(*Alloc)(u64);
+        void (*Free)(void *);
+        void *(*Realloc)(void *, u64);
+        void *(*ArrayAlloc)(u64, u64);
+} gs_allocator;
 
 /******************************************************************************
  * Character Definitions
@@ -250,7 +261,7 @@ GSStringIsEqual(char *LeftString, char *RightString, int MaxNumToMatch)
 	return true;
 }
 
-size_t
+u32
 GSStringLength(char *String)
 {
 	char *P = String;
@@ -488,7 +499,7 @@ GSStringReject(char *Source, char *Dest, unsigned int MaxLength, GSStringFilterF
  *     char *Value = "value";
  *     int StringLength = 256;
  *     int NumElements = 13;
- *     size_t BytesRequired = GSHashMapBytesRequired(StringLength, NumElements);
+ *     u32 BytesRequired = GSHashMapBytesRequired(StringLength, NumElements);
  *     gs_hash_map *Map = GSHashMapInit(alloca(BytesRequired), StringLength, NumElements);
  *     GSHashMapSet(Map, "key", Value);
  *     if(GSHashMapHasKey(Map, "key"))
@@ -500,7 +511,7 @@ GSStringReject(char *Source, char *Dest, unsigned int MaxLength, GSStringFilterF
 typedef struct gs_hash_map
 {
         unsigned int Count;
-        size_t AllocatedBytes;
+        u32 AllocatedBytes;
         unsigned int Capacity;
         unsigned int MaxKeyLength;
 
@@ -526,7 +537,7 @@ __GSHashMapComputeHash(gs_hash_map *Self, char *String)
         return Result;
 }
 
-size_t
+u32
 GSHashMapBytesRequired(unsigned int MaxKeyLength, unsigned int NumEntries)
 {
         int AllocSize =
@@ -552,10 +563,14 @@ GSHashMapInit(void *Memory, unsigned int MaxKeyLength, unsigned int NumEntries)
         int KeysMemLength = MaxKeyLength * NumEntries;
 
         Self->Keys = KeyValueMemory;
-        memset(Self->Keys, 0, KeysMemLength);
+        for (int i = 0; i < KeysMemLength; i++) {
+                Self->Keys[i] = 0;
+        }
 
         Self->Values = (void **)(Self->Keys + KeysMemLength);
-        memset(Self->Values, 0, (sizeof(void **) * NumEntries));
+        for (int i = 0; i < NumEntries; i++) {
+                Self->Values[i] = 0;
+        }
 
         return Self;
 }
@@ -682,8 +697,7 @@ GSHashMapGrow(gs_hash_map **Self, unsigned int NumEntries, void *New)
                 if(Key != NULL)
                 {
                         bool Success = GSHashMapSet(*Self, Key, Value);
-                        if(!Success)
-                                GSAbortWithMessage("This should have worked!\n");
+                        if(!Success) return false;
                 }
         }
 
@@ -757,89 +771,6 @@ GSHashMapDelete(gs_hash_map *Self, char *Wanted)
 }
 
 /******************************************************************************
- * Arg Parsing
- ******************************************************************************/
-
-typedef struct gs_args
-{
-        int Count;
-        char **Args;
-} gs_args;
-
-void
-GSArgsInit(gs_args *Self, int ArgCount, char **Args)
-{
-        Self->Count = ArgCount;
-        Self->Args = Args;
-}
-
-char *
-GSArgsProgramName(gs_args *Self)
-{
-        char *ProgramName = Self->Args[0];
-        char *Result = basename(ProgramName);
-        return Result;
-}
-
-bool
-GSArgsIsPresent(gs_args *Args, char *Wanted)
-{
-        int StringLength = GSStringLength(Wanted);
-        for(int I=0; I<Args->Count; I++)
-        {
-                if(GSStringIsEqual(Wanted, Args->Args[I], StringLength))
-                {
-                        return true;
-                }
-        }
-        return false;
-}
-
-int /* Returns -1 if Arg not found. */
-GSArgsFind(gs_args *Args, char *Wanted)
-{
-        int StringLength = GSStringLength(Wanted);
-        for(int I=0; I<Args->Count; I++)
-        {
-                if(GSStringIsEqual(Wanted, Args->Args[I], StringLength))
-                {
-                        return I;
-                }
-        }
-        return -1;
-}
-
-char * /* Returns NULL if Index is invalid. */
-GSArgsAtIndex(gs_args *Args, int Index)
-{
-        if((Index < 0) ||
-           (Index > (Args->Count - 1)))
-                return NULL;
-        else
-                return Args->Args[Index];
-}
-
-char * /* Returns NULL if Marker is not found or no trailing arg. */
-GSArgsAfter(gs_args *Args, char *Marker)
-{
-        int Index = GSArgsFind(Args, Marker);
-        if(Index < 0) return NULL;
-
-        char *Arg = GSArgsAtIndex(Args, Index + 1);
-        return Arg;
-}
-
-bool
-GSArgsHelpWanted(gs_args *Args)
-{
-        if(GSArgsIsPresent(Args, "-h") ||
-           GSArgsIsPresent(Args, "--help"))
-                return true;
-        else
-                return false;
-}
-
-/******************************************************************************
  * Byte streams / Buffers / File IO
  ******************************************************************************/
 
@@ -847,13 +778,13 @@ typedef struct gs_buffer
 {
         char *Start;
         char *Cursor;
-        size_t Capacity;
-        size_t Length;
+        u64 Capacity;
+        u64 Length;
         char *SavedCursor;
 } gs_buffer;
 
 gs_buffer *
-GSBufferInit(gs_buffer *Buffer, char *Start, size_t Size)
+GSBufferInit(gs_buffer *Buffer, char *Start, u64 Size)
 {
         Buffer->Start = Start;
         Buffer->Cursor = Start;
@@ -866,7 +797,7 @@ GSBufferInit(gs_buffer *Buffer, char *Start, size_t Size)
 bool
 GSBufferIsEOF(gs_buffer *Buffer)
 {
-        int Size = Buffer->Cursor - Buffer->Start;
+        u64 Size = Buffer->Cursor - Buffer->Start;
         bool Result = Size >= Buffer->Length;
         return Result;
 }
@@ -903,38 +834,40 @@ GSBufferRestoreCursor(gs_buffer *Buffer)
         return true;
 }
 
-size_t
-GSFileSize(char *FileName)
-{
-        size_t FileSize = 0;
-        FILE *File = fopen(FileName, "r");
-        if(File != NULL)
-        {
-                fseek(File, 0, SEEK_END);
-                FileSize = ftell(File);
-                fclose(File);
-        }
-        return FileSize;
-}
+// TODO: Move to platform-specific header include.
+/* size_t */
+/* GSFileSize(char *FileName) */
+/* { */
+/*         size_t FileSize = 0; */
+/*         FILE *File = fopen(FileName, "r"); */
+/*         if(File != NULL) */
+/*         { */
+/*                 fseek(File, 0, SEEK_END); */
+/*                 FileSize = ftell(File); */
+/*                 fclose(File); */
+/*         } */
+/*         return FileSize; */
+/* } */
 
-bool
-GSFileCopyToBuffer(char *FileName, gs_buffer *Buffer)
-{
-        FILE *File = fopen(FileName, "r");
-        if(File == NULL) return false;
+// TODO: Move to platform-specific header include
+/* bool */
+/* GSFileCopyToBuffer(char *FileName, gs_buffer *Buffer) */
+/* { */
+/*         FILE *File = fopen(FileName, "r"); */
+/*         if(File == NULL) return false; */
 
-        fseek(File, 0, SEEK_END);
-        size_t FileSize = ftell(File);
-        int Remaining = (Buffer->Start + Buffer->Capacity) - Buffer->Cursor;
-        if(FileSize > Remaining) return false;
+/*         fseek(File, 0, SEEK_END); */
+/*         size_t FileSize = ftell(File); */
+/*         int Remaining = (Buffer->Start + Buffer->Capacity) - Buffer->Cursor; */
+/*         if(FileSize > Remaining) return false; */
 
-        fseek(File, 0, SEEK_SET);
-        size_t BytesRead = fread(Buffer->Cursor, 1, FileSize, File);
-        Buffer->Length += FileSize;
-        Buffer->Cursor += FileSize;
-        *(Buffer->Cursor) = '\0';
+/*         fseek(File, 0, SEEK_SET); */
+/*         size_t BytesRead = fread(Buffer->Cursor, 1, FileSize, File); */
+/*         Buffer->Length += FileSize; */
+/*         Buffer->Cursor += FileSize; */
+/*         *(Buffer->Cursor) = '\0'; */
 
-        return true;
-}
+/*         return true; */
+/* } */
 
 #endif /* GS_H */
