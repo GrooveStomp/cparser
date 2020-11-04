@@ -1,0 +1,24 @@
+// type: InterlockingCaps
+// var: snake_case
+// func: InterlockingCaps
+// namespace: snake_case
+org_MyType my_type;
+org_MyTypeInit(my_type);
+
+org_scope_MyOtherType my_other_type;
+org_scope_MyOtherTypeInit(my_other_type);
+
+// Enum
+typedef enum MyEnum {
+    MyEnum_ValueOne,
+    MyEnum_ValueTwo,
+} MyEnum;
+
+// Struct
+typedef struct MyStruct {
+    int attribute_one;
+    char *attribute_two;
+} MyStruct;
+
+// Constants
+#define SCREAMING_UPPER_CASE

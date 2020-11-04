@@ -1,7 +1,7 @@
 /******************************************************************************
  * File: parse_tree.c
  * Created:
- * Updated: 2016-11-03
+ * Updated: 2016-11-04
  * Package: C-Parser
  * Creator: Aaron Oman (GrooveStomp)
  * Copyright - 2020, Aaron Oman and the C-Parser contributors
@@ -11,188 +11,189 @@
 #define PARSE_TREE
 
 #include "gs.h"
+#include "lexer.c"
 
 #define DEFAULT_ALLOC_COUNT 2
 
-typedef struct parse_tree_node {
-        gs_allocator Allocator;
-        u32 NameLength;
-        u32 Capacity;
-        u32 NumChildren;
-        token Token;
-        char *Name;
-        struct parse_tree_node *Children;
-} parse_tree_node;
+typedef struct ParseTreeNode {
+        gs_Allocator allocator;
+        u32 name_length;
+        u32 capacity;
+        u32 num_children;
+        Token token;
+        char *name;
+        struct ParseTreeNode *children;
+} ParseTreeNode;
 
 typedef enum ParseTreeErrorEnum {
         ParseTreeErrorChildAlloc,
         ParseTreeErrorNone,
 } ParseTreeErrorEnum;
 
-const char *__ParseTree_ErrorStrings[] = {
+const char *__parse_tree_ErrorStrings[] = {
         "Couldn't allocate memory for new child node",
         "No Error"
 };
 
-ParseTreeErrorEnum __ParseTree_LastError = ParseTreeErrorNone;
+ParseTreeErrorEnum __parse_tree_LastError = ParseTreeErrorNone;
 
 const char *ParseTreeErrorString() {
-        const char *Result = __ParseTree_ErrorStrings[__ParseTree_LastError];
-        __ParseTree_LastError = ParseTreeErrorNone;
+        const char *result = __parse_tree_ErrorStrings[__parse_tree_LastError];
+        __parse_tree_LastError = ParseTreeErrorNone;
 
-        return Result;
+        return result;
 }
 
-parse_tree_node *ParseTreeInit(gs_allocator Allocator);
-void ParseTreeDeinit(parse_tree_node *Node);
+ParseTreeNode *ParseTreeInit(gs_Allocator allocator);
+void ParseTreeDeinit(ParseTreeNode *node);
 
-void ParseTreeSetName(parse_tree_node *Node, char *Name);
-void ParseTreeSetToken(parse_tree_node *Node, token Token);
-void ParseTreeSet(parse_tree_node *Self, char *Name, token Token);
-void ParseTreeNewChildren(parse_tree_node *Self, u32 Count);
-void ParseTreePrint(parse_tree_node *Self, u32 IndentLevel, u32 IndentIncrement);
+void ParseTreeSetName(ParseTreeNode *node, char *name);
+void ParseTreeSetToken(ParseTreeNode *node, Token token);
+void ParseTreeSet(ParseTreeNode *self, char *name, Token token);
+void ParseTreeNewChildren(ParseTreeNode *self, u32 Count);
+void ParseTreePrint(ParseTreeNode *self, u32 IndentLevel, u32 IndentIncrement);
 
-parse_tree_node *__ParseTree_Alloc(gs_allocator Allocator) {
-        parse_tree_node *Node = (parse_tree_node *)Allocator.Alloc(sizeof(*Node));
-        return Node;
+ParseTreeNode *__parse_tree_Alloc(gs_Allocator allocator) {
+        ParseTreeNode *node = (ParseTreeNode *)allocator.malloc(sizeof(*node));
+        return node;
 }
 
-void __ParseTree_Init(parse_tree_node *Node, gs_allocator Allocator) {
-        Node->Allocator = Allocator;
+void __parse_tree_Init(ParseTreeNode *node, gs_Allocator allocator) {
+        node->allocator = allocator;
 
-        Node->Token.Text = NULL;
-        Node->Token.TextLength = 0;
-        Node->Token.Type = Token_Unknown;
-        Node->Token.Line = 0;
-        Node->Token.Column = 0;
+        node->token.text = NULL;
+        node->token.text_length = 0;
+        node->token.type = Token_Unknown;
+        node->token.line = 0;
+        node->token.column = 0;
 
-        Node->Name = GSNullPtr;
-        Node->NameLength = 0;
-        Node->Children = GSNullPtr;
-        Node->NumChildren = 0;
-        Node->Capacity = 0;
+        node->name = GS_NULL_PTR;
+        node->name_length = 0;
+        node->children = GS_NULL_PTR;
+        node->num_children = 0;
+        node->capacity = 0;
 
         return;
 }
 
-parse_tree_node *ParseTreeInit(gs_allocator Allocator) {
-        parse_tree_node *Node = __ParseTree_Alloc(Allocator);
-        __ParseTree_Init(Node, Allocator);
-        return Node;
+ParseTreeNode *ParseTreeInit(gs_Allocator allocator) {
+        ParseTreeNode *node = __parse_tree_Alloc(allocator);
+        __parse_tree_Init(node, allocator);
+        return node;
 }
 
-/* Name must be a NULL-terminated string! */
-void ParseTreeSetName(parse_tree_node *Node, char *Name) {
-        u32 NameLength = GSStringLength(Name);
-        if (Node->Name != NULL) {
-                Node->Allocator.Free(Node->Name);
+/* name must be a NULL-terminated string! */
+void ParseTreeSetName(ParseTreeNode *node, char *name) {
+        u32 name_length = gs_StringLength(name);
+        if (node->name != NULL) {
+                node->allocator.free(node->name);
         }
 
-        Node->Name = (char *)Node->Allocator.Alloc(NameLength + 1);
-        GSStringCopy(Name, Node->Name, NameLength);
-        Node->NameLength = NameLength;
+        node->name = (char *)node->allocator.malloc(name_length + 1);
+        gs_StringCopy(name, node->name, name_length);
+        node->name_length = name_length;
 }
 
-void ParseTreeSetToken(parse_tree_node *Node, token Token) {
-        token *This = &(Node->Token);
-        This->Text = Token.Text;
-        This->TextLength = Token.TextLength;
-        This->Type = Token.Type;
-        This->Line = Token.Line;
-        This->Column = Token.Column;
+void ParseTreeSetToken(ParseTreeNode *node, Token token) {
+        Token *this = &(node->token);
+        this->text = token.text;
+        this->text_length = token.text_length;
+        this->type = token.type;
+        this->line = token.line;
+        this->column = token.column;
 }
 
-void ParseTreeSet(parse_tree_node *Self, char *Name, token Token) {
-        ParseTreeSetName(Self, Name);
-        ParseTreeSetToken(Self, Token);
+void ParseTreeSet(ParseTreeNode *self, char *name, Token token) {
+        ParseTreeSetName(self, name);
+        ParseTreeSetToken(self, token);
 }
 
-bool __ParseTree_AddChild(parse_tree_node *Self, char *Name) {
-        u32 NameLength = GSStringLength(Name);
-        u32 AllocCount = DEFAULT_ALLOC_COUNT;
+bool __parse_tree_AddChild(ParseTreeNode *self, char *name) {
+        u32 name_length = gs_StringLength(name);
+        u32 alloc_count = DEFAULT_ALLOC_COUNT;
 
-        if (Self->Children == NULL) {
-                Self->Children = (parse_tree_node *)Self->Allocator.Alloc(sizeof(parse_tree_node) * AllocCount);
-                if (Self->Children == NULL) {
-                        __ParseTree_LastError = ParseTreeErrorChildAlloc;
+        if (self->children == NULL) {
+                self->children = (ParseTreeNode *)self->allocator.malloc(sizeof(ParseTreeNode) * alloc_count);
+                if (self->children == NULL) {
+                        __parse_tree_LastError = ParseTreeErrorChildAlloc;
                         return false;
                 }
-                Self->Capacity = AllocCount;
-                for (int i=0; i<AllocCount; i++) {
-                        __ParseTree_Init(&Self->Children[i], Self->Allocator);
+                self->capacity = alloc_count;
+                for (int i=0; i<alloc_count; i++) {
+                        __parse_tree_Init(&self->children[i], self->allocator);
                 }
-        } else if (Self->Capacity <= Self->NumChildren) {
-                if (Self->Capacity > 0) {
-                        AllocCount = Self->Capacity * 2;
-                        Self->Children = (parse_tree_node *)Self->Allocator.Realloc(Self->Children, sizeof(parse_tree_node) * AllocCount);
-                        if (Self->Children == NULL) {
-                                __ParseTree_LastError = ParseTreeErrorChildAlloc;
+        } else if (self->capacity <= self->num_children) {
+                if (self->capacity > 0) {
+                        alloc_count = self->capacity * 2;
+                        self->children = (ParseTreeNode *)self->allocator.realloc(self->children, sizeof(ParseTreeNode) * alloc_count);
+                        if (self->children == NULL) {
+                                __parse_tree_LastError = ParseTreeErrorChildAlloc;
                                 return false;
                         }
-                        Self->Capacity = AllocCount;
-                        for (int i=Self->NumChildren; i<AllocCount; i++) {
-                                __ParseTree_Init(&Self->Children[i], Self->Allocator);
+                        self->capacity = alloc_count;
+                        for (int i=self->num_children; i<alloc_count; i++) {
+                                __parse_tree_Init(&self->children[i], self->allocator);
                         }
                 }
         }
 
-        ParseTreeSetName(&Self->Children[Self->NumChildren], Name);
-        Self->NumChildren++;
+        ParseTreeSetName(&self->children[self->num_children], name);
+        self->num_children++;
 
         return true;
 }
 
-void ParseTreeNewChildren(parse_tree_node *Self, u32 Count) {
-        for (int i=0; i<Count; i++) {
-                __ParseTree_AddChild(Self, "Empty");
+void ParseTreeNewChildren(ParseTreeNode *self, u32 count) {
+        for (int i = 0; i < count; i++) {
+                __parse_tree_AddChild(self, "Empty");
         }
 }
 
-void ParseTreeDeinit(parse_tree_node *Self) {
-        if (Self == NULL) {
+void ParseTreeDeinit(ParseTreeNode *self) {
+        if (self == NULL) {
                 return;
         }
 
-        if (Self->Children != NULL) {
-                Self->Allocator.Free(Self->Children);
-                Self->Children = NULL;
-                Self->NumChildren = 0;
-                Self->Capacity = 0;
+        if (self->children != NULL) {
+                self->allocator.free(self->children);
+                self->children = NULL;
+                self->num_children = 0;
+                self->capacity = 0;
         }
 
-        if (Self->Name != NULL) {
-                Self->Allocator.Free(Self->Name);
-                Self->Name = NULL;
-                Self->NameLength = 0;
+        if (self->name != NULL) {
+                self->allocator.free(self->name);
+                self->name = NULL;
+                self->name_length = 0;
         }
 
-        Self->Allocator.Free(Self);
+        self->allocator.free(self);
 }
 
-void ParseTreePrint(parse_tree_node *Self, u32 IndentLevel, u32 IndentIncrement) {
-        int MinCompareLength = GSMin(Self->NameLength, 5);
-        if (GSStringIsEqual("Empty", Self->Name, MinCompareLength)) return;
+void ParseTreePrint(ParseTreeNode *self, u32 IndentLevel, u32 IndentIncrement) {
+        int min_compare_length = gs_Min(self->name_length, 5);
+        if (gs_StringIsEqual("Empty", self->name, min_compare_length)) return;
 
-        if (Self->Token.Type != Token_Unknown) {
-                printf("[%4d,%3d] ", Self->Token.Line, Self->Token.Column);
+        if (self->token.type != Token_Unknown) {
+                printf("[%4d,%3d] ", self->token.line, self->token.column);
         } else {
                 printf("           ");
         }
 
         if (IndentLevel > 0) printf("%*c", IndentLevel * IndentIncrement, ' ');
 
-        if (Self->NameLength > 0) {
-                printf("%s", Self->Name);
+        if (self->name_length > 0) {
+                printf("%s", self->name);
         } else {
-                printf("Unknown Name");
+                printf("Unknown name");
         }
 
-        if (Self->Token.Type != Token_Unknown) printf("( %.*s )", (u32)(Self->Token.TextLength), Self->Token.Text);
+        if (self->token.type != Token_Unknown) printf("( %.*s )", (u32)(self->token.text_length), self->token.text);
 
         printf("\n");
 
-        for (int i=0; i<Self->NumChildren; i++) {
-                ParseTreePrint(&Self->Children[i], IndentLevel + 1, IndentIncrement);
+        for (int i=0; i<self->num_children; i++) {
+                ParseTreePrint(&self->children[i], IndentLevel + 1, IndentIncrement);
         }
 }
 

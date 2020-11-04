@@ -1,12 +1,9 @@
 - Integer lexing is not correct? Double check C reference and
   integer-constants.txt test file.
-
 - Support the C preprocessor.
-
 - Standard arg parsing.
-
 - Changelog.
-
 - Commit hook for updating changelog as part of release.
-
 - Processing for doing a release.
+- Remove dependency on stdio.h in lexer.c and remove printfs; instead returning errors appropriately.
+  See how parse_tree.c handles errors.

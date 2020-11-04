@@ -1,7 +1,7 @@
 /******************************************************************************
  * File: main.c
  * Created:
- * Updated: 2016-11-03
+ * Updated: 2016-11-04
  * Package: C-Parser
  * Creator: Aaron Oman (GrooveStomp)
  * Copyright - 2020, Aaron Oman and the C-Parser contributors
@@ -11,14 +11,14 @@
 #include "lexer.c"
 #include "parser.c"
 
- #include <stdlib.h> /* EXIT_SUCCESS, EXIT_FAILURE */
+#include <stdlib.h> /* EXIT_SUCCESS, EXIT_FAILURE */
 #include <stdio.h>
 #include <string.h> // strerror
 #include <sys/stat.h>
 #include <errno.h>
 
-void Usage(const char *Name) {
-        printf("Usage: %s operation file [options]\n", Name);
+void Usage(const char *name) {
+        printf("Usage: %s operation file [options]\n", name);
         puts("  operation: One of: [parse, lex].");
         puts("  file: Must be a file in this directory.");
         puts("  Specify '-h' or '--help' for this help text.");
@@ -29,59 +29,54 @@ void Usage(const char *Name) {
 }
 
 int main(int argc, char **argv) {
-        const char *ProgName = argv[0];
+        const char *prog_name = argv[0];
 
         for (int i = 0; i < argc; i++) {
-                if (GSStringIsEqual(argv[i], "--help", 6) ||
-                    GSStringIsEqual(argv[i], "-help", 5) ||
-                    GSStringIsEqual(argv[i], "-h", 2))
-                        Usage(ProgName);
+                if (gs_StringIsEqual(argv[i], "--help", 6) ||
+                    gs_StringIsEqual(argv[i], "-help", 5) ||
+                    gs_StringIsEqual(argv[i], "-h", 2))
+                        Usage(prog_name);
         }
 
-        if (argc < 3) Usage(ProgName);
+        if (argc < 3) Usage(prog_name);
 
-        char *Command = argv[1];
+        char *command = argv[1];
 
-        if (!GSStringIsEqual(Command, "parse", 5) &&
-            !GSStringIsEqual(Command, "lex", 3))
-                Usage(ProgName);
+        if (!gs_StringIsEqual(command, "parse", 5) &&
+            !gs_StringIsEqual(command, "lex", 3))
+                Usage(prog_name);
 
-        char *Filename = argv[2];
-        struct stat StatBuf;
-        if (stat(Filename, &StatBuf) != 0) {
-                fprintf(stderr, strerror(errno));
+        char *filename = argv[2];
+        struct stat stat_buf;
+        if (stat(filename, &stat_buf) != 0) {
+                fprintf(stderr, "%s\n", strerror(errno));
                 exit(EXIT_FAILURE);
         }
 
-        char *BufStart = (char *)malloc(StatBuf.st_size);
-        gs_buffer Buffer;
-        GSBufferInit(&Buffer, BufStart, StatBuf.st_size);
+        char *buf_start = (char *)malloc(stat_buf.st_size);
+        gs_Buffer buffer;
+        gs_BufferInit(&buffer, buf_start, stat_buf.st_size);
 
-        FILE *File = fopen(Filename, "r");
-        if (File == NULL) {
-                fprintf(stderr, strerror(errno));
+        FILE *file = fopen(filename, "r");
+        if (file == NULL) {
+                fprintf(stderr, "%s\n", strerror(errno));
                 exit(EXIT_FAILURE);
         }
 
-        size_t BytesRead = fread(Buffer.Cursor, 1, StatBuf.st_size, File);
-        Buffer.Length += StatBuf.st_size;
-        Buffer.Cursor += StatBuf.st_size;
-        *(Buffer.Cursor) = '\0';
+        size_t bytes_read = fread(buffer.cursor, 1, stat_buf.st_size, file);
+        buffer.length += stat_buf.st_size;
+        buffer.cursor += stat_buf.st_size;
+        *(buffer.cursor) = '\0';
 
-        fclose(File);
+        fclose(file);
 
-        gs_allocator Allocator = {
-                .Alloc = malloc,
-                .Free = free,
-                .Realloc = realloc,
-                .ArrayAlloc = calloc,
-        };
+        gs_Allocator allocator = { .malloc = malloc, .free = free, .realloc = realloc, .calloc = calloc };
 
-        if (GSStringIsEqual(Command, "parse", 5)) {
-                bool ShowParseTree = (argc == 4 && GSStringIsEqual(argv[3], "--show-parse-tree", 17));
-                Parse(Allocator, &Buffer, ShowParseTree);
+        if (gs_StringIsEqual(command, "parse", 5)) {
+                bool show_parse_tree = (argc == 4 && gs_StringIsEqual(argv[3], "--show-parse-tree", 17));
+                Parse(allocator, &buffer, show_parse_tree);
         } else {
-                Lex(&Buffer);
+                Lex(&buffer);
         }
 
         return EXIT_SUCCESS;

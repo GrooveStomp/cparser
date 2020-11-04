@@ -1,20 +1,20 @@
 /******************************************************************************
  * File: lexer.c
  * Created:
- * Updated: 2016-11-03
+ * Updated: 2016-11-04
  * Package: C-Parser
  * Creator: Aaron Oman (GrooveStomp)
  * Copyright - 2020, Aaron Oman and the C-Parser contributors
  * SPDX-License-Identifier: LGPL-3.0-only
  ******************************************************************************/
-#ifndef _LEXER_C
-#define _LEXER_C
+#ifndef LEXER_C
+#define LEXER_C
 
 #include "gs.h"
 
 #include <stdio.h> /* TODO: Remove printfs */
 
-enum token_type {
+typedef enum TokenType {
         Token_Unknown,
 
         Token_Asterisk,
@@ -76,11 +76,10 @@ enum token_type {
         Token_PrecisionNumber,
 
         Token_EndOfStream,
-};
+} TokenType;
 
-char *TokenName(enum token_type Type) {
-        switch(Type)
-        {
+char *TokenName(TokenType type) {
+        switch (type) {
                 case Token_Unknown: { return "Unknown"; } break;
 
                 case Token_Asterisk: { return "Asterisk"; } break;
@@ -143,159 +142,155 @@ char *TokenName(enum token_type Type) {
                 case Token_PrecisionNumber: { return "PrecisionNumber"; } break;
 
                 case Token_EndOfStream: { return "EndOfStream"; } break;
+                default: { return "UnknownToken"; } break;
         }
 }
 
-typedef struct token {
-        char *Text;
-        size_t TextLength;
-        enum token_type Type;
-        u32 Line;
-        u32 Column;
-} token;
+typedef struct Token {
+        char *text;
+        size_t text_length;
+        TokenType type;
+        u32 line;
+        u32 column;
+} Token;
 
-typedef struct tokenizer {
-        char *Beginning;
-        char *At;
-        u32 Line;
-        u32 Column;
-} tokenizer;
+typedef struct Tokenizer {
+        char *beginning;
+        char *at;
+        u32 line;
+        u32 column;
+} Tokenizer;
 
-void TokenizerInit(struct tokenizer *Self, char *Memory) {
-        Self->Beginning = Memory;
-        Self->At = Memory;
-        Self->Line = 0;
-        Self->Column = 0;
+void TokenizerInit(Tokenizer *tokenizer, char *memory) {
+        tokenizer->beginning = memory;
+        tokenizer->at = memory;
+        tokenizer->line = 0;
+        tokenizer->column = 0;
 }
 
-void AdvanceTokenizer(struct tokenizer *Tokenizer) {
-        if (GSCharIsEndOfLine(Tokenizer->At[0])) {
-                ++Tokenizer->Line;
-                Tokenizer->Column = 1;
+void AdvanceTokenizer(Tokenizer *tokenizer) {
+        if (gs_CharIsEndOfLine(tokenizer->at[0])) {
+                ++tokenizer->line;
+                tokenizer->column = 1;
         } else {
-                ++Tokenizer->Column;
+                ++tokenizer->column;
         }
-        ++Tokenizer->At;
+        ++tokenizer->at;
 }
 
-void CopyTokenizer(struct tokenizer *Source, struct tokenizer *Dest) {
-        Dest->Beginning = Source->Beginning;
-        Dest->At = Source->At;
-        Dest->Line = Source->Line;
-        Dest->Column = Source->Column;
+void CopyTokenizer(Tokenizer *source, Tokenizer *dest) {
+        dest->beginning = source->beginning;
+        dest->at = source->at;
+        dest->line = source->line;
+        dest->column = source->column;
 }
 
-void AdvanceTokenizerToChar(struct tokenizer *Tokenizer, char Char) {
-        while (!GSCharIsEndOfStream(Tokenizer->At[0])) {
-                if (Tokenizer->At[0] == Char) break;
-                AdvanceTokenizer(Tokenizer);
+void AdvanceTokenizerToChar(Tokenizer *tokenizer, char c) {
+        while (!gs_CharIsEndOfStream(tokenizer->at[0])) {
+                if (tokenizer->at[0] == c) break;
+                AdvanceTokenizer(tokenizer);
         }
 }
 
-void CopyToTokenAndAdvance(struct tokenizer *Tokenizer, struct token *Token, int Length, enum token_type Type) {
-        Token->Text = Tokenizer->At;
-        Token->TextLength = Length;
-        Token->Type = Type;
-        Token->Line = Tokenizer->Line;
-        Token->Column = Tokenizer->Column;
+void CopyToTokenAndAdvance(Tokenizer *tokenizer, Token *token, u32 length, TokenType type) {
+        token->text = tokenizer->at;
+        token->text_length = length;
+        token->type = type;
+        token->line = tokenizer->line;
+        token->column = tokenizer->column;
 
-        for (int i=0; i<Length; ++i) AdvanceTokenizer(Tokenizer);
+        for (i32 i =  0; i < length; ++i) AdvanceTokenizer(tokenizer);
 }
 
-void EatAllWhitespace(struct tokenizer *Tokenizer) {
-        for (; GSCharIsWhitespace(Tokenizer->At[0]); AdvanceTokenizer(Tokenizer));
+void EatAllWhitespace(Tokenizer *tokenizer) {
+        for (; gs_CharIsWhitespace(tokenizer->at[0]); AdvanceTokenizer(tokenizer));
 }
 
-bool IsIdentifierCharacter(char C) {
-	bool Result = (GSCharIsAlphabetical(C) || GSCharIsDecimal(C) || C == '_');
-	return Result;
+bool IsIdentifierCharacter(char c) {
+	return (gs_CharIsAlphabetical(c) || gs_CharIsDecimal(c) || c == '_');
 }
 
-bool IsIntegerSuffix(char C) {
-	bool Result = (C == 'u' ||
-                          C == 'U' ||
-                          C == 'l' ||
-                          C == 'L');
-	return Result;
+bool IsIntegerSuffix(char c) {
+        return (c == 'u' || c == 'U' || c == 'l' || c == 'L');
 }
 
-bool GetCharacter(struct tokenizer *Tokenizer, struct token *Token) {
-        char *Cursor = Tokenizer->At;
+bool GetCharacter(Tokenizer *tokenizer, Token *token) {
+        char *cursor = tokenizer->at;
 
         /* First character must be a single quote. */
-        if (*Cursor != '\'') return false;
-        ++Cursor; /* Skip past the first single quote. */
+        if (*cursor != '\'') return false;
+        ++cursor; /* Skip past the first single quote. */
 
         /* Read until closing single quote. */
-        for (; *Cursor != '\''; ++Cursor);
+        for (; *cursor != '\''; ++cursor);
 
         /* If previous character is an escape, then closing quote is next char. */
-        if (*(Cursor-1) == '\\' && *(Cursor -2) != '\\') {
-                ++Cursor;
+        if (*(cursor-1) == '\\' && *(cursor -2) != '\\') {
+                ++cursor;
         }
-        ++Cursor; /* Point to character after literal. */
+        ++cursor; /* Point to character after literal. */
 
         /* Longest char literal is: '\''. */
-        if (Cursor - Tokenizer->At > 4) return false;
+        if (cursor - tokenizer->at > 4) return false;
 
-        CopyToTokenAndAdvance(Tokenizer, Token, Cursor - Tokenizer->At, Token_Character);
+        CopyToTokenAndAdvance(tokenizer, token, cursor - tokenizer->at, Token_Character);
 
         return true;
 }
 
-bool GetString(struct tokenizer *Tokenizer, struct token *Token) {
-        char *Cursor = Tokenizer->At;
-        if (*Cursor != '"') return false;
+bool GetString(Tokenizer *tokenizer, Token *token) {
+        char *cursor = tokenizer->at;
+        if (*cursor != '"') return false;
 
         while (true) {
-                ++Cursor;
-                if (*Cursor == '\0') return false;
-                if (*Cursor == '"' && *(Cursor - 1) != '\\') break;
+                ++cursor;
+                if (*cursor == '\0') return false;
+                if (*cursor == '"' && *(cursor - 1) != '\\') break;
         }
-        ++Cursor; /* Swallow the last double quote. */
+        ++cursor; /* Swallow the last double quote. */
 
-        CopyToTokenAndAdvance(Tokenizer, Token, Cursor - Tokenizer->At, Token_String);
+        CopyToTokenAndAdvance(tokenizer, token, cursor - tokenizer->at, Token_String);
 
         return true;
 }
 
-bool IsOctalString(char *Text, int Length) {
-        if (Length < 2) return false;
+bool IsOctalString(char *text, int length) {
+        if (length < 2) return false;
 
-        char Last = Text[Length-1];
+        char last = text[length-1];
 
         /* Leading 0 required for octal integers. */
-        if ('0' != Text[0]) return false;
+        if ('0' != text[0]) return false;
 
-        if (!(GSCharIsOctal(Last) || IsIntegerSuffix(Last))) return false;
+        if (!(gs_CharIsOctal(last) || IsIntegerSuffix(last))) return false;
 
         /* Loop from character after leading '0' to second-last. */
-        for (int i=1; i<Length-1; ++i) {
-                if (!GSCharIsOctal(Text[i])) return false;
+        for (int i = 1; i < length - 1; ++i) {
+                if (!gs_CharIsOctal(text[i])) return false;
         }
 
         return true;
 }
 
-bool IsHexadecimalString(char *Text, int Length) {
-        if (Length < 3) return false;
+bool IsHexadecimalString(char *text, int length) {
+        if (length < 3) return false;
 
-        char Last = Text[Length-1];
+        char last = text[length-1];
 
         /* Hex numbers must start with: '0x' or '0X'. */
-        if (!(Text[0] == '0' && (Text[1] == 'x' || Text[1] == 'X'))) return false;
+        if (!(text[0] == '0' && (text[1] == 'x' || text[1] == 'X'))) return false;
 
-        if (!(GSCharIsHexadecimal(Last) || IsIntegerSuffix(Last))) return false;
+        if (!(gs_CharIsHexadecimal(last) || IsIntegerSuffix(last))) return false;
 
         /* Loop from character after leading '0x' to second-last. */
-        for (int i=2; i<Length-1; ++i) {
-                if (!GSCharIsHexadecimal(Text[i])) return false;
+        for (int i = 2; i < length - 1; ++i) {
+                if (!gs_CharIsHexadecimal(text[i])) return false;
         }
 
         return true;
 }
 
-bool GetPrecisionNumber(struct tokenizer *Tokenizer, struct token *Token) {
+bool GetPrecisionNumber(Tokenizer *tokenizer, Token *token) {
         /*
           A floating constant consists of an integer part, a decimal point, a
           fraction part, an e or E, an optionally signed integer exponent and an
@@ -308,139 +303,139 @@ bool GetPrecisionNumber(struct tokenizer *Tokenizer, struct token *Token) {
           makes it long double; otherwise it is double.
         */
 
-        char *Cursor = Tokenizer->At;
+        char *cursor = tokenizer->at;
 
-        bool HasIntegerPart = false;
-        bool HasDecimalPoint = false;
-        bool HasFractionalPart = false;
-        bool HasExponentPart = false;
+        bool has_integer_part = false;
+        bool has_decimal_point = false;
+        bool has_fractional_part = false;
+        bool has_exponent_part = false;
 
-        if (GSCharIsDecimal(*Cursor)) {
-                for (; GSCharIsDecimal(*Cursor); ++Cursor);
-                HasIntegerPart = true;
+        if (gs_CharIsDecimal(*cursor)) {
+                for (; gs_CharIsDecimal(*cursor); ++cursor);
+                has_integer_part = true;
         }
 
-        if ('.' == *Cursor) {
-                ++Cursor;
-                HasDecimalPoint = true;
-                if (GSCharIsDecimal(*Cursor))
+        if ('.' == *cursor) {
+                ++cursor;
+                has_decimal_point = true;
+                if (gs_CharIsDecimal(*cursor))
                 {
-                        for (; GSCharIsDecimal(*Cursor); ++Cursor);
-                        HasFractionalPart = true;
+                        for (; gs_CharIsDecimal(*cursor); ++cursor);
+                        has_fractional_part = true;
                 }
         }
 
-        if ('e' == *Cursor || 'E' == *Cursor){
-                ++Cursor;
-                HasExponentPart = true;
+        if ('e' == *cursor || 'E' == *cursor) {
+                ++cursor;
+                has_exponent_part = true;
 
                 /* Optional negative sign for exponent is allowed. */
-                if ('-' == *Cursor) {
-                        ++Cursor;
+                if ('-' == *cursor) {
+                        ++cursor;
                 }
 
                 /* Exponent must contain an exponent part. */
-                if (!GSCharIsDecimal(*Cursor)) {
+                if (!gs_CharIsDecimal(*cursor)) {
                         return false;
                 }
 
-                for (; GSCharIsDecimal(*Cursor); ++Cursor);
+                for (; gs_CharIsDecimal(*cursor); ++cursor);
         }
 
         /* IsFloatSuffix(C) */
-        char C = *Cursor;
-        if ('f' == C || 'F' == C || 'l' == C || 'L' == C) {
-                ++Cursor;
+        char c = *cursor;
+        if ('f' == c || 'F' == c || 'l' == c || 'L' == c) {
+                ++cursor;
         }
 
-        if ((HasIntegerPart || HasFractionalPart) &&
-           (HasDecimalPoint || HasExponentPart)) {
-                CopyToTokenAndAdvance(Tokenizer, Token, Cursor - Tokenizer->At, Token_PrecisionNumber);
+        if ((has_integer_part || has_fractional_part) &&
+           (has_decimal_point || has_exponent_part)) {
+                CopyToTokenAndAdvance(tokenizer, token, cursor - tokenizer->at, Token_PrecisionNumber);
                 return true;
         }
 
         return false;
 }
 
-bool GetInteger(struct tokenizer *Tokenizer, struct token *Token) {
-        char *LastChar = Tokenizer->At;
-        for (; *LastChar && (GSCharIsDecimal(*LastChar) || GSCharIsAlphabetical(*LastChar)); ++LastChar);
+bool GetInteger(Tokenizer *tokenizer, Token *token) {
+        char *last_char = tokenizer->at;
+        for (; *last_char && (gs_CharIsDecimal(*last_char) || gs_CharIsAlphabetical(*last_char)); ++last_char);
 
-        int Length = LastChar - Tokenizer->At;
-        --LastChar;
+        int length = last_char - tokenizer->at;
+        --last_char;
 
         /* Token->Type = Token_Unknown; */
         /* Token->Text = Tokenizer->At; */
-        /* Token->TextLength = Length; */
+        /* Token->Textlength = length; */
 
-        if (Length < 1) return false;
+        if (length < 1) return false;
 
-        char *Cursor = Tokenizer->At;
+        char *cursor = tokenizer->at;
 
-        if ((IsOctalString(Cursor, Length) || IsHexadecimalString(Cursor, Length)) ||
-            (1 == Length && '0' == *Cursor)) {
-                CopyToTokenAndAdvance(Tokenizer, Token, Length, Token_Integer);
+        if ((IsOctalString(cursor, length) || IsHexadecimalString(cursor, length)) ||
+            (1 == length && '0' == *cursor)) {
+                CopyToTokenAndAdvance(tokenizer, token, length, Token_Integer);
                 return true;
         }
 
         /* Can't have a multi-digit integer starting with zero unless it's Octal. */
-        if ('0' == *Cursor) {
+        if ('0' == *cursor) {
                 return false;
         }
 
-        for (int i=0; i<Length-1; ++i) {
-                if (!GSCharIsDecimal(Cursor[i])) {
+        for (int i=0; i<length-1; ++i) {
+                if (!gs_CharIsDecimal(cursor[i])) {
                         return false;
                 }
         }
 
-        if (GSCharIsDecimal(*LastChar) || IsIntegerSuffix(*LastChar)) {
-                CopyToTokenAndAdvance(Tokenizer, Token, Length, Token_Integer);
+        if (gs_CharIsDecimal(*last_char) || IsIntegerSuffix(*last_char)) {
+                CopyToTokenAndAdvance(tokenizer, token, length, Token_Integer);
                 return true;
         }
 
         return false;
 }
 
-bool GetIdentifier(struct tokenizer *Tokenizer, struct token *Token) {
-        if (!GSCharIsAlphabetical(Tokenizer->At[0]) &&
-           '_' != Tokenizer->At[0]) {
+bool GetIdentifier(Tokenizer *tokenizer, Token *token) {
+        if (!gs_CharIsAlphabetical(tokenizer->at[0]) &&
+           '_' != tokenizer->at[0]) {
                 return false;
         }
 
-        char *Cursor = Tokenizer->At;
+        char *cursor = tokenizer->at;
 
-        for (; IsIdentifierCharacter(*Cursor); ++Cursor);
-        CopyToTokenAndAdvance(Tokenizer, Token, Cursor - Tokenizer->At, Token_Identifier);
+        for (; IsIdentifierCharacter(*cursor); ++cursor);
+        CopyToTokenAndAdvance(tokenizer, token, cursor - tokenizer->at, Token_Identifier);
 
         return true;
 }
 
-bool GetComment(struct tokenizer *Tokenizer, struct token *Token) {
-        if (Tokenizer->At[0] != '/' || Tokenizer->At[1] != '*') return false;
+bool GetComment(Tokenizer *tokenizer, Token *token) {
+        if (tokenizer->at[0] != '/' || tokenizer->at[1] != '*') return false;
 
-        char *Cursor = Tokenizer->At;
+        char *cursor = tokenizer->at;
 
         while (true) {
-                if ('\0' == *Cursor) {
+                if ('\0' == *cursor) {
                         return false;
                 }
 
-                if ('*' == Cursor[0] && '/' == Cursor[1]) {
+                if ('*' == cursor[0] && '/' == cursor[1]) {
                         break;
                 }
-                ++Cursor;
+                ++cursor;
         }
 
-        Cursor += 2; /* Swallow last two characters: asterisk, slash */
+        cursor += 2; /* Swallow last two characters: asterisk, slash */
 
-        CopyToTokenAndAdvance(Tokenizer, Token, Cursor - Tokenizer->At, Token_Comment);
+        CopyToTokenAndAdvance(tokenizer, token, cursor - tokenizer->at, Token_Comment);
 
         return true;
 }
 
-bool GetKeyword(struct tokenizer *Tokenizer, struct token *Token) {
-        static char *Keywords[] = {
+bool GetKeyword(Tokenizer *tokenizer, Token *token) {
+        static char *keywords[] = {
                 "auto", "break", "case", "char", "const", "continue", "default",
                 "double", "do", "else", "enum", "extern", "float", "for",
                 "goto", "if", "int", "long", "register", "return", "short",
@@ -448,9 +443,9 @@ bool GetKeyword(struct tokenizer *Tokenizer, struct token *Token) {
                 "union", "unsigned", "void", "volatile", "while"
         };
 
-        for (int i = 0; i < GSArraySize(Keywords); ++i) {
-                if (GSStringIsEqual(Tokenizer->At, Keywords[i], GSStringLength(Keywords[i]))) {
-                        CopyToTokenAndAdvance(Tokenizer, Token, GSStringLength(Keywords[i]), Token_Keyword);
+        for (int i = 0; i < gs_ArraySize(keywords); ++i) {
+                if (gs_StringIsEqual(tokenizer->at, keywords[i], gs_StringLength(keywords[i]))) {
+                        CopyToTokenAndAdvance(tokenizer, token, gs_StringLength(keywords[i]), Token_Keyword);
 
                         return true;
                 }
@@ -459,157 +454,159 @@ bool GetKeyword(struct tokenizer *Tokenizer, struct token *Token) {
         return false;
 }
 
-bool GetPreprocessorCommand(struct tokenizer *Tokenizer, struct token *Token) {
-        if (Tokenizer->At[0] != '#') return false;
+bool GetPreprocessorCommand(Tokenizer *tokenizer, Token *token) {
+        if (tokenizer->at[0] != '#') return false;
 
-        char *Cursor = Tokenizer->At;
+        char *cursor = tokenizer->at;
 
         /* Preprocessor commands must start a line on their own. */
-        for (--Cursor; Cursor > Tokenizer->Beginning && GSCharIsWhitespace(*Cursor); --Cursor);
+        for (--cursor; cursor > tokenizer->beginning && gs_CharIsWhitespace(*cursor); --cursor);
 
-        if (*(++Cursor) != '\n' && Cursor != Tokenizer->Beginning) {
+        if (*(++cursor) != '\n' && cursor != tokenizer->beginning) {
                 return false;
         }
-        Cursor = Tokenizer->At + 1; /* Skip the starting '#' for macros. */
+        cursor = tokenizer->at + 1; /* Skip the starting '#' for macros. */
 
         while (true) {
-                if (*Cursor == '\n' && *(Cursor - 1) != '\\') break;
-                if (*Cursor == '\0') break;
-                ++Cursor;
+                if (*cursor == '\n' && *(cursor - 1) != '\\') break;
+                if (*cursor == '\0') break;
+                ++cursor;
         }
 
-        CopyToTokenAndAdvance(Tokenizer, Token, Cursor - Tokenizer->At, Token_PreprocessorCommand);
+        CopyToTokenAndAdvance(tokenizer, token, cursor - tokenizer->at, Token_PreprocessorCommand);
 
         return true;
 }
 
-bool GetSymbol(struct tokenizer *Tokenizer, struct token *Token, char *Symbol, enum token_type Type) {
-        int Length = GSStringLength(Symbol);
-        if (!GSStringIsEqual(Tokenizer->At, Symbol, Length)) return false;
+bool GetSymbol(Tokenizer *tokenizer, Token *token, char *symbol, TokenType type) {
+        int length = gs_StringLength(symbol);
+        if (!gs_StringIsEqual(tokenizer->at, symbol, length)) return false;
 
-        CopyToTokenAndAdvance(Tokenizer, Token, Length, Type);
+        CopyToTokenAndAdvance(tokenizer, token, length, type);
 
         return true;
 }
 
-struct token GetToken(struct tokenizer *Tokenizer) {
-        EatAllWhitespace(Tokenizer);
+Token GetToken(Tokenizer *tokenizer) {
+        EatAllWhitespace(tokenizer);
 
-        struct token Token;
-        Token.Text = Tokenizer->At;
-        Token.TextLength = 0;
-        Token.Type = Token_Unknown;
-
-        {
-                GetSymbol(Tokenizer, &Token, "==", Token_LogicalEqual) ||
-                        GetSymbol(Tokenizer, &Token, "<<=", Token_DoubleLessThanEquals) ||
-                        GetSymbol(Tokenizer, &Token, ">>=", Token_DoubleGreaterThanEquals) ||
-                        GetSymbol(Tokenizer, &Token, "...", Token_Ellipsis) ||
-                        GetSymbol(Tokenizer, &Token, "!=", Token_NotEqual) ||
-                        GetSymbol(Tokenizer, &Token, ">=", Token_GreaterThanEqual) ||
-                        GetSymbol(Tokenizer, &Token, "<=", Token_LessThanEqual) ||
-                        GetSymbol(Tokenizer, &Token, "->", Token_Arrow) ||
-                        GetSymbol(Tokenizer, &Token, "||", Token_LogicalOr) ||
-                        GetSymbol(Tokenizer, &Token, "&&", Token_LogicalAnd) ||
-                        GetSymbol(Tokenizer, &Token, "<<", Token_BitShiftLeft) ||
-                        GetSymbol(Tokenizer, &Token, ">>", Token_BitShiftRight) ||
-                        GetSymbol(Tokenizer, &Token, "++", Token_PlusPlus) ||
-                        GetSymbol(Tokenizer, &Token, "--", Token_MinusMinus) ||
-
-                        GetSymbol(Tokenizer, &Token, "*=", Token_MultiplyEquals) ||
-                        GetSymbol(Tokenizer, &Token, "/=", Token_DivideEquals) ||
-                        GetSymbol(Tokenizer, &Token, "%=", Token_ModuloEquals) ||
-                        GetSymbol(Tokenizer, &Token, "+=", Token_PlusEquals) ||
-                        GetSymbol(Tokenizer, &Token, "-=", Token_MinusEquals) ||
-                        GetSymbol(Tokenizer, &Token, "&=", Token_AmpersandEquals) ||
-                        GetSymbol(Tokenizer, &Token, "^=", Token_CaratEquals) ||
-                        GetSymbol(Tokenizer, &Token, "|=", Token_PipeEquals);
-
-        }
-        if (Token.Type != Token_Unknown) return Token;
+        Token token;
+        token.text = tokenizer->at;
+        token.text_length = 0;
+        token.type = Token_Unknown;
 
         {
-                GetKeyword(Tokenizer, &Token) ||
-                        GetCharacter(Tokenizer, &Token) ||
-                        GetPreprocessorCommand(Tokenizer, &Token) ||
-                        GetComment(Tokenizer, &Token) ||
-                        GetString(Tokenizer, &Token) ||
-                        GetPrecisionNumber(Tokenizer, &Token) ||
-                        GetInteger(Tokenizer, &Token) ||
-                        GetIdentifier(Tokenizer, &Token);
+                GetSymbol(tokenizer, &token, "==", Token_LogicalEqual) ||
+                        GetSymbol(tokenizer, &token, "<<=", Token_DoubleLessThanEquals) ||
+                        GetSymbol(tokenizer, &token, ">>=", Token_DoubleGreaterThanEquals) ||
+                        GetSymbol(tokenizer, &token, "...", Token_Ellipsis) ||
+                        GetSymbol(tokenizer, &token, "!=", Token_NotEqual) ||
+                        GetSymbol(tokenizer, &token, ">=", Token_GreaterThanEqual) ||
+                        GetSymbol(tokenizer, &token, "<=", Token_LessThanEqual) ||
+                        GetSymbol(tokenizer, &token, "->", Token_Arrow) ||
+                        GetSymbol(tokenizer, &token, "||", Token_LogicalOr) ||
+                        GetSymbol(tokenizer, &token, "&&", Token_LogicalAnd) ||
+                        GetSymbol(tokenizer, &token, "<<", Token_BitShiftLeft) ||
+                        GetSymbol(tokenizer, &token, ">>", Token_BitShiftRight) ||
+                        GetSymbol(tokenizer, &token, "++", Token_PlusPlus) ||
+                        GetSymbol(tokenizer, &token, "--", Token_MinusMinus) ||
+
+                        GetSymbol(tokenizer, &token, "*=", Token_MultiplyEquals) ||
+                        GetSymbol(tokenizer, &token, "/=", Token_DivideEquals) ||
+                        GetSymbol(tokenizer, &token, "%=", Token_ModuloEquals) ||
+                        GetSymbol(tokenizer, &token, "+=", Token_PlusEquals) ||
+                        GetSymbol(tokenizer, &token, "-=", Token_MinusEquals) ||
+                        GetSymbol(tokenizer, &token, "&=", Token_AmpersandEquals) ||
+                        GetSymbol(tokenizer, &token, "^=", Token_CaratEquals) ||
+                        GetSymbol(tokenizer, &token, "|=", Token_PipeEquals);
 
         }
 
-        if (Token.Type == Token_PreprocessorCommand ||
-           Token.Type == Token_Comment) {
-                Token = GetToken(Tokenizer);
-        }
+        if (token.type != Token_Unknown) return token;
 
-        if (Token.Type != Token_Unknown) return Token;
-
-        char C = Tokenizer->At[0];
-        CopyToTokenAndAdvance(Tokenizer, &Token, 1, Token_Unknown);
-
-        switch(C)
         {
-                case '\0':{ Token.Type = Token_EndOfStream; } break;
-                case '(': { Token.Type = Token_OpenParen; } break;
-                case ')': { Token.Type = Token_CloseParen; } break;
-                case ':': { Token.Type = Token_Colon; } break;
-                case ';': { Token.Type = Token_SemiColon; } break;
-                case '*': { Token.Type = Token_Asterisk; } break;
-                case '[': { Token.Type = Token_OpenBracket; } break;
-                case ']': { Token.Type = Token_CloseBracket; } break;
-                case '{': { Token.Type = Token_OpenBrace; } break;
-                case '}': { Token.Type = Token_CloseBrace; } break;
-                case ',': { Token.Type = Token_Comma; } break;
-                case '-': { Token.Type = Token_Dash; } break;
-                case '+': { Token.Type = Token_Cross; } break;
-                case '=': { Token.Type = Token_EqualSign; } break;
-                case '^': { Token.Type = Token_Carat; } break;
-                case '&': { Token.Type = Token_Ampersand; } break;
-                case '%': { Token.Type = Token_PercentSign; } break;
-                case '?': { Token.Type = Token_QuestionMark; } break;
-                case '!': { Token.Type = Token_Bang; } break;
-                case '/': { Token.Type = Token_Slash; } break;
-                case '|': { Token.Type = Token_Pipe; } break;
-                case '<': { Token.Type = Token_LessThan; } break;
-                case '>': { Token.Type = Token_GreaterThan; } break;
-                case '~': { Token.Type = Token_Tilde; } break;
-                case '.': { Token.Type = Token_Dot; } break;
-                case '#': { Token.Type = Token_Hash; } break;
+                GetKeyword(tokenizer, &token) ||
+                        GetCharacter(tokenizer, &token) ||
+                        GetPreprocessorCommand(tokenizer, &token) ||
+                        GetComment(tokenizer, &token) ||
+                        GetString(tokenizer, &token) ||
+                        GetPrecisionNumber(tokenizer, &token) ||
+                        GetInteger(tokenizer, &token) ||
+                        GetIdentifier(tokenizer, &token);
         }
 
-        return Token;
+        if (token.type == Token_PreprocessorCommand || token.type == Token_Comment) {
+                token = GetToken(tokenizer);
+        }
+
+        if (token.type != Token_Unknown) return token;
+
+        char c = tokenizer->at[0];
+        CopyToTokenAndAdvance(tokenizer, &token, 1, Token_Unknown);
+
+        switch (c) {
+                case '\0':{ token.type = Token_EndOfStream; } break;
+                case '(': { token.type = Token_OpenParen; } break;
+                case ')': { token.type = Token_CloseParen; } break;
+                case ':': { token.type = Token_Colon; } break;
+                case ';': { token.type = Token_SemiColon; } break;
+                case '*': { token.type = Token_Asterisk; } break;
+                case '[': { token.type = Token_OpenBracket; } break;
+                case ']': { token.type = Token_CloseBracket; } break;
+                case '{': { token.type = Token_OpenBrace; } break;
+                case '}': { token.type = Token_CloseBrace; } break;
+                case ',': { token.type = Token_Comma; } break;
+                case '-': { token.type = Token_Dash; } break;
+                case '+': { token.type = Token_Cross; } break;
+                case '=': { token.type = Token_EqualSign; } break;
+                case '^': { token.type = Token_Carat; } break;
+                case '&': { token.type = Token_Ampersand; } break;
+                case '%': { token.type = Token_PercentSign; } break;
+                case '?': { token.type = Token_QuestionMark; } break;
+                case '!': { token.type = Token_Bang; } break;
+                case '/': { token.type = Token_Slash; } break;
+                case '|': { token.type = Token_Pipe; } break;
+                case '<': { token.type = Token_LessThan; } break;
+                case '>': { token.type = Token_GreaterThan; } break;
+                case '~': { token.type = Token_Tilde; } break;
+                case '.': { token.type = Token_Dot; } break;
+                case '#': { token.type = Token_Hash; } break;
+        }
+
+        return token;
 }
 
-void Lex(gs_buffer *FileContents) {
-        struct tokenizer Tokenizer;
-        TokenizerInit(&Tokenizer, FileContents->Start);
+void Lex(gs_Buffer *stream) {
+        Tokenizer tokenizer;
+        TokenizerInit(&tokenizer, stream->start);
 
-        bool Parsing = true;
-        while (Parsing) {
-                struct token Token = GetToken(&Tokenizer);
-                switch(Token.Type) {
-                        case Token_EndOfStream: { Parsing = false; } break;
+        bool parsing = true;
+        while (parsing) {
+                Token token = GetToken(&tokenizer);
+                switch (token.type) {
+                        case Token_EndOfStream: {
+                                parsing = false;
+                        } break;
+
                         case Token_Unknown: {
                                 printf("[%u,%u] Token Name: %20s, Token Text: %.*s (%.*s)\n",
-                                       Token.Line + 1,
-                                       Token.Column,
-                                       TokenName(Token.Type),
-                                       (u32)(Token.TextLength), Token.Text,
-                                       (u32)(Token.TextLength + 4), Token.Text - 2);
+                                       token.line + 1,
+                                       token.column,
+                                       TokenName(token.type),
+                                       (u32)(token.text_length), token.text,
+                                       (u32)(token.text_length + 4), token.text - 2);
                         } break;
+
                         default: {
                                 printf("[%u,%u] Token Name: %20s, Token Text: %.*s\n",
-                                       Token.Line + 1,
-                                       Token.Column,
-                                       TokenName(Token.Type),
-                                       (u32)(Token.TextLength),
-                                       Token.Text);
+                                       token.line + 1,
+                                       token.column,
+                                       TokenName(token.type),
+                                       (u32)(token.text_length),
+                                       token.text);
                         } break;
                 }
         }
 }
 
-#endif /* _LEXER_C */
+#endif /* LEXER_C */
