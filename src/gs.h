@@ -93,12 +93,26 @@ typedef int i32;
 typedef unsigned int u32;
 typedef long i64;
 typedef unsigned long u64;
-typedef long long i128;
-typedef unsigned long long u128;
 
 typedef float f32;
 typedef double f64;
 typedef long double f128;
+
+/* Compiler verification of fixed-width numerical sizes */
+static union {
+        char i8_expect[sizeof(i8) == 1];
+        char u8_expect[sizeof(u8) == 1];
+        char i16_expect[sizeof(i16) == 2];
+        char u16_expect[sizeof(u16) == 2];
+        char i32_expect[sizeof(i32) == 4];
+        char u32_expect[sizeof(u32) == 4];
+        char i64_expect[sizeof(i64) == 8];
+        char u64_expect[sizeof(u64) == 8];
+
+        char f32_expect[sizeof(f32) == 4];
+        char f64_expect[sizeof(f64) == 8];
+        char f128_expect[sizeof(f128) == 16];
+} __gs_fixed_width_numeric_type_test;
 
 /******************************************************************************
  * Allocator
