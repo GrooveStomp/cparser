@@ -54,7 +54,7 @@ typedef struct TypedefNames {
         int num_names; /* Number of Name */
 } TypedefNames;
 
-TypedefNames __parser_typedef_names;
+static TypedefNames __parser_typedef_names;
 
 void TypedefClear() {
         __parser_allocator.free((void *)__parser_typedef_names.name);

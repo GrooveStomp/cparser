@@ -219,8 +219,9 @@ char *ParseTreeNodeName(ParseTreeNodeType type) {
         }
 }
 
+static gs_Allocator __parse_tree_allocator;
+
 typedef struct ParseTreeNode {
-        gs_Allocator allocator;
         ParseTreeNodeType type;
         Token token;
         u32 capacity;
@@ -247,14 +248,7 @@ const char *ParseTreeErrorString() {
         return result;
 }
 
-ParseTreeNode *__parse_tree_Alloc(gs_Allocator allocator) {
-        ParseTreeNode *node = (ParseTreeNode *)allocator.malloc(sizeof(*node));
-        return node;
-}
-
 void __parse_tree_Init(ParseTreeNode *node, gs_Allocator allocator) {
-        node->allocator = allocator;
-
         node->token.text = NULL;
         node->token.text_length = 0;
         node->token.type = Token_Unknown;
@@ -270,7 +264,8 @@ void __parse_tree_Init(ParseTreeNode *node, gs_Allocator allocator) {
 }
 
 ParseTreeNode *ParseTreeInit(gs_Allocator allocator) {
-        ParseTreeNode *node = __parse_tree_Alloc(allocator);
+        __parse_tree_allocator = allocator;
+        ParseTreeNode *node = (ParseTreeNode *)allocator.malloc(sizeof(*node));
         __parse_tree_Init(node, allocator);
         return node;
 }
@@ -293,26 +288,26 @@ bool __parse_tree_AddChild(ParseTreeNode *self, ParseTreeNodeType type) {
         u32 alloc_count = DEFAULT_ALLOC_COUNT;
 
         if (self->children == NULL) {
-                self->children = (ParseTreeNode *)self->allocator.malloc(sizeof(ParseTreeNode) * alloc_count);
+                self->children = (ParseTreeNode *)__parse_tree_allocator.malloc(sizeof(ParseTreeNode) * alloc_count);
                 if (self->children == NULL) {
                         __parse_tree_last_error = ParseTreeErrorChildAlloc;
                         return false;
                 }
                 self->capacity = alloc_count;
                 for (int i=0; i<alloc_count; i++) {
-                        __parse_tree_Init(&self->children[i], self->allocator);
+                        __parse_tree_Init(&self->children[i], __parse_tree_allocator);
                 }
         } else if (self->capacity <= self->num_children) {
                 if (self->capacity > 0) {
                         alloc_count = self->capacity * 2;
-                        self->children = (ParseTreeNode *)self->allocator.realloc(self->children, sizeof(ParseTreeNode) * alloc_count);
+                        self->children = (ParseTreeNode *)__parse_tree_allocator.realloc(self->children, sizeof(ParseTreeNode) * alloc_count);
                         if (self->children == NULL) {
                                 __parse_tree_last_error = ParseTreeErrorChildAlloc;
                                 return false;
                         }
                         self->capacity = alloc_count;
                         for (int i=self->num_children; i<alloc_count; i++) {
-                                __parse_tree_Init(&self->children[i], self->allocator);
+                                __parse_tree_Init(&self->children[i], __parse_tree_allocator);
                         }
                 }
         }
@@ -335,13 +330,13 @@ void ParseTreeDeinit(ParseTreeNode *self) {
         }
 
         if (self->children != NULL) {
-                self->allocator.free(self->children);
+                __parse_tree_allocator.free(self->children);
                 self->children = NULL;
                 self->num_children = 0;
                 self->capacity = 0;
         }
 
-        self->allocator.free(self);
+        __parse_tree_allocator.free(self);
 }
 
 void ParseTreePrint(ParseTreeNode *self, u32 indent_level, u32 indent_increment, int (*print_func)(const char *format, ...)) {
