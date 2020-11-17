@@ -5,5 +5,4 @@
 - Changelog.
 - Commit hook for updating changelog as part of release.
 - Processing for doing a release.
-- Remove dependency on stdio.h in lexer.c and remove printfs; instead returning errors appropriately.
-  See how parse_tree.c handles errors.
+- Generate an AST instead of just a parse tree.

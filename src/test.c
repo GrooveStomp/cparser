@@ -1,10 +1,10 @@
 /******************************************************************************
  * File: test.c
- * Created:
- * Updated: 2016-11-03
+ * Created: 2016-07-06
+ * Updated: 2016-11-16
  * Package: C-Parser
  * Creator: Aaron Oman (GrooveStomp)
- * Copyright - 2020, Aaron Oman and the C-Parser contributors
+ * Copyright 2016 - 2020, Aaron Oman and the C-Parser contributors
  * SPDX-License-Identifier: LGPL-3.0-only
  ******************************************************************************/
 #include <stdlib.h> /* EXIT_SUCCESS, EXIT_FAILURE */

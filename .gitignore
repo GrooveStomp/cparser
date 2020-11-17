@@ -7,3 +7,6 @@ env/
 *~
 cparser
 test
+core
+#*
+.#*

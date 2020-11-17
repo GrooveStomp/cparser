@@ -1,10 +1,10 @@
 /******************************************************************************
  * File: main.c
- * Created:
- * Updated: 2016-11-04
+ * Created: 2016-05-18
+ * Updated: 2016-11-16
  * Package: C-Parser
  * Creator: Aaron Oman (GrooveStomp)
- * Copyright - 2020, Aaron Oman and the C-Parser contributors
+ * Copyright 2016 - 2020, Aaron Oman and the C-Parser contributors
  * SPDX-License-Identifier: LGPL-3.0-only
  ******************************************************************************/
 #include "gs.h"
@@ -22,9 +22,6 @@ void Usage(const char *name) {
         puts("  operation: One of: [parse, lex].");
         puts("  file: Must be a file in this directory.");
         puts("  Specify '-h' or '--help' for this help text.");
-        puts("");
-        puts("Options:");
-        puts("  --show-parse-tree: Valid with `parse' subcommand.");
         exit(EXIT_SUCCESS);
 }
 
@@ -73,10 +70,30 @@ int main(int argc, char **argv) {
         gs_Allocator allocator = { .malloc = malloc, .free = free, .realloc = realloc, .calloc = calloc };
 
         if (gs_StringIsEqual(command, "parse", 5)) {
-                bool show_parse_tree = (argc == 4 && gs_StringIsEqual(argv[3], "--show-parse-tree", 17));
-                Parse(allocator, &buffer, show_parse_tree);
+                ParseTreeNode *parse_tree;
+                Tokenizer tokenizer;
+                if (Parse(allocator, &buffer, &parse_tree, &tokenizer)) {
+                        ParseTreePrint(parse_tree, 0, 2, printf);
+                } else {
+                        printf("Input did not parse @ [%d,%d]\n", tokenizer.line, tokenizer.column);
+                }
         } else {
-                Lex(&buffer);
+                Token *token_stream;
+                u32 num_tokens;
+                if (Lex(allocator, &buffer, &token_stream, &num_tokens)) {
+                        for (int i = 0; i < num_tokens; i++) {
+                                Token token = token_stream[i];
+
+                                printf("[%u,%u] Token Name: %20s, Token Text: %.*s\n",
+                                       token.line + 1,
+                                       token.column,
+                                       TokenName(token.type),
+                                       (u32)(token.text_length),
+                                       token.text);
+                        }
+                } else {
+                        fprintf(stderr, LexerErrorString());
+                }
         }
 
         return EXIT_SUCCESS;

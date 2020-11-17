@@ -1,7 +1,7 @@
 /******************************************************************************
  * File: gs.h
  * Created: 2016-07-14
- * Updated: 2016-11-03
+ * Updated: 2016-11-04
  * Package: gslibc
  * Creator: Aaron Oman (GrooveStomp)
  * Copyright 2016 - 2020, Aaron Oman and the gslibc contributors
@@ -14,31 +14,12 @@
 #ifndef GS_VERSION
 #define GS_VERSION 0.2.0-dev
 
+#define GS_1024_INVERSE 1.0/1024
+#define gs_BytesToKilobytes(X) (X) * GS_1024_INVERSE
+#define gs_BytesToMegabytes(X) gs_BytesToKilobytes((X)) * GS_1024_INVERSE
+#define gs_BytesToGigabytes(X) gs_BytesToMegabytes((X)) * GS_1024_INVERSE
+
 #define gs_ArraySize(Array) (sizeof((Array)) / sizeof((Array)[0]))
-
-/******************************************************************************
- * Usage:
- *
- * i32 Numbers[] = { 1, 2, 3, 4, 5 };
- * gs_ArrayForEach(i32 *Number, Numbers) {
- *         printf("Number[%i]: %i\n", Index, *Number);
- * }
- *
- * NOTE:
- * The variable `Index' is automatically generated for you.
- * `Item' must be a pointer to the type of variable used in the Array.
- *
- * Implementation taken from: http://stackoverflow.com/a/400970
- ******************************************************************************/
-#define gs_ArrayForEach(Item, Array) \
-        for (i32 Keep##__LINE__ = 1, \
-                Count##__LINE__ = 0, \
-                Index = 0, \
-                Size##__LINE__ = sizeof((Array)) / sizeof(*(Array)); \
-            Keep##__LINE__ && Count##__LINE__ != Size##__LINE__; \
-            Keep##__LINE__ = !Keep##__LINE__, Count##__LINE__++) \
-                for (Item = (Array) + Count##__LINE__; Keep##__LINE__; Keep##__LINE__ = !Keep##__LINE__, Index++)
-
 #define gs_Max(A, B) ((A) < (B) ? (B) : (A))
 #define gs_Min(A, B) ((A) < (B) ? (A) : (B))
 
@@ -61,28 +42,22 @@
 /*                 fprintf(stdout, __VA_ARGS__); \ */
 /*         } */
 
-#define GS_1024_INVERSE 1.0/1024
-#define gs_BytesToKilobytes(X) (X) * GS_1024_INVERSE
-#define gs_BytesToMegabytes(X) gs_BytesToKilobytes((X)) * GS_1024_INVERSE
-#define gs_BytesToGigabytes(X) gs_BytesToMegabytes((X)) * GS_1024_INVERSE
-
 /******************************************************************************
  * Primitive Type Definitions
  * TODO: Conditionally do typedefs?
  ******************************************************************************/
 
 #define GS_NULL_CHAR '\0'
-
-#ifndef NULL
-#define NULL 0
-#endif
-
 #define GS_NULL_PTR NULL
 
-typedef int bool;
-#ifndef false
-#define false 0
-#define true !false
+#ifndef NULL
+    #define NULL 0
+#endif
+
+#ifndef false // Assume this dictates whether 'bool' is defined.
+    typedef int bool;
+    #define false 0
+    #define true !false
 #endif
 
 typedef char i8;
@@ -124,6 +99,12 @@ typedef struct gs_Allocator {
         void *(*realloc)(void *, u64);
         void *(*calloc)(u64, u64);
 } gs_Allocator;
+
+void gs_MemSet(char *mem, char byte, u32 size) {
+        for (int i = 0; i < size; i++) {
+                mem[i] = byte;
+        }
+}
 
 /******************************************************************************
  * Character Definitions
@@ -478,14 +459,10 @@ gs_HashMap *gs_HashMapInit(void *memory, u32 max_key_length, u32 num_entries) {
         i32 keys_mem_length = max_key_length * num_entries;
 
         self->keys = key_value_memory;
-        for (i32 i = 0; i < keys_mem_length; i++) {
-                self->keys[i] = 0;
-        }
+        gs_MemSet(self->keys, 0, keys_mem_length);
 
         self->values = (void **)(self->keys + keys_mem_length);
-        for (i32 i = 0; i < num_entries; i++) {
-                self->values[i] = 0;
-        }
+        gs_MemSet(self->keys, 0, keys_mem_length);
 
         return self;
 }

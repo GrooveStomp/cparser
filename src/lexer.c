@@ -1,10 +1,10 @@
 /******************************************************************************
  * File: lexer.c
- * Created:
- * Updated: 2016-11-04
+ * Created: 2016-07-06
+ * Updated: 2020-11-16
  * Package: C-Parser
  * Creator: Aaron Oman (GrooveStomp)
- * Copyright - 2020, Aaron Oman and the C-Parser contributors
+ * Copyright 2016 - 2020, Aaron Oman and the C-Parser contributors
  * SPDX-License-Identifier: LGPL-3.0-only
  ******************************************************************************/
 #ifndef LEXER_C
@@ -12,7 +12,27 @@
 
 #include "gs.h"
 
-#include <stdio.h> /* TODO: Remove printfs */
+typedef enum LexerErrorEnum {
+        LexerErrorNoSpace,
+        LexerReallocFail,
+        LexerUnknownToken,
+        LexerErrorNone,
+} LexerErrorEnum;
+
+const char *__lexer_error_strings[] = {
+        "Couldn't allocate space for token stream",
+        "Couldn't reallocate space for token stream after lexing completed",
+        "Unknown token",
+        "No error",
+};
+
+LexerErrorEnum __lexer_last_error = LexerErrorNone;
+
+const char *LexerErrorString() {
+        const char *result = __lexer_error_strings[__lexer_last_error];
+        __lexer_last_error = LexerErrorNone;
+        return result;
+}
 
 typedef enum TokenType {
         Token_Unknown,
@@ -148,7 +168,7 @@ char *TokenName(TokenType type) {
 
 typedef struct Token {
         char *text;
-        size_t text_length;
+        u32 text_length;
         TokenType type;
         u32 line;
         u32 column;
@@ -576,37 +596,49 @@ Token GetToken(Tokenizer *tokenizer) {
         return token;
 }
 
-void Lex(gs_Buffer *stream) {
+bool Lex(gs_Allocator allocator, gs_Buffer *input_stream, Token **out_stream, u32 *out_num_tokens) {
         Tokenizer tokenizer;
-        TokenizerInit(&tokenizer, stream->start);
+        TokenizerInit(&tokenizer, input_stream->start);
 
-        bool parsing = true;
-        while (parsing) {
+        // Overestimate allocation.
+        // This assumes one token per char; which is way too much.
+        // We'll resize later.
+        Token *token_stream = *out_stream;
+        token_stream = (Token *)allocator.malloc(sizeof(*token_stream) * input_stream->length);
+        if (token_stream == GS_NULL_PTR) {
+                __lexer_last_error = LexerErrorNoSpace;
+                out_num_tokens = 0;
+                return false;
+        }
+
+        u32 num_tokens = 0;
+
+        bool lexing = true;
+        while (lexing) {
                 Token token = GetToken(&tokenizer);
+                token_stream[num_tokens++] = token;
                 switch (token.type) {
                         case Token_EndOfStream: {
-                                parsing = false;
+                                lexing = false;
                         } break;
 
                         case Token_Unknown: {
-                                printf("[%u,%u] Token Name: %20s, Token Text: %.*s (%.*s)\n",
-                                       token.line + 1,
-                                       token.column,
-                                       TokenName(token.type),
-                                       (u32)(token.text_length), token.text,
-                                       (u32)(token.text_length + 4), token.text - 2);
-                        } break;
-
-                        default: {
-                                printf("[%u,%u] Token Name: %20s, Token Text: %.*s\n",
-                                       token.line + 1,
-                                       token.column,
-                                       TokenName(token.type),
-                                       (u32)(token.text_length),
-                                       token.text);
+                                __lexer_last_error = LexerUnknownToken;
+                                lexing = false;
                         } break;
                 }
         }
+
+        // Resize the stream now.
+        *out_stream = (Token *)allocator.realloc(token_stream, sizeof(*token_stream) * num_tokens);
+        if (*out_stream == GS_NULL_PTR) {
+                __lexer_last_error = LexerReallocFail;
+                out_num_tokens = 0;
+                return false;
+        }
+
+        *out_num_tokens = num_tokens;
+        return true;
 }
 
 #endif /* LEXER_C */
