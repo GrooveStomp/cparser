@@ -1,7 +1,7 @@
 /******************************************************************************
  * File: gs.h
  * Created: 2016-07-14
- * Updated: 2016-11-04
+ * Updated: 2016-11-16
  * Package: gslibc
  * Creator: Aaron Oman (GrooveStomp)
  * Copyright 2016 - 2020, Aaron Oman and the gslibc contributors
@@ -47,12 +47,12 @@
  * TODO: Conditionally do typedefs?
  ******************************************************************************/
 
-#define GS_NULL_CHAR '\0'
-#define GS_NULL_PTR NULL
-
 #ifndef NULL
     #define NULL 0
 #endif
+
+#define GS_NULL_CHAR '\0'
+#define GS_NULL_PTR NULL
 
 #ifndef false // Assume this dictates whether 'bool' is defined.
     typedef int bool;
