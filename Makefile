@@ -1,8 +1,10 @@
 .DEFAULT_GOAL := release
 .PHONY: help test clean release debug
 
+# NOTE: Not using -Wpedantic because of GCC-specific expression statements.
+
 CC=gcc
-CFLAGS=-std=c99 -pedantic-errors -x c -Wno-format-security
+CFLAGS=-std=c99 -x c -Wno-format-security
 RELEASE_CFLAGS=-O2
 DEBUG_CFLAGS=-gdwarf-4 -g3 -fvar-tracking-assignments
 EXE=cparser

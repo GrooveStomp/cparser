@@ -1,8 +1,6 @@
 const int EXIT_SUCCESS = 0;
 
-int
-Main(int NumArgs, char **Args)
-{
-        printf("Number of arguments: %i\n", NumArgs);
+int main(int argc, char **argv) {
+        printf("Number of arguments: %i\n", argc);
         return(EXIT_SUCCESS);
 }

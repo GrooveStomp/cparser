@@ -4,6 +4,7 @@
  * Updated: 2020-11-16
  * Package: C-Parser
  * Creator: Aaron Oman (GrooveStomp)
+ * Homepage: https://git.sr.ht/~groovestomp/c-parser
  * Copyright 2016 - 2020, Aaron Oman and the C-Parser contributors
  * SPDX-License-Identifier: LGPL-3.0-only
  ******************************************************************************/
@@ -98,72 +99,72 @@ typedef enum TokenType {
         Token_EndOfStream,
 } TokenType;
 
+char *__lexer_token_type_names[] = {
+        "Unknown",
+
+        "Asterisk",
+        "Ampersand",
+        "OpenParen",
+        "CloseParen",
+        "OpenBracket",
+        "CloseBracket",
+        "OpenBrace",
+        "CloseBrace",
+        "Colon",
+        "SemiColon",
+        "PercentSign",
+        "QuestionMark",
+        "EqualSign",        /*  = */
+        "Carat",
+        "Comma",            /*  , */
+        "Cross",            /*  + */
+        "Dash",             /*  - */
+        "Slash",            /*  / */
+        "Dot",              /*  . */
+        "Hash",             /*  # */
+        "Bang",
+        "Pipe",
+        "LessThan",
+        "GreaterThan",
+        "Tilde",
+
+        "NotEqual",
+        "GreaterThanEqual",
+        "LessThanEqual",
+        "LogicalEqual",
+        "LogicalOr",
+        "LogicalAnd",
+        "BitShiftLeft",
+        "BitShiftRight",
+        "Arrow",            /* -> */
+        "PlusPlus",
+        "MinusMinus",
+        "MultiplyEquals",
+        "DivideEquals",
+        "ModuloEquals",
+        "PlusEquals",
+        "MinusEquals",
+        "DoubleLessThanEquals",
+        "DoubleGreaterThanEquals",
+        "AmpersandEquals",
+        "CaratEquals",
+        "PipeEquals",
+        "Ellipsis",         /* ... */
+
+        "Character",
+        "String",
+        "Identifier",
+        "Keyword",
+        "PreprocessorCommand",
+        "Comment",
+        "Integer",
+        "PrecisionNumber",
+
+        "EndOfStream",
+};
+
 char *TokenName(TokenType type) {
-        switch (type) {
-                case Token_Unknown: { return "Unknown"; } break;
-
-                case Token_Asterisk: { return "Asterisk"; } break;
-                case Token_Ampersand: { return "Ampersand"; } break;
-                case Token_OpenParen: { return "OpenParen"; } break;
-                case Token_CloseParen: { return "CloseParen"; } break;
-                case Token_OpenBracket: { return "OpenBracket"; } break;
-                case Token_CloseBracket: { return "CloseBracket"; } break;
-                case Token_OpenBrace: { return "OpenBrace"; } break;
-                case Token_CloseBrace: { return "CloseBrace"; } break;
-                case Token_Colon: { return "Colon"; } break;
-                case Token_SemiColon: { return "SemiColon"; } break;
-                case Token_PercentSign: { return "PercentSign"; } break;
-                case Token_QuestionMark: { return "QuestionMark"; } break;
-                case Token_EqualSign: { return "EqualSign"; } break;
-                case Token_Carat: { return "Carat"; } break;
-                case Token_Comma: { return "Comma"; } break;
-                case Token_Cross: { return "Cross"; } break;
-                case Token_Dash: { return "Dash"; } break;
-                case Token_Slash: { return "Slash"; } break;
-                case Token_Dot: { return "Dot"; } break;
-                case Token_Hash: { return "Hash"; } break;
-                case Token_Bang: { return "Bang"; } break;
-                case Token_Pipe: { return "Pipe"; } break;
-                case Token_LessThan: { return "LessThan"; } break;
-                case Token_GreaterThan: { return "GreaterThan"; } break;
-                case Token_Tilde: { return "Tilde"; } break;
-
-                case Token_NotEqual: { return "NotEqual"; } break;
-                case Token_GreaterThanEqual: { return "GreaterThanEqual"; } break;
-                case Token_LessThanEqual: { return "LessThanEqual"; } break;
-                case Token_LogicalEqual: { return "LogicalEqual"; } break;
-                case Token_LogicalOr: { return "LogicalOr"; } break;
-                case Token_LogicalAnd: { return "LogicalAnd"; } break;
-                case Token_BitShiftLeft: { return "BitShiftLeft"; } break;
-                case Token_BitShiftRight: { return "BitShiftRight"; } break;
-                case Token_Arrow: { return "Arrow"; } break;
-                case Token_PlusPlus: { return "PlusPlus"; } break;
-                case Token_MinusMinus: { return "MinusMinus"; } break;
-
-                case Token_MultiplyEquals: { return "MultiplyEquals"; } break;
-                case Token_DivideEquals: { return "DivideEquals"; } break;
-                case Token_ModuloEquals: { return "ModuloEquals"; } break;
-                case Token_PlusEquals: { return "PlusEquals"; } break;
-                case Token_MinusEquals: { return "MinusEquals"; } break;
-                case Token_DoubleLessThanEquals: { return "DoubleLessThanEquals"; } break;
-                case Token_DoubleGreaterThanEquals: { return "DoubleGreaterThanEquals"; } break;
-                case Token_AmpersandEquals: { return "AmpersandEquals"; } break;
-                case Token_CaratEquals: { return "CaratEquals"; } break;
-                case Token_PipeEquals: { return "PipeEquals"; } break;
-                case Token_Ellipsis: { return "Ellipsis"; } break;
-
-                case Token_Character: { return "Character"; } break;
-                case Token_String: { return "String"; } break;
-                case Token_Identifier: { return "Identifier"; } break;
-                case Token_Keyword: { return "Keyword"; } break;
-                case Token_PreprocessorCommand: { return "PreprocessorCommand"; } break;
-                case Token_Comment: { return "Comment"; } break;
-                case Token_Integer: { return "Integer"; } break;
-                case Token_PrecisionNumber: { return "PrecisionNumber"; } break;
-
-                case Token_EndOfStream: { return "EndOfStream"; } break;
-                default: { return "UnknownToken"; } break;
-        }
+        return __lexer_token_type_names[type];
 }
 
 typedef struct Token {

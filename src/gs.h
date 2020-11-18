@@ -1,7 +1,7 @@
 /******************************************************************************
  * File: gs.h
  * Created: 2016-07-14
- * Updated: 2016-11-16
+ * Updated: 2016-11-17
  * Package: gslibc
  * Creator: Aaron Oman (GrooveStomp)
  * Copyright 2016 - 2020, Aaron Oman and the gslibc contributors
@@ -11,6 +11,8 @@
  * Standard library for personal use. Heavily influenced by Sean Barrett's stb.
  *
  ******************************************************************************/
+#include <stddef.h> // offsetof
+
 #ifndef GS_VERSION
 #define GS_VERSION 0.2.0-dev
 
@@ -22,6 +24,12 @@
 #define gs_ArraySize(Array) (sizeof((Array)) / sizeof((Array)[0]))
 #define gs_Max(A, B) ((A) < (B) ? (B) : (A))
 #define gs_Min(A, B) ((A) < (B) ? (A) : (B))
+
+/* #define gs_ContainerOf(ptr, type, member)                               \ */
+/*         ({                                                              \ */
+/*                 const typeof( ((type *)0)->member ) *__mptr = (ptr);    \ */
+/*                 (type *)( (char *)__mptr - offsetof(type, member) );    \ */
+/*         }) */
 
 // TODO: Move to platform-specific header
 /* #define gs_AbortWithMessage(...) \ */
@@ -685,40 +693,84 @@ bool gs_BufferRestoreCursor(gs_Buffer *buffer) {
         return true;
 }
 
-// TODO: Move to platform-specific header include.
-/* size_t */
-/* gs_Filesize(char *FileName) */
-/* { */
-/*         size_t Filesize = 0; */
-/*         FILE *File = fopen(FileName, "r"); */
-/*         if (File != NULL) */
-/*         { */
-/*                 fseek(File, 0, SEEK_END); */
-/*                 Filesize = ftell(File); */
-/*                 fclose(File); */
-/*         } */
-/*         return Filesize; */
-/* } */
+/******************************************************************************
+ * Tree
+ ******************************************************************************/
 
-// TODO: Move to platform-specific header include
-/* bool */
-/* gs_FileCopyToBuffer(char *FileName, gs_Buffer *buffer) */
-/* { */
-/*         FILE *File = fopen(FileName, "r"); */
-/*         if (File == NULL) return false; */
+typedef struct gs_TreeNode {
+        struct gs_TreeNode *child;
+        struct gs_TreeNode *sibling;
+} gs_TreeNode;
 
-/*         fseek(File, 0, SEEK_END); */
-/*         size_t Filesize = ftell(File); */
-/*         i32 Remaining = (buffer->start + buffer->Capacity) - buffer->Cursor; */
-/*         if (Filesize > Remaining) return false; */
+// Gets the containing struct of this gs_TreeNode instance.
+// Example:
+//
+//     struct MyType {
+//         gs_TreeNode *tree;
+//     };
+//
+//     struct MyType my_type;
+//     struct MyType *my_type_ref = gs_TreeContainer(struct MyType, &my_type.tree);
+//
+#define gs_TreeContainer(ptr, type, member)     \
+        (type *)( (u8*)ptr - offsetof(type, member) )
 
-/*         fseek(File, 0, SEEK_SET); */
-/*         size_t BytesRead = fread(buffer->Cursor, 1, Filesize, File); */
-/*         buffer->Length += Filesize; */
-/*         buffer->Cursor += Filesize; */
-/*         *(buffer->Cursor) = '\0'; */
+#define gs_TreeAddChild(node, type, member, allocator)       \
+        __gs_TreeAddChild(node, sizeof(type), offsetof(type, member), allocator)
 
-/*         return true; */
-/* } */
+#define gs_TreeDeinit(node, type, member, deinit)       \
+        __gs_TreeDeinit(node, offsetof(type, member), deinit)
+
+#define gs_TreeChildAt(ptr, type, member, num)          \
+        ({                                              \
+                gs_TreeNode *node = &(ptr->member);     \
+                for (int i = 0; i < num; ++i) {         \
+                        node = node->sibling;           \
+                }                                       \
+                gs_TreeContainer(node, type, member);   \
+        })
+
+void gs_TreeInit(gs_TreeNode *tree, gs_Allocator allocator) {
+        tree->child = GS_NULL_PTR;
+        tree->sibling = GS_NULL_PTR;
+}
+
+gs_TreeNode *__gs_TreeAddChild(gs_TreeNode *node, u32 size, u32 offset, gs_Allocator allocator) {
+        gs_TreeNode *cur;
+
+        if (node->child == GS_NULL_PTR) {
+                cur = node;
+                u8 *mem = allocator.malloc(size);
+                cur->child = (gs_TreeNode *)(mem + offset);
+                // TODO: Error handling
+                gs_TreeInit(cur->child, allocator);
+                return cur->child;
+        } else {
+                cur = node->child;
+                while (cur->sibling != GS_NULL_PTR) {
+                        cur = cur->sibling;
+                }
+
+                u8 *mem = allocator.malloc(size);
+                // TODO: Error handling
+                cur->sibling = (gs_TreeNode *)(mem + offset);
+                gs_TreeInit(cur->sibling, allocator);
+                return cur->sibling;
+        }
+
+        return GS_NULL_PTR;
+}
+
+void __gs_TreeDeinit(gs_TreeNode *node, u32 offset, void (*deinit)(void *)) {
+        if (node->child != GS_NULL_PTR) {
+                __gs_TreeDeinit(node->child, offset, deinit);
+        }
+        if (node->sibling != GS_NULL_PTR) {
+                __gs_TreeDeinit(node->sibling, offset, deinit);
+        }
+        if (node->child == GS_NULL_PTR && node->sibling == GS_NULL_PTR) {
+                deinit((u8 *)node - offset);
+        }
+}
 
 #endif /* GS_VERSION */

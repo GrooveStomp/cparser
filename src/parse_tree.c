@@ -1,9 +1,10 @@
 /******************************************************************************
  * File: parse_tree.c
  * Created: 2017-01-12
- * Updated: 2020-11-16
+ * Updated: 2020-11-17
  * Package: C-Parser
  * Creator: Aaron Oman (GrooveStomp)
+ * Homepage: https://git.sr.ht/~groovestomp/c-parser
  * Copyright 2017 - 2020, Aaron Oman and the C-Parser contributors
  * SPDX-License-Identifier: LGPL-3.0-only
  ******************************************************************************/
@@ -12,8 +13,6 @@
 
 #include "gs.h"
 #include "lexer.c"
-
-#define DEFAULT_ALLOC_COUNT 2
 
 typedef enum ParseTreeNodeType {
         ParseTreeNode_AbstractDeclarator,
@@ -103,6 +102,7 @@ typedef enum ParseTreeNodeType {
         ParseTreeNode_InitializerListI,
         ParseTreeNode_LogicalAndExpressionI,
         ParseTreeNode_LogicalOrExpressionI,
+        ParseTreeNode_MultiplicativeExpressionI,
         ParseTreeNode_ParameterListI,
         ParseTreeNode_PostfixExpressionI,
         ParseTreeNode_RelationalExpressionI,
@@ -116,107 +116,114 @@ typedef enum ParseTreeNodeType {
         ParseTreeNode_Unknown,
 } ParseTreeNodeType;
 
+char *__parse_tree_node_type_names[] = {
+        "AbstractDeclarator",
+        "AdditiveExpression",
+        "AndExpression",
+        "ArgumentExpressionList",
+        "AssignmentExpression",
+        "AssignmentOperator",
+        "CastExpression",
+        "CompoundStatement",
+        "ConditionalExpression",
+        "Constant",
+        "ConstantExpression",
+        "Declaration",
+        "DeclarationList",
+        "DeclarationSpecifiers",
+        "Declarator",
+        "DirectAbstractDeclarator",
+        "DirectDeclarator",
+        "EnumSpecifier",
+        "Enumerator",
+        "EnumeratorList",
+        "EqualityExpression",
+        "ExclusiveOrExpression",
+        "Expression",
+        "ExpressionStatement",
+        "ExternalDeclaration",
+        "FunctionDefinition",
+        "Identifier",
+        "IdentifierList",
+        "InclusiveOrExpression",
+        "InitDeclarationList",
+        "InitDeclarator",
+        "InitDeclaratorList",
+        "Initializer",
+        "InitializerList",
+        "IterationStatement",
+        "JumpStatement",
+        "Keyword",
+        "LabeledStatement",
+        "LogicalAndExpression",
+        "LogicalOrExpression",
+        "MultiplicativeExpression",
+        "ParameterDeclaration",
+        "ParameterList",
+        "ParameterTypeList",
+        "Pointer",
+        "PostfixExpression",
+        "PrimaryExpression",
+        "RelationalExpression",
+        "SelectionStatement",
+        "ShiftExpression",
+        "SpecifierQualifierList",
+        "Statement",
+        "StatementList",
+        "StorageClassSpecifier",
+        "String",
+        "StructDeclaration",
+        "StructDeclarationList",
+        "StructDeclarator",
+        "StructDeclaratorList",
+        "StructOrUnion",
+        "StructOrUnionSpecifier",
+        "Symbol",
+        "TranslationUnit",
+        "TypeName",
+        "TypeQualifier",
+        "TypeQualifierList",
+        "TypeSpecifier",
+        "TypedefName",
+        "UnaryExpression",
+        "UnaryOperator",
+
+        "AdditiveExpression'",
+        "AndExpression'",
+        "ArgumentExpressionList'",
+        "DeclarationList'",
+        "DirectAbstractDeclarator'",
+        "DirectDeclarator'",
+        "EnumeratorList'",
+        "EqualityExpression'",
+        "ExclusiveOrExpression'",
+        "Expression'",
+        "IdentifierList'",
+        "InclusiveOrExpression'",
+        "InitDeclaratorList'",
+        "InitializerList'",
+        "LogicalAndExpression'",
+        "LogicalOrExpression'",
+        "MultiplicativeExpression'",
+        "ParameterList'",
+        "PostfixExpression'",
+        "RelationalExpression'",
+        "ShiftExpression'",
+        "StatementList'",
+        "StructDeclarationList'",
+        "StructDeclaratorList'",
+        "TranslationUnit'",
+        "TypeQualifierList'",
+
+        "Unknown",
+};
+
 char *ParseTreeNodeName(ParseTreeNodeType type) {
-        switch (type) {
-                case ParseTreeNode_AbstractDeclarator: { return "AbstractDeclarator"; } break;
-                case ParseTreeNode_AdditiveExpression: { return "AdditiveExpression"; } break;
-                case ParseTreeNode_AndExpression: { return "AndExpression"; } break;
-                case ParseTreeNode_ArgumentExpressionList: { return "ArgumentExpressionList"; } break;
-                case ParseTreeNode_AssignmentExpression: { return "AssignmentExpression"; } break;
-                case ParseTreeNode_AssignmentOperator: { return "AssignmentOperator"; } break;
-                case ParseTreeNode_CastExpression: { return "CastExpression"; } break;
-                case ParseTreeNode_CompoundStatement: { return "CompoundStatement"; } break;
-                case ParseTreeNode_ConditionalExpression: { return "ConditionalExpression"; } break;
-                case ParseTreeNode_Constant: { return "Constant"; } break;
-                case ParseTreeNode_ConstantExpression: { return "ConstantExpression"; } break;
-                case ParseTreeNode_Declaration: { return "Declaration"; } break;
-                case ParseTreeNode_DeclarationList: { return "DeclarationList"; } break;
-                case ParseTreeNode_DeclarationSpecifiers: { return "DeclarationSpecifiers"; } break;
-                case ParseTreeNode_Declarator: { return "Declarator"; } break;
-                case ParseTreeNode_DirectAbstractDeclarator: { return "DirectAbstractDeclarator"; } break;
-                case ParseTreeNode_DirectDeclarator: { return "DirectDeclarator"; } break;
-                case ParseTreeNode_EnumSpecifier: { return "EnumSpecifier"; } break;
-                case ParseTreeNode_Enumerator: { return "Enumerator"; } break;
-                case ParseTreeNode_EnumeratorList: { return "EnumeratorList"; } break;
-                case ParseTreeNode_EqualityExpression: { return "EqualityExpression"; } break;
-                case ParseTreeNode_ExclusiveOrExpression: { return "ExclusiveOrExpression"; } break;
-                case ParseTreeNode_Expression: { return "Expression"; } break;
-                case ParseTreeNode_ExpressionStatement: { return "ExpressionStatement"; } break;
-                case ParseTreeNode_ExternalDeclaration: { return "ExternalDeclaration"; } break;
-                case ParseTreeNode_FunctionDefinition: { return "FunctionDefinition"; } break;
-                case ParseTreeNode_Identifier: { return "Identifier"; } break;
-                case ParseTreeNode_IdentifierList: { return "IdentifierList"; } break;
-                case ParseTreeNode_InclusiveOrExpression: { return "InclusiveOrExpression"; } break;
-                case ParseTreeNode_InitDeclarationList: { return "InitDeclarationList"; } break;
-                case ParseTreeNode_InitDeclarator: { return "InitDeclarator"; } break;
-                case ParseTreeNode_InitDeclaratorList: { return "InitDeclaratorList"; } break;
-                case ParseTreeNode_Initializer: { return "Initializer"; } break;
-                case ParseTreeNode_InitializerList: { return "InitializerList"; } break;
-                case ParseTreeNode_IterationStatement: { return "IterationStatement"; } break;
-                case ParseTreeNode_JumpStatement: { return "JumpStatement"; } break;
-                case ParseTreeNode_Keyword: { return "Keyword"; } break;
-                case ParseTreeNode_LabeledStatement: { return "LabeledStatement"; } break;
-                case ParseTreeNode_LogicalAndExpression: { return "LogicalAndExpression"; } break;
-                case ParseTreeNode_LogicalOrExpression: { return "LogicalOrExpression"; } break;
-                case ParseTreeNode_MultiplicativeExpression: { return "MultiplicativeExpression"; } break;
-                case ParseTreeNode_ParameterDeclaration: { return "ParameterDeclaration"; } break;
-                case ParseTreeNode_ParameterList: { return "ParameterList"; } break;
-                case ParseTreeNode_ParameterTypeList: { return "ParameterTypeList"; } break;
-                case ParseTreeNode_Pointer: { return "Pointer"; } break;
-                case ParseTreeNode_PostfixExpression: { return "PostfixExpression"; } break;
-                case ParseTreeNode_PrimaryExpression: { return "PrimaryExpression"; } break;
-                case ParseTreeNode_RelationalExpression: { return "RelationalExpression"; } break;
-                case ParseTreeNode_SelectionStatement: { return "SelectionStatement"; } break;
-                case ParseTreeNode_ShiftExpression: { return "ShiftExpression"; } break;
-                case ParseTreeNode_SpecifierQualifierList: { return "SpecifierQualifierList"; } break;
-                case ParseTreeNode_Statement: { return "Statement"; } break;
-                case ParseTreeNode_StatementList: { return "StatementList"; } break;
-                case ParseTreeNode_StorageClassSpecifier: { return "StorageClassSpecifier"; } break;
-                case ParseTreeNode_String: { return "String"; } break;
-                case ParseTreeNode_StructDeclaration: { return "StructDeclaration"; } break;
-                case ParseTreeNode_StructDeclarationList: { return "StructDeclarationList"; } break;
-                case ParseTreeNode_StructDeclarator: { return "StructDeclarator"; } break;
-                case ParseTreeNode_StructDeclaratorList: { return "StructDeclaratorList"; } break;
-                case ParseTreeNode_StructOrUnion: { return "StructOrUnion"; } break;
-                case ParseTreeNode_StructOrUnionSpecifier: { return "StructOrUnionSpecifier"; } break;
-                case ParseTreeNode_Symbol: { return "Symbol"; } break;
-                case ParseTreeNode_TranslationUnit: { return "TranslationUnit"; } break;
-                case ParseTreeNode_TypeName: { return "TypeName"; } break;
-                case ParseTreeNode_TypeQualifier: { return "TypeQualifier"; } break;
-                case ParseTreeNode_TypeQualifierList: { return "TypeQualifierList"; } break;
-                case ParseTreeNode_TypeSpecifier: { return "TypeSpecifier"; } break;
-                case ParseTreeNode_TypedefName: { return "TypedefName"; } break;
-                case ParseTreeNode_UnaryExpression: { return "UnaryExpression"; } break;
-                case ParseTreeNode_UnaryOperator: { return "UnaryOperator"; } break;
-
-                case ParseTreeNode_AdditiveExpressionI: { return "AdditiveExpression'"; } break;
-                case ParseTreeNode_AndExpressionI: { return "AndExpression'"; } break;
-                case ParseTreeNode_ArgumentExpressionListI: { return "ArgumentExpressionList'"; } break;
-                case ParseTreeNode_DeclarationListI: { return "DeclarationList'"; } break;
-                case ParseTreeNode_DirectAbstractDeclaratorI: { return "DirectAbstractDeclarator'"; } break;
-                case ParseTreeNode_DirectDeclaratorI: { return "DirectDeclarator'"; } break;
-                case ParseTreeNode_EnumeratorListI: { return "EnumeratorList'"; } break;
-                case ParseTreeNode_EqualityExpressionI: { return "EqualityExpression'"; } break;
-                case ParseTreeNode_ExclusiveOrExpressionI: { return "ExclusiveOrExpression'"; } break;
-                case ParseTreeNode_ExpressionI: { return "Expression'"; } break;
-                case ParseTreeNode_IdentifierListI: { return "IdentifierList'"; } break;
-                case ParseTreeNode_InclusiveOrExpressionI: { return "InclusiveOrExpression'"; } break;
-                case ParseTreeNode_InitDeclaratorListI: { return "InitDeclaratorList'"; } break;
-                case ParseTreeNode_InitializerListI: { return "InitializerList'"; } break;
-                case ParseTreeNode_LogicalAndExpressionI: { return "LogicalAndExpression'"; } break;
-                case ParseTreeNode_LogicalOrExpressionI: { return "LogicalOrExpression'"; } break;
-                case ParseTreeNode_ParameterListI: { return "ParameterList'"; } break;
-                case ParseTreeNode_PostfixExpressionI: { return "PostfixExpression'"; } break;
-                case ParseTreeNode_RelationalExpressionI: { return "RelationalExpression'"; } break;
-                case ParseTreeNode_ShiftExpressionI: { return "ShiftExpression'"; } break;
-                case ParseTreeNode_StatementListI: { return "StatementList'"; } break;
-                case ParseTreeNode_StructDeclarationListI: { return "StructDeclarationList'"; } break;
-                case ParseTreeNode_StructDeclaratorListI: { return "StructDeclaratorList'"; } break;
-                case ParseTreeNode_TranslationUnitI: { return "TranslationUnit'"; } break;
-                case ParseTreeNode_TypeQualifierListI: { return "TypeQualifierList'"; } break;
-
-                default: { return "Unknown"; } break;
+        if (type > ParseTreeNode_Unknown) {
+                return __parse_tree_node_type_names[ParseTreeNode_Unknown];
         }
+
+        return __parse_tree_node_type_names[type];
 }
 
 static gs_Allocator __parse_tree_allocator;
@@ -224,9 +231,7 @@ static gs_Allocator __parse_tree_allocator;
 typedef struct ParseTreeNode {
         ParseTreeNodeType type;
         Token token;
-        u32 capacity;
-        u32 num_children;
-        struct ParseTreeNode *children;
+        gs_TreeNode tree;
 } ParseTreeNode;
 
 typedef enum ParseTreeErrorEnum {
@@ -248,7 +253,7 @@ const char *ParseTreeErrorString() {
         return result;
 }
 
-void __parse_tree_Init(ParseTreeNode *node, gs_Allocator allocator) {
+void __ParseTreeInit(ParseTreeNode *node) {
         node->token.text = NULL;
         node->token.text_length = 0;
         node->token.type = Token_Unknown;
@@ -256,9 +261,7 @@ void __parse_tree_Init(ParseTreeNode *node, gs_Allocator allocator) {
         node->token.column = 0;
 
         node->type = ParseTreeNode_Unknown;
-        node->children = GS_NULL_PTR;
-        node->num_children = 0;
-        node->capacity = 0;
+        gs_TreeInit(&(node->tree), __parse_tree_allocator);
 
         return;
 }
@@ -266,7 +269,7 @@ void __parse_tree_Init(ParseTreeNode *node, gs_Allocator allocator) {
 ParseTreeNode *ParseTreeInit(gs_Allocator allocator) {
         __parse_tree_allocator = allocator;
         ParseTreeNode *node = (ParseTreeNode *)allocator.malloc(sizeof(*node));
-        __parse_tree_Init(node, allocator);
+        __ParseTreeInit(node);
         return node;
 }
 
@@ -284,44 +287,76 @@ void ParseTreeSet(ParseTreeNode *self, ParseTreeNodeType type, Token token) {
         ParseTreeSetToken(self, token);
 }
 
-bool __parse_tree_AddChild(ParseTreeNode *self, ParseTreeNodeType type) {
-        u32 alloc_count = DEFAULT_ALLOC_COUNT;
-
-        if (self->children == NULL) {
-                self->children = (ParseTreeNode *)__parse_tree_allocator.malloc(sizeof(ParseTreeNode) * alloc_count);
-                if (self->children == NULL) {
-                        __parse_tree_last_error = ParseTreeErrorChildAlloc;
-                        return false;
-                }
-                self->capacity = alloc_count;
-                for (int i=0; i<alloc_count; i++) {
-                        __parse_tree_Init(&self->children[i], __parse_tree_allocator);
-                }
-        } else if (self->capacity <= self->num_children) {
-                if (self->capacity > 0) {
-                        alloc_count = self->capacity * 2;
-                        self->children = (ParseTreeNode *)__parse_tree_allocator.realloc(self->children, sizeof(ParseTreeNode) * alloc_count);
-                        if (self->children == NULL) {
-                                __parse_tree_last_error = ParseTreeErrorChildAlloc;
-                                return false;
-                        }
-                        self->capacity = alloc_count;
-                        for (int i=self->num_children; i<alloc_count; i++) {
-                                __parse_tree_Init(&self->children[i], __parse_tree_allocator);
-                        }
-                }
+ParseTreeNode *ParseTreeAddChild(ParseTreeNode *self) {
+        gs_TreeNode *child_tree = gs_TreeAddChild(&self->tree, ParseTreeNode, tree, __parse_tree_allocator);
+        if (child_tree == GS_NULL_PTR) {
+                // TODO: Error handling
+                return GS_NULL_PTR;
         }
+        ParseTreeNode *child = gs_TreeContainer(child_tree, ParseTreeNode, tree);
+        __ParseTreeInit(child);
 
-        self->children[self->num_children].type = type;
-        self->num_children++;
-
-        return true;
+        return child;
 }
 
-void ParseTreeNewChildren(ParseTreeNode *self, u32 count) {
-        for (int i = 0; i < count; i++) {
-                __parse_tree_AddChild(self, ParseTreeNode_Unknown);
+// TODO: Move to gs.h
+bool __ParseTreeRecursiveDestroy(ParseTreeNode *parse_node) {
+        gs_TreeNode *tree_node = &parse_node->tree;
+
+        gs_TreeNode *child = tree_node->child;
+        if (child != GS_NULL_PTR) {
+                __ParseTreeRecursiveDestroy(gs_TreeContainer(child, ParseTreeNode, tree));
         }
+
+        gs_TreeNode *sibling = tree_node->sibling;
+        if (sibling != GS_NULL_PTR) {
+                __ParseTreeRecursiveDestroy(gs_TreeContainer(sibling, ParseTreeNode, tree));
+        }
+
+        __parse_tree_allocator.free(parse_node);
+}
+
+void ParseTreeRemoveAllChildren(ParseTreeNode *node) {
+        gs_TreeNode *child = node->tree.child;
+        if (child == GS_NULL_PTR) {
+                return;
+        }
+
+        __ParseTreeRecursiveDestroy(gs_TreeContainer(child, ParseTreeNode, tree));
+
+        node->tree.child = GS_NULL_PTR;
+}
+
+// TODO: Move to gs.h
+bool ParseTreeRemoveChild(ParseTreeNode *node, ParseTreeNode *child) {
+        gs_TreeNode *current = node->tree.child;
+        if (current == GS_NULL_PTR) {
+                return false;
+        }
+
+        gs_TreeNode *last = GS_NULL_PTR;
+        while (current->sibling != GS_NULL_PTR) {
+                ParseTreeNode *container = gs_TreeContainer(current, ParseTreeNode, tree);
+                if (container == child) {
+                        if (last == GS_NULL_PTR) {
+                                node->tree.child = GS_NULL_PTR;
+                        } else {
+                                last->sibling = current->sibling;
+                        }
+                        __ParseTreeRecursiveDestroy(child);
+
+                        return true;
+                }
+                last = current;
+                current = current->sibling;
+        }
+
+        return false;
+}
+
+void __ParseTreeDeinit(void *ptr) {
+        ParseTreeNode *self = (ParseTreeNode *)ptr;
+        __parse_tree_allocator.free(self);
 }
 
 void ParseTreeDeinit(ParseTreeNode *self) {
@@ -329,35 +364,36 @@ void ParseTreeDeinit(ParseTreeNode *self) {
                 return;
         }
 
-        if (self->children != NULL) {
-                __parse_tree_allocator.free(self->children);
-                self->children = NULL;
-                self->num_children = 0;
-                self->capacity = 0;
-        }
-
-        __parse_tree_allocator.free(self);
+        gs_TreeDeinit(&self->tree, ParseTreeNode, tree, __ParseTreeDeinit);
 }
 
 void ParseTreePrint(ParseTreeNode *self, u32 indent_level, u32 indent_increment, int (*print_func)(const char *format, ...)) {
-        if (self->type == ParseTreeNode_Unknown) return;
+        if (self->type != ParseTreeNode_Unknown) {
+                if (self->token.type != Token_Unknown) {
+                        print_func("[%4d,%3d] ", self->token.line, self->token.column);
+                } else {
+                        print_func("           ");
+                }
 
-        if (self->token.type != Token_Unknown) {
-                print_func("[%4d,%3d] ", self->token.line, self->token.column);
-        } else {
-                print_func("           ");
+                if (indent_level > 0) print_func("%*c", indent_level * indent_increment, ' ');
+
+                print_func("%s", ParseTreeNodeName(self->type));
+
+                if (self->token.type != Token_Unknown) {
+                        print_func("( %.*s )", (u32)(self->token.text_length), self->token.text);
+                }
+
+                print_func("\n");
         }
 
-        if (indent_level > 0) print_func("%*c", indent_level * indent_increment, ' ');
+        if (self->tree.child != GS_NULL_PTR) {
+                ParseTreeNode *child = gs_TreeContainer(self->tree.child, ParseTreeNode, tree);
+                ParseTreePrint(child, indent_level + 1, indent_increment, print_func);
+        }
 
-        print_func("%s", ParseTreeNodeName(self->type));
-
-        if (self->token.type != Token_Unknown) print_func("( %.*s )", (u32)(self->token.text_length), self->token.text);
-
-        print_func("\n");
-
-        for (int i = 0; i < self->num_children; i++) {
-                ParseTreePrint(&self->children[i], indent_level + 1, indent_increment, print_func);
+        if (self->tree.sibling != GS_NULL_PTR) {
+                ParseTreeNode *sibling = gs_TreeContainer(self->tree.sibling, ParseTreeNode, tree);
+                ParseTreePrint(sibling, indent_level, indent_increment, print_func);
         }
 }
 
